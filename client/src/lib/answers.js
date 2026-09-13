@@ -34,10 +34,17 @@ export function emptyValue(tipe) {
       return [];
     case "range":
       return { min: "", max: "" };
+    case "wilayah":
+      return { kecamatan: "", kelurahan: "" };
     default:
       return "";
   }
 }
+
+const wilayahDari = (v) => {
+  const o = v && typeof v === "object" ? v : {};
+  return { kecamatan: asString(o.kecamatan).trim(), kelurahan: asString(o.kelurahan).trim() };
+};
 
 /** JSON dari server -> nilai untuk state UI. */
 export function fromApi(tipe, nilai) {
@@ -49,6 +56,9 @@ export function fromApi(tipe, nilai) {
 
     case "foto":
       return fotoTerunggah(nilai).map((f) => ({ id: Number(f.id), nama: asString(f.nama) }));
+
+    case "wilayah":
+      return wilayahDari(nilai);
 
     case "range": {
       const o = typeof nilai === "object" ? nilai : {};
@@ -78,6 +88,9 @@ export function toApi(tipe, v) {
 
     case "foto":
       return fotoTerunggah(v).map((f) => ({ id: f.id, nama: asString(f.nama) }));
+
+    case "wilayah":
+      return wilayahDari(v);
 
     case "number": {
       const n = toNumberOrNull(v);
@@ -110,6 +123,10 @@ export function isFilled(tipe, v) {
       return Array.isArray(v) && v.length > 0;
     case "foto":
       return fotoTerunggah(v).length > 0;
+    case "wilayah": {
+      const w = wilayahDari(v);
+      return w.kecamatan !== "" && w.kelurahan !== "";
+    }
     case "range":
       return !!v && asString(v.min).trim() !== "" && asString(v.max).trim() !== "";
     case "linetariff":

@@ -7,12 +7,14 @@ import PetugasTim from "../components/PetugasTim.jsx";
 import { fromApi, emptyValue, buildPayload, validateRequired, statusFoto } from "../lib/answers.js";
 import { judulEntri, ringkasEntri, fotoEntri } from "../lib/ringkas.js";
 import { formatTimestamp } from "../lib/format.js";
+import { navigate, kembali, pasangPenjaga } from "../lib/router.js";
 
 const namaTim = (petugas = []) => petugas.map((p) => p.nama).join(", ") || "—";
+const urlKk = (id) => `/kertas-kerja/${id}`;
 
 /* ================= daftar kertas kerja ================= */
 
-function DaftarKertasKerja({ onBuat, onBuka }) {
+export function DaftarKertasKerja() {
   const toast = useToast();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,10 +50,12 @@ function DaftarKertasKerja({ onBuat, onBuka }) {
     }
   };
 
+  const buat = () => navigate("/kertas-kerja/baru");
+
   return (
     <>
       <PageHead title="Kertas Kerja" sub="Satu nomor, satu tim petugas, banyak data per formulir.">
-        <button type="button" className="fk-btn" onClick={onBuat}>
+        <button type="button" className="fk-btn" onClick={buat}>
           + Buat kertas kerja
         </button>
       </PageHead>
@@ -63,7 +67,7 @@ function DaftarKertasKerja({ onBuat, onBuka }) {
       ) : list.length === 0 ? (
         <Empty
           action={
-            <button type="button" className="fk-btn" onClick={onBuat}>
+            <button type="button" className="fk-btn" onClick={buat}>
               Buat kertas kerja
             </button>
           }
@@ -73,19 +77,24 @@ function DaftarKertasKerja({ onBuat, onBuka }) {
       ) : (
         <div className="fk-kk-list">
           {list.map((k) => (
-            <div className="fk-kk-card" key={k.id}>
+            <div
+              className="fk-kk-card is-clickable"
+              key={k.id}
+              role="link"
+              tabIndex={0}
+              onClick={() => navigate(urlKk(k.id))}
+              onKeyDown={(e) => e.key === "Enter" && navigate(urlKk(k.id))}
+            >
               <span className="fk-nomor">{k.nomor}</span>
-              <div className="fk-kk-card-body fk-clickable" onClick={() => onBuka(k.id)}>
+              <div className="fk-kk-card-body">
                 <div className="fk-lib-title fk-ellipsis">{namaTim(k.petugas)}</div>
                 <div className="fk-lib-sub">
                   {k.petugas.length} petugas · {k.jumlahData} data · {formatTimestamp(k.createdAt)}
                 </div>
               </div>
               <StatusPill status={k.status} />
-              <div className="fk-kk-card-actions">
-                <button type="button" className="fk-mini" onClick={() => onBuka(k.id)}>
-                  Buka
-                </button>
+              {/* Aksi tambahan hanya di desktop; di HP semuanya ada di halaman kertas kerja. */}
+              <div className="fk-kk-card-actions" onClick={(e) => e.stopPropagation()}>
                 <button type="button" className="fk-mini" onClick={() => api.unduhCsv(k.id)}>
                   CSV
                 </button>
@@ -103,7 +112,7 @@ function DaftarKertasKerja({ onBuat, onBuka }) {
 
 /* ================= buat kertas kerja: nomor + petugas ================= */
 
-function BuatKertasKerja({ onBatal, onSelesai }) {
+export function BuatKertasKerja() {
   const toast = useToast();
   const [nomor, setNomor] = useState("—");
   const [petugas, setPetugas] = useState([]);
@@ -138,10 +147,10 @@ function BuatKertasKerja({ onBatal, onSelesai }) {
     try {
       const kk = await api.createKertasKerja(ids);
       toast(`Kertas kerja ${kk.nomor} dibuat. Silakan isi data per formulir.`);
-      onSelesai(kk.id);
+      // replace: tombol Kembali dari kertas kerja tidak kembali ke layar "buat".
+      navigate(urlKk(kk.id), { replace: true });
     } catch (e) {
       toast(e.message, true);
-    } finally {
       setMembuat(false);
     }
   };
@@ -161,10 +170,7 @@ function BuatKertasKerja({ onBatal, onSelesai }) {
           <div>
             <span className="fk-opts-cap">Nomor kertas kerja (otomatis)</span>
             <div className="fk-nomor-big">{nomor}</div>
-            <p className="fk-hint">
-              Nomor final diambil server saat kertas kerja dibuat, sehingga tidak pernah duplikat walau
-              beberapa tim membuat bersamaan.
-            </p>
+            <p className="fk-hint">Nomor final diambil server saat dibuat, sehingga tidak pernah duplikat.</p>
           </div>
 
           <div className="fk-divider" />
@@ -181,24 +187,24 @@ function BuatKertasKerja({ onBatal, onSelesai }) {
             }
             galat={galatTim}
           />
-
-          <div className="fk-wiz-actions">
-            <button type="button" className="fk-btn-ghost" onClick={onBatal}>
-              Batal
-            </button>
-            <button type="button" className="fk-btn" onClick={buat} disabled={membuat}>
-              {membuat ? "Membuat..." : "Buat kertas kerja"}
-            </button>
-          </div>
         </div>
       </Panel>
+
+      <div className="fk-form-actions fk-sticky-actions">
+        <button type="button" className="fk-btn-ghost" onClick={() => kembali("/kertas-kerja")}>
+          Batal
+        </button>
+        <button type="button" className="fk-btn" onClick={buat} disabled={membuat}>
+          {membuat ? "Membuat..." : "Buat kertas kerja"}
+        </button>
+      </div>
     </>
   );
 }
 
 /* ================= detail kertas kerja ================= */
 
-function DetailKertasKerja({ id, onKembali, onIsi, onUbahData }) {
+export function DetailKertasKerja({ id }) {
   const toast = useToast();
   const [kk, setKk] = useState(null);
   const [bank, setBank] = useState([]);
@@ -289,13 +295,34 @@ function DetailKertasKerja({ id, onKembali, onIsi, onUbahData }) {
     }
   };
 
+  const hapusKk = async () => {
+    const jumlah = kk.entri.length;
+    const pesan =
+      `Hapus kertas kerja ${kk.nomor}?\n` +
+      (jumlah ? `${jumlah} data beserta fotonya ikut terhapus. Tindakan ini tidak dapat dibatalkan.` : "Kertas kerja ini belum berisi data.");
+    if (!window.confirm(pesan)) return;
+    setSibuk(true);
+    try {
+      await api.deleteKertasKerja(id);
+      toast(`Kertas kerja ${kk.nomor} dihapus.`);
+      navigate("/kertas-kerja", { replace: true });
+    } catch (e) {
+      toast(e.message, true);
+      setSibuk(false);
+    }
+  };
+
+  const tombolKembali = (
+    <button type="button" className="fk-textbtn hanya-desktop" onClick={() => kembali("/kertas-kerja")}>
+      ‹ Kembali ke daftar
+    </button>
+  );
+
   if (loading && !kk) return <Loading label="Memuat kertas kerja..." />;
   if (error)
     return (
       <>
-        <button type="button" className="fk-textbtn" onClick={onKembali}>
-          ‹ Kembali ke daftar
-        </button>
+        {tombolKembali}
         <ErrorBox onRetry={muat}>{error}</ErrorBox>
       </>
     );
@@ -308,9 +335,7 @@ function DetailKertasKerja({ id, onKembali, onIsi, onUbahData }) {
 
   return (
     <div className="fk-fill">
-      <button type="button" className="fk-textbtn" onClick={onKembali}>
-        ‹ Kembali ke daftar
-      </button>
+      {tombolKembali}
 
       <section className="fk-panel fk-form">
         <div className="fk-form-accent" />
@@ -350,11 +375,11 @@ function DetailKertasKerja({ id, onKembali, onIsi, onUbahData }) {
               galat={galatTim}
             />
             <div className="fk-detail-aksi">
-              <button type="button" className="fk-btn" onClick={simpanTim} disabled={sibuk}>
-                Simpan tim
-              </button>
               <button type="button" className="fk-btn-ghost" onClick={() => setTimEdit(null)}>
                 Batal
+              </button>
+              <button type="button" className="fk-btn" onClick={simpanTim} disabled={sibuk}>
+                Simpan tim
               </button>
             </div>
           </div>
@@ -403,7 +428,7 @@ function DetailKertasKerja({ id, onKembali, onIsi, onUbahData }) {
                 type="button"
                 className="fk-baris"
                 key={f.id}
-                onClick={() => onIsi(f.id, kk.nomor)}
+                onClick={() => navigate(`${urlKk(id)}/isi/${f.id}`)}
                 disabled={kosong}
               >
                 <span className="fk-baris-ikon">{i + 1}</span>
@@ -435,7 +460,12 @@ function DetailKertasKerja({ id, onKembali, onIsi, onUbahData }) {
               const ringkas = ringkasEntri(formulir.pertanyaan, e.jawaban);
               const foto = fotoEntri(formulir.pertanyaan, e.jawaban);
               return (
-                <button type="button" className="fk-baris" key={e.id} onClick={() => onUbahData(e.id)}>
+                <button
+                  type="button"
+                  className="fk-baris"
+                  key={e.id}
+                  onClick={() => navigate(`${urlKk(id)}/data/${e.id}`)}
+                >
                   <span className="fk-baris-teks">
                     <span className="fk-baris-judul">{judulEntri(formulir.pertanyaan, e.jawaban)}</span>
                     {ringkas.length > 0 && <span className="fk-baris-ket">{ringkas.join(" · ")}</span>}
@@ -455,50 +485,97 @@ function DetailKertasKerja({ id, onKembali, onIsi, onUbahData }) {
           </div>
         ))
       )}
+
+      <div className="fk-zona-bahaya">
+        <button type="button" className="fk-btn-danger" onClick={hapusKk} disabled={sibuk}>
+          Hapus kertas kerja
+        </button>
+      </div>
     </div>
   );
 }
 
 /* ================= isi / ubah satu data ================= */
 
-function IsiData({ kkId, formulirId, entriId, nomor: nomorAwal, onKembali }) {
+const PESAN_BELUM_DISIMPAN =
+  "Isian belum disimpan ke server.\nDraf tetap tersimpan di perangkat ini dan bisa dilanjutkan nanti.\n\nTinggalkan halaman ini?";
+const UMUR_FOTO_DRAF_MS = 20 * 3600 * 1000; // unggahan yang tak disimpan dibersihkan server setelah 24 jam
+
+/** Salin jawaban untuk disimpan sebagai draf: foto hanya yang sudah terunggah. */
+function jawabanUntukDraf(pertanyaan, answers) {
+  const hasil = {};
+  for (const q of pertanyaan) {
+    const v = answers[q.id];
+    if (v === undefined) continue;
+    hasil[q.id] =
+      q.tipe === "foto" && Array.isArray(v) ? v.filter((f) => f && f.id).map((f) => ({ id: f.id, nama: f.nama })) : v;
+  }
+  return hasil;
+}
+
+export function IsiData({ kkId, formulirId, entriId }) {
   const toast = useToast();
   const [formulir, setFormulir] = useState(null);
-  const [nomor, setNomor] = useState(nomorAwal || "");
+  const [nomor, setNomor] = useState("");
   const [answers, setAnswers] = useState({});
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [menyimpan, setMenyimpan] = useState(null); // "simpan" | "lagi" | null
+  const [draf, setDraf] = useState(null); // draf tersimpan yang belum dipulihkan
   const wadah = useRef(null);
+  const berubah = useRef(false);
+
+  const urlKembali = urlKk(kkId);
+  const kunciDraf = entriId ? `formkita:draf:data-${entriId}` : `formkita:draf:kk${kkId}-f${formulirId}`;
+
+  const hapusDraf = useCallback(() => {
+    try {
+      localStorage.removeItem(kunciDraf);
+    } catch {
+      /* penyimpanan perangkat tidak tersedia */
+    }
+  }, [kunciDraf]);
 
   const kosongkan = useCallback((f) => {
     const awal = {};
     for (const q of f.pertanyaan) awal[q.id] = emptyValue(q.tipe);
     setAnswers(awal);
     setErrors({});
+    berubah.current = false;
   }, []);
 
+  // Muat formulir (+ jawaban lama bila mengubah data) dan periksa draf di perangkat.
   useEffect(() => {
     let batal = false;
     setLoading(true);
     (async () => {
       try {
+        let f;
         if (entriId) {
           const e = await api.getEntri(entriId);
           if (batal) return;
-          setFormulir(e.formulir);
+          f = e.formulir;
           setNomor(e.kertasKerja.nomor);
           const awal = {};
-          for (const q of e.formulir.pertanyaan) {
+          for (const q of f.pertanyaan) {
             awal[q.id] = e.jawaban[q.id] === undefined ? emptyValue(q.tipe) : fromApi(q.tipe, e.jawaban[q.id]);
           }
           setAnswers(awal);
         } else {
-          const f = await api.getFormulir(formulirId);
+          const [form, kk] = await Promise.all([api.getFormulir(formulirId), api.getKertasKerja(kkId)]);
           if (batal) return;
-          setFormulir(f);
-          kosongkan(f);
+          f = form;
+          setNomor(kk.nomor);
+          kosongkan(form);
+        }
+        setFormulir(f);
+
+        try {
+          const tersimpan = JSON.parse(localStorage.getItem(kunciDraf) || "null");
+          if (tersimpan && tersimpan.answers) setDraf(tersimpan);
+        } catch {
+          /* draf rusak atau penyimpanan tidak tersedia */
         }
       } catch (e) {
         if (!batal) setError(e.message);
@@ -509,10 +586,51 @@ function IsiData({ kkId, formulirId, entriId, nomor: nomorAwal, onKembali }) {
     return () => {
       batal = true;
     };
-  }, [entriId, formulirId, kosongkan]);
+  }, [entriId, formulirId, kkId, kosongkan, kunciDraf]);
+
+  // Simpan draf ke perangkat setiap kali isian berubah (tidak saat tawaran draf lama masih tampil).
+  useEffect(() => {
+    if (!formulir || !berubah.current || draf) return undefined;
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          kunciDraf,
+          JSON.stringify({ waktu: Date.now(), answers: jawabanUntukDraf(formulir.pertanyaan, answers) })
+        );
+      } catch {
+        /* penyimpanan penuh / tidak tersedia */
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [answers, formulir, draf, kunciDraf]);
+
+  // Konfirmasi sebelum meninggalkan layar bila ada isian yang belum disimpan.
+  useEffect(() => pasangPenjaga(() => (berubah.current ? PESAN_BELUM_DISIMPAN : null)), []);
+
+  const pulihkanDraf = () => {
+    const fotoKedaluwarsa = Date.now() - draf.waktu > UMUR_FOTO_DRAF_MS;
+    setAnswers((sekarang) => {
+      const hasil = { ...sekarang };
+      for (const q of formulir.pertanyaan) {
+        const v = draf.answers[q.id];
+        if (v === undefined) continue;
+        hasil[q.id] = q.tipe === "foto" && fotoKedaluwarsa ? emptyValue("foto") : v;
+      }
+      return hasil;
+    });
+    berubah.current = true;
+    setDraf(null);
+    toast(fotoKedaluwarsa ? "Draf dipulihkan. Foto pada draf lama perlu diambil ulang." : "Isian draf dipulihkan.");
+  };
+
+  const buangDraf = () => {
+    hapusDraf();
+    setDraf(null);
+  };
 
   // Mendukung nilai langsung maupun fungsi updater (dipakai unggahan foto).
   const setAnswer = (qid, v) => {
+    berubah.current = true;
     setAnswers((a) => ({ ...a, [qid]: typeof v === "function" ? v(a[qid]) : v }));
     setErrors((e) => {
       if (!e[qid]) return e;
@@ -554,21 +672,26 @@ function IsiData({ kkId, formulirId, entriId, nomor: nomorAwal, onKembali }) {
       const hasil = entriId
         ? await api.updateEntri(entriId, payload)
         : await api.createEntri(kkId, formulirId, payload);
+      berubah.current = false;
+      hapusDraf();
       toast(`Data "${judulEntri(hasil.formulir.pertanyaan, hasil.jawaban)}" tersimpan.`);
 
       if (lanjut) {
         kosongkan(formulir);
         window.scrollTo({ top: 0, behavior: "smooth" });
+        setMenyimpan(null);
       } else {
-        onKembali();
+        kembali(urlKembali);
       }
     } catch (e) {
       if (e.status === 422 && e.data?.errors) {
         setErrors(e.data.errors);
         fokusError(e.data.errors);
       }
-      toast(e.message, true);
-    } finally {
+      toast(
+        e.status === 0 ? "Tidak ada koneksi. Isian aman tersimpan sebagai draf — coba simpan lagi nanti." : e.message,
+        true
+      );
       setMenyimpan(null);
     }
   };
@@ -577,15 +700,17 @@ function IsiData({ kkId, formulirId, entriId, nomor: nomorAwal, onKembali }) {
     if (!window.confirm("Hapus data ini beserta fotonya dari kertas kerja?")) return;
     try {
       await api.deleteEntri(entriId);
+      berubah.current = false;
+      hapusDraf();
       toast("Data dihapus.");
-      onKembali();
+      kembali(urlKembali);
     } catch (e) {
       toast(e.message, true);
     }
   };
 
-  const kembali = (
-    <button type="button" className="fk-textbtn" onClick={onKembali}>
+  const tombolKembali = (
+    <button type="button" className="fk-textbtn hanya-desktop" onClick={() => kembali(urlKembali)}>
       ‹ Kembali ke kertas kerja{nomor ? ` ${nomor}` : ""}
     </button>
   );
@@ -594,24 +719,42 @@ function IsiData({ kkId, formulirId, entriId, nomor: nomorAwal, onKembali }) {
   if (error)
     return (
       <>
-        {kembali}
+        {tombolKembali}
         <ErrorBox>{error}</ErrorBox>
       </>
     );
   if (!formulir) return null;
 
+  const { unggah } = statusFoto(formulir.pertanyaan, answers);
+  const sibuk = menyimpan !== null;
+
   return (
     <div ref={wadah} className="fk-fill">
-      {kembali}
+      {tombolKembali}
 
-      <section className="fk-panel fk-form">
+      {draf && (
+        <div className="fk-draf" role="status">
+          <span>
+            Ada isian yang belum tersimpan dari{" "}
+            {new Date(draf.waktu).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}.
+          </span>
+          <button type="button" className="fk-mini" onClick={buangDraf}>
+            Buang
+          </button>
+          <button type="button" className="fk-btn" onClick={pulihkanDraf}>
+            Lanjutkan isian
+          </button>
+        </div>
+      )}
+
+      <section className="fk-panel fk-form fk-form-kepala">
         <div className="fk-form-accent" />
         <span className="fk-opts-cap">
           Kertas kerja {nomor} · {entriId ? "ubah data" : "data baru"}
         </span>
-        <h1 className="fk-kk-title-top" style={{ marginTop: 6 }}>
+        <h2 className="fk-kk-title-top" style={{ marginTop: 6 }}>
           {formulir.judul}
-        </h1>
+        </h2>
         {formulir.deskripsi && <p className="fk-form-desc">{formulir.deskripsi}</p>}
       </section>
 
@@ -634,76 +777,24 @@ function IsiData({ kkId, formulirId, entriId, nomor: nomorAwal, onKembali }) {
         ))}
       </section>
 
+      {entriId && (
+        <div className="fk-zona-bahaya">
+          <button type="button" className="fk-btn-danger" onClick={hapus} disabled={sibuk}>
+            Hapus data ini
+          </button>
+        </div>
+      )}
+
       <div className="fk-form-actions fk-sticky-actions">
-        <button type="button" className="fk-btn" onClick={() => simpan(false)} disabled={menyimpan !== null}>
-          {menyimpan === "simpan" ? "Menyimpan..." : "Simpan"}
-        </button>
         {!entriId && (
-          <button type="button" className="fk-btn-ghost" onClick={() => simpan(true)} disabled={menyimpan !== null}>
+          <button type="button" className="fk-btn-ghost" onClick={() => simpan(true)} disabled={sibuk || unggah > 0}>
             {menyimpan === "lagi" ? "Menyimpan..." : "Simpan & tambah lagi"}
           </button>
         )}
-        {entriId && (
-          <button type="button" className="fk-btn-danger" onClick={hapus} disabled={menyimpan !== null}>
-            Hapus data
-          </button>
-        )}
+        <button type="button" className="fk-btn" onClick={() => simpan(false)} disabled={sibuk || unggah > 0}>
+          {unggah > 0 ? "Menunggu foto..." : menyimpan === "simpan" ? "Menyimpan..." : "Simpan"}
+        </button>
       </div>
     </div>
   );
-}
-
-/* ================= pembungkus halaman ================= */
-
-export default function KertasKerjaPage({ permintaan, onPermintaanDiproses }) {
-  // { mode: "list" } | { mode: "baru" } | { mode: "detail", id }
-  // | { mode: "isi", kkId, formulirId?, entriId?, nomor? }
-  const [layar, setLayar] = useState({ mode: "list" });
-
-  // Permintaan dari luar (klik kartu di dashboard, tombol "buat", menu samping).
-  useEffect(() => {
-    if (!permintaan) return;
-    if (permintaan.jenis === "baru") setLayar({ mode: "baru" });
-    else if (permintaan.jenis === "buka") setLayar({ mode: "detail", id: permintaan.id });
-    else setLayar({ mode: "list" });
-    onPermintaanDiproses();
-  }, [permintaan, onPermintaanDiproses]);
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [layar]);
-
-  const keList = () => setLayar({ mode: "list" });
-  const keDetail = (id) => setLayar({ mode: "detail", id });
-
-  switch (layar.mode) {
-    case "baru":
-      return <BuatKertasKerja onBatal={keList} onSelesai={keDetail} />;
-
-    case "detail":
-      return (
-        <DetailKertasKerja
-          key={layar.id}
-          id={layar.id}
-          onKembali={keList}
-          onIsi={(formulirId, nomor) => setLayar({ mode: "isi", kkId: layar.id, formulirId, nomor })}
-          onUbahData={(entriId) => setLayar({ mode: "isi", kkId: layar.id, entriId })}
-        />
-      );
-
-    case "isi":
-      return (
-        <IsiData
-          key={`${layar.entriId || "baru"}-${layar.formulirId || ""}`}
-          kkId={layar.kkId}
-          formulirId={layar.formulirId}
-          entriId={layar.entriId}
-          nomor={layar.nomor}
-          onKembali={() => keDetail(layar.kkId)}
-        />
-      );
-
-    default:
-      return <DaftarKertasKerja onBuat={() => setLayar({ mode: "baru" })} onBuka={keDetail} />;
-  }
 }

@@ -114,6 +114,7 @@ export default function PetugasTim({ petugas, value, onChange, onPetugasBaru, ga
             <input
               className="fk-input"
               placeholder="NIP (opsional)"
+              inputMode="numeric"
               value={formBaru.nip}
               onChange={(e) => setFormBaru((s) => ({ ...s, nip: e.target.value }))}
               onKeyDown={(e) => e.key === "Enter" && simpanBaru()}

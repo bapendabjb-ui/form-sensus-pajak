@@ -63,6 +63,9 @@ function formatWaktuID(value, timeZone) {
 function csvNilai(tipe, nilai, opsi = {}) {
   if (nilai === null || nilai === undefined) return "";
   switch (tipe) {
+    case "wilayah":
+      if (!nilai || typeof nilai !== "object" || !nilai.kecamatan) return "";
+      return nilai.kelurahan ? `Kel. ${nilai.kelurahan}, Kec. ${nilai.kecamatan}` : `Kec. ${nilai.kecamatan}`;
     case "foto":
       if (!Array.isArray(nilai)) return "";
       return nilai.map((f) => `${opsi.baseUrl || ""}/api/foto/${f.id}`).join(" ; ");

@@ -11,18 +11,8 @@
 const prisma = require("../src/prisma");
 const { ensureCounter } = require("../src/nomor");
 
-// Kelurahan Kota Banjarbaru (5 kecamatan).
-const KELURAHAN = [
-  "Landasan Ulin Timur", "Guntung Payung", "Syamsudin Noor", "Guntung Manggis",
-  "Landasan Ulin Tengah", "Landasan Ulin Utara", "Landasan Ulin Barat", "Landasan Ulin Selatan",
-  "Palam", "Bangkal", "Sungai Tiung", "Cempaka",
-  "Loktabat Utara", "Mentaos", "Komet", "Sungai Ulin",
-  "Loktabat Selatan", "Kemuning", "Guntung Paikat", "Sungai Besar",
-];
-
-const KECAMATAN = [
-  "Landasan Ulin", "Liang Anggang", "Cempaka", "Banjarbaru Utara", "Banjarbaru Selatan",
-];
+// Data kecamatan & kelurahan Kota Banjarbaru ada di src/wilayah.js
+// dan dipakai lewat pertanyaan bertipe "wilayah".
 
 const FORMULIR_CONTOH = [
   {
@@ -32,8 +22,7 @@ const FORMULIR_CONTOH = [
       { tipe: "text", label: "Nama wajib pajak", wajib: true },
       { tipe: "text", label: "NPWPD" },
       { tipe: "paragraph", label: "Alamat objek pajak" },
-      { tipe: "dropdown", label: "Kecamatan", opsi: KECAMATAN },
-      { tipe: "dropdown", label: "Kelurahan", opsi: KELURAHAN },
+      { tipe: "wilayah", label: "Kecamatan & kelurahan" },
       { tipe: "text", label: "Nomor telepon / narahubung" },
     ],
   },

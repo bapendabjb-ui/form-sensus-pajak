@@ -18,6 +18,7 @@ export const TYPES = [
   { key: "checkbox", label: "Kotak centang" },
   { key: "linetariff", label: "Rincian tarif" },
   { key: "foto", label: "Foto" },
+  { key: "wilayah", label: "Kecamatan & Kelurahan" },
 ];
 
 export const TYPE_LABEL = Object.fromEntries(TYPES.map((t) => [t.key, t.label]));

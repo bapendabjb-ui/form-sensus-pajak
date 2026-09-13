@@ -50,6 +50,12 @@ app.use("/api/entri", require("./src/routes/entri"));
 app.use("/api/foto", require("./src/routes/foto"));
 app.use("/api/dashboard", require("./src/routes/dashboard"));
 
+// Data referensi kecamatan & kelurahan untuk pertanyaan bertipe "wilayah".
+app.get("/api/wilayah", (_req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.json(require("./src/wilayah").KECAMATAN);
+});
+
 // Route /api yang tidak dikenal -> JSON 404 (jangan jatuh ke index.html).
 app.use("/api", (_req, res) => {
   res.status(404).json({ error: "Endpoint tidak ditemukan." });

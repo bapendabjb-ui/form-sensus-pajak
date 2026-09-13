@@ -22,6 +22,9 @@ export function formatNilai(q, nilai) {
     }
     case "foto":
       return Array.isArray(nilai) && nilai.length ? `${nilai.length} foto` : "";
+    case "wilayah":
+      if (!nilai || typeof nilai !== "object" || !nilai.kecamatan) return "";
+      return nilai.kelurahan ? `${nilai.kelurahan}, ${nilai.kecamatan}` : nilai.kecamatan;
     default:
       return typeof nilai === "string" ? nilai.trim() : "";
   }

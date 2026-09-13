@@ -167,3 +167,18 @@ export function unduhCsv(id) {
 /* ---------- dashboard ---------- */
 
 export const getStats = () => request("/dashboard/stats");
+
+/* ---------- data wilayah (kecamatan & kelurahan) ---------- */
+
+let wilayahCache = null;
+
+/** Data wilayah jarang berubah, jadi cukup dimuat sekali per sesi. */
+export function getWilayah() {
+  if (!wilayahCache) {
+    wilayahCache = request("/wilayah").catch((e) => {
+      wilayahCache = null;
+      throw e;
+    });
+  }
+  return wilayahCache;
+}

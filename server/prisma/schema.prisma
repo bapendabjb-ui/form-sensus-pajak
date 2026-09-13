@@ -57,6 +57,7 @@ enum TipePertanyaan {
   range
   linetariff
   foto
+  wilayah
 }
 
 /// Satu pertanyaan di dalam sebuah formulir.
@@ -152,6 +153,7 @@ model Entri {
 ///   range                                     : { min, max }
 ///   linetariff                                : array { layanan, jenis, harga_min, harga_max }
 ///   foto                                      : array { id, nama }
+///   wilayah                                   : { kecamatan, kode_kecamatan, kelurahan, kode_kelurahan }
 model Jawaban {
   id           Int  @id @default(autoincrement())
   entriId      Int  @map("entri_id")

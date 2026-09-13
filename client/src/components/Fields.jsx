@@ -2,6 +2,7 @@ import CustomSelect from "./CustomSelect.jsx";
 import DatePicker from "./DatePicker.jsx";
 import MoneyInput from "./MoneyInput.jsx";
 import FotoInput from "./FotoInput.jsx";
+import WilayahInput from "./WilayahInput.jsx";
 import { CheckIcon } from "./Icons.jsx";
 import { groupDigits, unformatNumber } from "../lib/format.js";
 
@@ -232,6 +233,9 @@ export default function FieldInput({ q, value, invalid, onChange }) {
 
     case "foto":
       return <FotoInput value={value} onChange={onChange} invalid={invalid} />;
+
+    case "wilayah":
+      return <WilayahInput value={value} onChange={onChange} invalid={invalid} />;
 
     default:
       return null;

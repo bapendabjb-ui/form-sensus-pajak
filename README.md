@@ -15,7 +15,7 @@ berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengeksporny
 
 ## Daftar isi
 
-1. [Alur pemakaian](#alur-pemakaian)
+1. [Alur pemakaian](#alur-pemakaian) · [Pemakaian di HP](#pemakaian-di-hp)
 2. [Struktur repo](#struktur-repo)
 3. [Menjalankan secara lokal](#menjalankan-secara-lokal)
 4. [Variabel environment](#variabel-environment)
@@ -46,6 +46,37 @@ berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengeksporny
 
 ---
 
+## Pemakaian di HP
+
+Aplikasi terutama dipakai petugas di lapangan lewat smartphone, jadi tampilannya disusun
+untuk HP lebih dulu (desktop tetap memakai sidebar).
+
+- **Navigasi seperti aplikasi** — bilah judul di atas dengan tombol kembali, bilah tab di bawah
+  (Beranda, Kertas Kerja, Petugas, Formulir). Layar pengisian menyembunyikan bilah tab supaya
+  lega, dan bilah tab juga tersembunyi saat papan ketik terbuka.
+- **Tombol Kembali HP berfungsi** — tombol/gestur kembali berpindah antar-layar, bukan menutup
+  aplikasi. Setiap layar punya alamat sendiri (mis. `/kertas-kerja/12/isi/3`), jadi bisa dimuat
+  ulang tanpa kehilangan posisi.
+- **Dropdown & kalender sebagai lembar dari bawah layar**, dengan pilihan setinggi jari; daftar
+  lebih dari 8 pilihan (mis. kelurahan) punya kotak cari. Tombol Kembali menutup lembarnya.
+- **Nyaman disentuh** — teks input 16 px (iPhone tidak memperbesar layar saat mengetik), sasaran
+  sentuh 44–48 px, keyboard angka untuk nominal & NIP, dan tombol **Simpan** menempel di dasar
+  layar. Tombol Simpan terkunci selama foto masih diunggah.
+- **Draf otomatis di perangkat** — isian disimpan ke penyimpanan browser setiap kali berubah. Bila
+  halaman tertutup, HP kehabisan baterai, atau sinyal hilang, saat formulir dibuka lagi muncul
+  tawaran **Lanjutkan isian**. Draf dihapus setelah data berhasil tersimpan. Foto pada draf yang
+  lebih tua dari 20 jam perlu diambil ulang (unggahan yang tak pernah disimpan dibersihkan server
+  setelah 24 jam).
+- **Konfirmasi** muncul bila meninggalkan isian yang belum disimpan.
+- **Pasang ke layar utama** — Chrome Android: menu ⋮ → *Instal aplikasi / Tambahkan ke layar
+  utama*. Safari iPhone: *Bagikan* → *Tambah ke Layar Utama*. Aplikasi lalu terbuka tanpa bilah
+  alamat, langsung ke daftar kertas kerja. Fitur ini membutuhkan HTTPS (sudah tersedia di Railway).
+
+> Belum ada mode offline penuh: **menyimpan ke server tetap membutuhkan koneksi**. Tanpa koneksi,
+> isian aman sebagai draf di perangkat dan bisa disimpan setelah sinyal kembali.
+
+---
+
 ## Struktur repo
 
 Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduanya.
@@ -61,6 +92,8 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── format.js           format tanggal & ribuan, daftar tipe pertanyaan
 │       │   ├── answers.js          konversi nilai UI <-> JSON API, validasi wajib
 │       │   ├── ringkas.js          judul & ringkasan data untuk daftar
+│       │   ├── router.js           alamat per layar + tombol Kembali HP + konfirmasi keluar
+│       │   ├── useMobile.js        deteksi tata letak HP
 │       │   └── useOutside.js
 │       ├── components/
 │       │   ├── CustomSelect.jsx    dropdown kustom (BUKAN <select>)
@@ -68,7 +101,9 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── MoneyInput.jsx      nominal berformat ribuan + awalan "Rp"
 │       │   ├── FotoInput.jsx       kamera/galeri, perkecil, unggah, pratinjau
 │       │   ├── PetugasTim.jsx      penyusun tim petugas 1–8 orang
-│       │   ├── Fields.jsx          semua 10 tipe input pengisian
+│       │   ├── Sheet.jsx           lembar pilihan dari bawah layar (HP)
+│       │   ├── WilayahInput.jsx    kecamatan & kelurahan bertingkat
+│       │   ├── Fields.jsx          semua 11 tipe input pengisian
 │       │   └── Icons.jsx, Toast.jsx, Ui.jsx
 │       └── pages/
 │           ├── Dashboard.jsx
@@ -89,6 +124,7 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       ├── answers.js              normalisasi & validasi nilai per tipe
 │       ├── entri.js                simpan data: jawaban, rincian tarif, tautan foto
 │       ├── foto.js                 simpan/hapus berkas foto + pembersih foto yatim
+│       ├── wilayah.js              data kecamatan & kelurahan Kota Banjarbaru
 │       ├── bentuk.js               bentuk keluaran JSON bersama
 │       ├── format.js               format tanggal/uang + penyusun CSV
 │       └── routes/                 auth, petugas, formulir, kertasKerja, entri, foto, dashboard
@@ -161,8 +197,7 @@ npm run build && npm start      # buka http://localhost:4000
 ### Data contoh
 
 Dengan `SEED_DEMO=true`, saat start pertama pada database kosong aplikasi mengisi 3 formulir
-contoh (termasuk pertanyaan foto) dan 3 petugas. Dropdown kelurahan memakai 20 kelurahan
-Kota Banjarbaru. Manual: `npm run db:seed`.
+contoh (termasuk pertanyaan foto dan kecamatan & kelurahan) dan 3 petugas. Manual: `npm run db:seed`.
 
 ---
 
@@ -216,7 +251,7 @@ Menu **Formulir** di sidebar bertanda gembok selama belum login.
 | `admin`                 | `username` unik + `password_hash`                                           |
 | `petugas`               | Nama & NIP — sumber dropdown tim petugas                                    |
 | `formulir`              | Bank formulir                                                               |
-| `pertanyaan`            | `tipe` (10 enum, termasuk `foto`), `label`, `wajib`, `range_harga`, `urutan` |
+| `pertanyaan`            | `tipe` (11 enum, termasuk `foto` & `wilayah`), `label`, `wajib`, `range_harga`, `urutan` |
 | `pertanyaan_opsi`       | Opsi dropdown/radio/checkbox & daftar "Jenis tarif"                         |
 | `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status`                                        |
 | `kertas_kerja_petugas`  | Tim petugas (1–8), `urutan` 0 = penanggung jawab                            |
@@ -253,6 +288,7 @@ Kolom `kertas_kerja.nama_objek` dihapus — nama objek kini diisi lewat pertanya
 | `range`                                                   | `{ "min": angka\|null, "max": angka\|null }`      |
 | `linetariff`                                              | array `{ layanan, jenis, harga_min, harga_max }`  |
 | `foto`                                                    | array `{ id, nama }`                              |
+| `wilayah`                                                 | `{ kecamatan, kode_kecamatan, kelurahan, kode_kelurahan }` |
 
 `harga_max` **null** = harga tunggal; **terisi** = rentang (diatur per baris, hanya bila admin
 menyalakan **"Izinkan harga rentang"**). Server selalu menormalkan nilai masuk: string di-`trim`,
@@ -274,6 +310,22 @@ mana pun. Saat data disimpan, id foto dikirim di jawaban lalu ditautkan ke entri
   dalam 24 jam, serta berkas di disk yang tidak lagi tercatat di database.
 
 Berkas disajikan lewat `GET /api/foto/:id`, jadi hanya foto yang tercatat yang bisa diakses.
+
+---
+
+## Kecamatan & kelurahan
+
+Tipe pertanyaan **Kecamatan & Kelurahan** memakai data wilayah Kota Banjarbaru di
+`server/src/wilayah.js` (5 kecamatan, 20 kelurahan, lengkap dengan kode), disajikan lewat
+`GET /api/wilayah`.
+
+- Setelah kecamatan dipilih, daftar kelurahan otomatis hanya berisi kelurahan kecamatan itu.
+- Memilih kelurahan lebih dulu langsung mengisi kecamatannya.
+- Mengganti kecamatan mengosongkan kelurahan yang tidak lagi cocok.
+- Server memvalidasi ulang pasangannya dan menyimpan kodenya (mis. `020` / `001`), jadi kombinasi
+  yang tidak cocok tidak pernah tersimpan. Wajib diisi berarti kecamatan **dan** kelurahan terisi.
+
+Untuk menambah atau mengubah wilayah, sunting `server/src/wilayah.js` lalu deploy ulang.
 
 ---
 

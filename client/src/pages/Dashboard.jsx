@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../api.js";
 import { Panel, PageHead, Loading, ErrorBox, StatusPill } from "../components/Ui.jsx";
+import { navigate } from "../lib/router.js";
 
 const namaTim = (petugas = []) => petugas.map((p) => p.nama).join(", ") || "—";
 
-export default function Dashboard({ onNew, onOpen, onGoForms }) {
+export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -45,6 +46,15 @@ export default function Dashboard({ onNew, onOpen, onGoForms }) {
 
       {stats && (
         <>
+          <div className="fk-dash-actions">
+            <button type="button" className="fk-btn" onClick={() => navigate("/kertas-kerja/baru")}>
+              + Buat kertas kerja
+            </button>
+            <button type="button" className="fk-btn-ghost" onClick={() => navigate("/formulir")}>
+              Kelola formulir
+            </button>
+          </div>
+
           <div className="fk-stats is-6">
             {kartu.map(([angka, label]) => (
               <div className="fk-stat" key={label}>
@@ -54,22 +64,18 @@ export default function Dashboard({ onNew, onOpen, onGoForms }) {
             ))}
           </div>
 
-          <div className="fk-dash-actions">
-            <button type="button" className="fk-btn" onClick={onNew}>
-              + Buat kertas kerja
-            </button>
-            <button type="button" className="fk-btn-ghost" onClick={onGoForms}>
-              Kelola formulir
-            </button>
-          </div>
-
           <Panel title="Kertas kerja terbaru">
             {stats.terbaru.length === 0 ? (
               <div className="fk-lt-empty">Belum ada kertas kerja.</div>
             ) : (
               <div className="fk-kk-list">
                 {stats.terbaru.map((k) => (
-                  <button type="button" className="fk-kk-card is-clickable" key={k.id} onClick={() => onOpen(k.id)}>
+                  <button
+                    type="button"
+                    className="fk-kk-card is-clickable"
+                    key={k.id}
+                    onClick={() => navigate(`/kertas-kerja/${k.id}`)}
+                  >
                     <span className="fk-nomor">{k.nomor}</span>
                     <div className="fk-kk-card-body">
                       <div className="fk-lib-title fk-ellipsis">{namaTim(k.petugas)}</div>

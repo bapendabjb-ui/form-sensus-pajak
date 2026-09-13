@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../api.js";
+import { pasangPenjaga } from "../lib/router.js";
 import { useToast } from "../components/Toast.jsx";
 import { PageHead, Panel, Loading, ErrorBox, Empty } from "../components/Ui.jsx";
 import { IconLock } from "../components/Icons.jsx";
@@ -144,6 +145,13 @@ function QuestionCard({ q, idx, total, onPatch, onRemove, onMove }) {
           </div>
         )}
 
+        {q.tipe === "wilayah" && (
+          <p className="fk-hint">
+            Petugas memilih kecamatan, lalu daftar kelurahan otomatis menyesuaikan (data wilayah Kota
+            Banjarbaru: 5 kecamatan, 20 kelurahan). Memilih kelurahan langsung juga mengisi kecamatannya.
+          </p>
+        )}
+
         <div className="fk-q-foot">
           <button
             type="button"
@@ -174,6 +182,12 @@ export default function FormulirPage({ admin, onAuthChanged }) {
   const [loadingDraft, setLoadingDraft] = useState(false);
   const [error, setError] = useState("");
   const [menyimpan, setMenyimpan] = useState(false);
+
+  // Konfirmasi bila meninggalkan halaman saat susunan formulir belum disimpan.
+  useEffect(
+    () => (dirty ? pasangPenjaga(() => "Perubahan formulir belum disimpan. Tinggalkan halaman ini?") : undefined),
+    [dirty]
+  );
 
   /* ---- pemuatan ---- */
 

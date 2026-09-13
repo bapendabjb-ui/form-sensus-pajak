@@ -11,6 +11,8 @@
  *                                               (harga_max null = harga tunggal)
  */
 
+const { normalWilayah } = require("./wilayah");
+
 const TIPE = [
   "text",
   "paragraph",
@@ -22,6 +24,7 @@ const TIPE = [
   "range",
   "linetariff",
   "foto",
+  "wilayah",
 ];
 
 /** Tipe yang menyimpan daftar opsi di tabel pertanyaan_opsi. */
@@ -47,6 +50,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 function nilaiKosong(tipe) {
   if (tipe === "checkbox" || tipe === "linetariff" || tipe === "foto") return [];
   if (tipe === "range") return { min: null, max: null };
+  if (tipe === "wilayah") return normalWilayah("", "");
   return "";
 }
 
@@ -96,6 +100,12 @@ function normalizeNilai(tipe, raw) {
         );
     }
 
+    case "wilayah": {
+      // { kecamatan, kode_kecamatan, kelurahan, kode_kelurahan } — dicocokkan ke data wilayah.
+      const obj = raw && typeof raw === "object" ? raw : {};
+      return normalWilayah(toTrimmedString(obj.kecamatan), toTrimmedString(obj.kelurahan));
+    }
+
     case "foto": {
       // Array { id, nama }. Keberadaan & kepemilikan foto diperiksa di src/entri.js.
       if (!Array.isArray(raw)) return [];
@@ -124,6 +134,8 @@ function nilaiTerisi(tipe, nilai) {
       return Array.isArray(nilai) && nilai.length > 0;
     case "range":
       return !!nilai && typeof nilai === "object" && nilai.min !== null && nilai.max !== null;
+    case "wilayah":
+      return !!nilai && typeof nilai === "object" && !!nilai.kecamatan && !!nilai.kelurahan;
     case "linetariff":
       return Array.isArray(nilai) && nilai.some((r) => toTrimmedString(r.layanan) !== "");
     default:

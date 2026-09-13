@@ -90,7 +90,8 @@ export default function PetugasPage() {
           />
           <input
             className="fk-input"
-            placeholder="NIP"
+            placeholder="NIP (opsional)"
+            inputMode="numeric"
             value={form.nip}
             onChange={(e) => setForm((f) => ({ ...f, nip: e.target.value }))}
             onKeyDown={(e) => e.key === "Enter" && tambah()}
@@ -122,6 +123,7 @@ export default function PetugasPage() {
                     <input
                       className="fk-input"
                       value={edit.nip}
+                      inputMode="numeric"
                       onChange={(e) => setEdit((s) => ({ ...s, nip: e.target.value }))}
                       placeholder="NIP"
                     />
