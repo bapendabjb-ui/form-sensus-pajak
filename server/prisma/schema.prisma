@@ -1,0 +1,216 @@
+// ------------------------------------------------------------------
+// FormKita - skema database (MySQL 8)
+// Nama tabel & kolom dipetakan ke snake_case agar sama dengan DDL rujukan.
+// ------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// Akun admin (satu-satunya peran yang boleh menyusun bank formulir).
+model Admin {
+  id           Int    @id @default(autoincrement())
+  username     String @unique(map: "admin_username_key") @db.VarChar(64)
+  passwordHash String @map("password_hash") @db.VarChar(255)
+
+  @@map("admin")
+}
+
+/// Petugas pendata. Menjadi sumber dropdown tim petugas pada kertas kerja.
+model Petugas {
+  id        Int      @id @default(autoincrement())
+  nama      String   @db.VarChar(150)
+  nip       String   @default("") @db.VarChar(40)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  kertasKerja KertasKerjaPetugas[]
+
+  @@map("petugas")
+}
+
+/// Bank formulir. Setiap formulir dapat diisi berkali-kali di dalam kertas kerja.
+model Formulir {
+  id        Int      @id @default(autoincrement())
+  judul     String   @db.VarChar(200)
+  deskripsi String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  pertanyaan Pertanyaan[]
+  entri      Entri[]
+
+  @@map("formulir")
+}
+
+enum TipePertanyaan {
+  text
+  paragraph
+  number
+  date
+  dropdown
+  radio
+  checkbox
+  range
+  linetariff
+  foto
+}
+
+/// Satu pertanyaan di dalam sebuah formulir.
+model Pertanyaan {
+  id         Int            @id @default(autoincrement())
+  formulirId Int            @map("formulir_id")
+  tipe       TipePertanyaan
+  label      String         @db.VarChar(300)
+  wajib      Boolean        @default(false)
+  /// Khusus tipe "linetariff": izinkan harga rentang per baris.
+  rangeHarga Boolean        @default(false) @map("range_harga")
+  urutan     Int            @default(0)
+
+  formulir     Formulir         @relation(fields: [formulirId], references: [id], onDelete: Cascade)
+  opsi         PertanyaanOpsi[]
+  jawaban      Jawaban[]
+  rincianTarif RincianTarif[]
+  foto         Foto[]
+
+  @@index([formulirId], map: "pertanyaan_formulir_id_idx")
+  @@map("pertanyaan")
+}
+
+/// Opsi untuk dropdown / radio / checkbox, dan daftar "Jenis tarif" untuk linetariff.
+model PertanyaanOpsi {
+  id           Int    @id @default(autoincrement())
+  pertanyaanId Int    @map("pertanyaan_id")
+  nilai        String @db.VarChar(200)
+  urutan       Int    @default(0)
+
+  pertanyaan Pertanyaan @relation(fields: [pertanyaanId], references: [id], onDelete: Cascade)
+
+  @@index([pertanyaanId], map: "pertanyaan_opsi_pertanyaan_id_idx")
+  @@map("pertanyaan_opsi")
+}
+
+enum StatusKertasKerja {
+  draft
+  selesai
+}
+
+/// Kertas kerja: satu nomor, dikerjakan satu tim petugas, berisi banyak data.
+model KertasKerja {
+  id        Int               @id @default(autoincrement())
+  nomor     String            @unique(map: "kertas_kerja_nomor_key") @db.Char(5)
+  status    StatusKertasKerja @default(draft)
+  createdAt DateTime          @default(now()) @map("created_at")
+
+  petugas KertasKerjaPetugas[]
+  entri   Entri[]
+
+  @@map("kertas_kerja")
+}
+
+/// Tim petugas sebuah kertas kerja (1-8 orang). Urutan 0 = penanggung jawab.
+model KertasKerjaPetugas {
+  id            Int @id @default(autoincrement())
+  kertasKerjaId Int @map("kertas_kerja_id")
+  petugasId     Int @map("petugas_id")
+  urutan        Int @default(0)
+
+  kertasKerja KertasKerja @relation(fields: [kertasKerjaId], references: [id], onDelete: Cascade)
+  petugas     Petugas     @relation(fields: [petugasId], references: [id], onDelete: Restrict)
+
+  @@unique([kertasKerjaId, petugasId], map: "kertas_kerja_petugas_unik")
+  @@index([petugasId], map: "kertas_kerja_petugas_petugas_id_idx")
+  @@map("kertas_kerja_petugas")
+}
+
+/// Satu data yang diisi lewat satu formulir di dalam kertas kerja.
+/// Formulir yang sama boleh diisi berkali-kali (mis. beberapa objek).
+model Entri {
+  id            Int      @id @default(autoincrement())
+  kertasKerjaId Int      @map("kertas_kerja_id")
+  formulirId    Int      @map("formulir_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  kertasKerja  KertasKerja    @relation(fields: [kertasKerjaId], references: [id], onDelete: Cascade)
+  formulir     Formulir       @relation(fields: [formulirId], references: [id], onDelete: Cascade)
+  jawaban      Jawaban[]
+  rincianTarif RincianTarif[]
+  foto         Foto[]
+
+  @@index([kertasKerjaId], map: "entri_kertas_kerja_id_idx")
+  @@index([formulirId], map: "entri_formulir_id_idx")
+  @@map("entri")
+}
+
+/// Jawaban satu pertanyaan pada satu entri. Bentuk JSON per tipe pertanyaan:
+///   text/paragraph/number/date/dropdown/radio : string
+///   checkbox                                  : array string
+///   range                                     : { min, max }
+///   linetariff                                : array { layanan, jenis, harga_min, harga_max }
+///   foto                                      : array { id, nama }
+model Jawaban {
+  id           Int  @id @default(autoincrement())
+  entriId      Int  @map("entri_id")
+  pertanyaanId Int  @map("pertanyaan_id")
+  nilai        Json
+
+  entri      Entri      @relation(fields: [entriId], references: [id], onDelete: Cascade)
+  pertanyaan Pertanyaan @relation(fields: [pertanyaanId], references: [id], onDelete: Cascade)
+
+  @@unique([entriId, pertanyaanId], map: "jawaban_entri_id_pertanyaan_id_key")
+  @@index([pertanyaanId], map: "jawaban_pertanyaan_id_idx")
+  @@map("jawaban")
+}
+
+/// Bentuk ternormalisasi dari jawaban "linetariff" - memudahkan pelaporan/agregasi.
+/// Ditulis ulang setiap kali entri disimpan.
+model RincianTarif {
+  id           Int      @id @default(autoincrement())
+  entriId      Int      @map("entri_id")
+  pertanyaanId Int      @map("pertanyaan_id")
+  layanan      String   @db.VarChar(200)
+  jenis        String   @default("") @db.VarChar(100)
+  hargaMin     Decimal? @map("harga_min") @db.Decimal(18, 2)
+  hargaMax     Decimal? @map("harga_max") @db.Decimal(18, 2)
+  urutan       Int      @default(0)
+
+  entri      Entri      @relation(fields: [entriId], references: [id], onDelete: Cascade)
+  pertanyaan Pertanyaan @relation(fields: [pertanyaanId], references: [id], onDelete: Cascade)
+
+  @@index([entriId], map: "rincian_tarif_entri_id_idx")
+  @@index([pertanyaanId], map: "rincian_tarif_pertanyaan_id_idx")
+  @@map("rincian_tarif")
+}
+
+/// Berkas foto yang diunggah. entri_id masih NULL selama foto baru diunggah
+/// dan entrinya belum disimpan; foto yatim dibersihkan otomatis.
+model Foto {
+  id           Int      @id @default(autoincrement())
+  entriId      Int?     @map("entri_id")
+  pertanyaanId Int?     @map("pertanyaan_id")
+  /// Path relatif terhadap UPLOAD_DIR, mis. "2026/09/1757750000-ab12cd.jpg".
+  berkas       String   @unique(map: "foto_berkas_key") @db.VarChar(200)
+  namaAsli     String   @default("") @map("nama_asli") @db.VarChar(200)
+  mime         String   @db.VarChar(40)
+  ukuran       Int
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  entri      Entri?      @relation(fields: [entriId], references: [id], onDelete: Cascade)
+  pertanyaan Pertanyaan? @relation(fields: [pertanyaanId], references: [id], onDelete: Cascade)
+
+  @@index([entriId], map: "foto_entri_id_idx")
+  @@index([pertanyaanId], map: "foto_pertanyaan_id_idx")
+  @@map("foto")
+}
+
+/// Counter penomoran kertas kerja - selalu tepat 1 baris (id = 1).
+model NomorCounter {
+  id        Int @id @default(1)
+  lastNomor Int @default(0) @map("last_nomor")
+
+  @@map("nomor_counter")
+}

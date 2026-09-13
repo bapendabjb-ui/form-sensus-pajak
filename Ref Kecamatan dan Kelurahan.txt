@@ -1,0 +1,37 @@
+Ref Kecamatan
+Landasan Ulin 		- 010
+Liang Anggang 		- 011
+Cempaka 		- 020
+Banjarbaru Utara	- 031
+Banjarbaru Seltan 	- 032
+
+Ref Kelurahan
+Landasan Ulin 		- 010
+	Landasan Ulin Timur	- 003
+	Guntung Payung		- 004
+	Syamsudin Noor		- 005
+	Guntung Manggis		- 006
+
+Liang Anggang 		- 011
+	Landasan Ulin Tengah	- 001
+	Landasan Ulin Utara	- 002
+	Landasan Ulin Barat	- 003
+	Landasan Ulin Selatan	- 004
+
+Cempaka 		- 020
+	Palam			- 001
+	Bangkal			- 002
+	Sungai Tiung		- 003
+	Cempaka			- 004
+
+Banjarbaru Utara	- 031
+	Loktabat Utara		- 001
+	Mentaos			- 002
+	Komet			- 003
+	Sungai Ulin		- 004
+
+Banjarbaru Seltan 	- 032
+	Loktabat Selatan	- 001
+	Kemuning		- 002
+	Guntung Paikat		- 003
+	Sungai Besar		- 004

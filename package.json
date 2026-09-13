@@ -1,0 +1,35 @@
+{
+  "name": "formkita",
+  "private": true,
+  "version": "1.0.0",
+  "description": "FormKita - sistem entry data & kertas kerja administrasi pajak daerah (PBJT)",
+  "engines": {
+    "node": ">=18.18"
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "prisma": {
+    "schema": "server/prisma/schema.prisma",
+    "seed": "node server/prisma/seed.js"
+  },
+  "scripts": {
+    "postinstall": "prisma generate",
+    "dev": "concurrently -n server,client -c cyan,magenta \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "node --watch server/index.js",
+    "dev:client": "npm run dev --workspace client",
+    "build": "npm run build --workspace client",
+    "start": "node server/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "db:seed": "node server/prisma/seed.js",
+    "railway:start": "prisma migrate deploy && node server/index.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "prisma": "^5.22.0"
+  }
+}

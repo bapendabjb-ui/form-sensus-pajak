@@ -1,0 +1,18 @@
+# Konfigurasi build Railway / Nixpacks untuk FormKita.
+# - install : npm ci (monorepo workspaces: client + server) lalu `prisma generate` via postinstall
+# - build   : vite build -> client/dist
+# - start   : jalankan migrasi Prisma, lalu server Express (yang juga menyajikan client/dist)
+
+providers = ["node"]
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "openssl"]
+
+[phases.install]
+cmds = ["npm ci --include=dev || npm install --include=dev"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npx prisma migrate deploy && node server/index.js"

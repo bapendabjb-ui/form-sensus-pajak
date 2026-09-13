@@ -1,0 +1,176 @@
+"use strict";
+
+/**
+ * FormKita - server Express.
+ *
+ * Di produksi satu proses ini melayani dua hal:
+ *   1. REST API dengan prefix /api
+ *   2. hasil build frontend (client/dist) untuk semua route lain
+ */
+
+const fs = require("fs");
+const path = require("path");
+const express = require("express");
+const compression = require("compression");
+const cors = require("cors");
+
+const config = require("./src/config");
+const prisma = require("./src/prisma");
+const { ApiError } = require("./src/http");
+const { ensureAdminSeed } = require("./src/auth");
+const { ensureCounter } = require("./src/nomor");
+const { siapkanFolder, sapuFotoYatim } = require("./src/foto");
+const seedDemo = require("./prisma/seed");
+
+const app = express();
+
+app.disable("x-powered-by");
+app.set("trust proxy", 1);
+app.use(compression());
+app.use(express.json({ limit: "2mb" }));
+
+// CORS hanya diperlukan saat frontend dijalankan terpisah (vite dev server).
+if (config.corsOrigin) {
+  app.use(cors({ origin: config.corsOrigin.split(",").map((s) => s.trim()), credentials: false }));
+} else if (!config.isProd) {
+  app.use(cors());
+}
+
+/* ---------- API ---------- */
+
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true, service: "formkita", env: config.nodeEnv, time: new Date().toISOString() });
+});
+
+app.use("/api/auth", require("./src/routes/auth"));
+app.use("/api/petugas", require("./src/routes/petugas"));
+app.use("/api/formulir", require("./src/routes/formulir"));
+app.use("/api/kertas-kerja", require("./src/routes/kertasKerja"));
+app.use("/api/entri", require("./src/routes/entri"));
+app.use("/api/foto", require("./src/routes/foto"));
+app.use("/api/dashboard", require("./src/routes/dashboard"));
+
+// Route /api yang tidak dikenal -> JSON 404 (jangan jatuh ke index.html).
+app.use("/api", (_req, res) => {
+  res.status(404).json({ error: "Endpoint tidak ditemukan." });
+});
+
+/* ---------- frontend (hasil build) ---------- */
+
+const adaBuild = fs.existsSync(path.join(config.clientDist, "index.html"));
+
+if (adaBuild) {
+  // Asset ber-hash boleh di-cache lama; index.html tidak.
+  app.use(
+    express.static(config.clientDist, {
+      index: false,
+      setHeaders(res, filePath) {
+        if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      },
+    })
+  );
+
+  app.get("*", (_req, res) => {
+    res.setHeader("Cache-Control", "no-cache");
+    res.sendFile(path.join(config.clientDist, "index.html"));
+  });
+} else {
+  app.get("*", (_req, res) => {
+    res
+      .status(503)
+      .type("text/plain; charset=utf-8")
+      .send(
+        "Build frontend belum tersedia.\n\n" +
+          "Pengembangan : jalankan `npm run dev` lalu buka http://localhost:5173\n" +
+          "Produksi     : jalankan `npm run build` terlebih dahulu.\n"
+      );
+  });
+}
+
+/* ---------- error handler ---------- */
+
+app.use((err, _req, res, _next) => {
+  if (err instanceof ApiError) {
+    return res.status(err.status).json({ error: err.message, ...(err.details || {}) });
+  }
+
+  // Error Prisma yang umum diterjemahkan ke pesan Indonesia.
+  if (err && typeof err.code === "string" && err.code.startsWith("P")) {
+    if (err.code === "P2002") {
+      return res.status(409).json({ error: "Data dengan nilai unik yang sama sudah ada." });
+    }
+    if (err.code === "P2003") {
+      return res.status(409).json({ error: "Data masih direferensikan data lain." });
+    }
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Data tidak ditemukan." });
+    }
+  }
+
+  console.error("[FormKita] error tak tertangani:", err);
+  res.status(500).json({ error: "Terjadi kesalahan pada server." });
+});
+
+/* ---------- start ---------- */
+
+async function start() {
+  try {
+    await prisma.$connect();
+    console.log("[FormKita] terhubung ke database.");
+  } catch (e) {
+    console.error("[FormKita] gagal terhubung ke database. Periksa DATABASE_URL.");
+    console.error(e.message);
+    process.exit(1);
+  }
+
+  await ensureCounter();
+
+  await siapkanFolder();
+  console.log(`[FormKita] folder foto: ${config.uploadDir}`);
+
+  // Bersihkan foto yatim saat start lalu setiap 6 jam (tidak menahan startup).
+  const sapu = () =>
+    sapuFotoYatim()
+      .then((n) => n && console.log(`[FormKita] ${n} berkas foto yatim dibersihkan.`))
+      .catch((e) => console.error("[FormKita] pembersihan foto gagal:", e.message));
+  sapu();
+  setInterval(sapu, 6 * 3600 * 1000).unref();
+
+  const admin = await ensureAdminSeed();
+  console.log(
+    admin.created
+      ? `[FormKita] akun admin "${admin.username}" dibuat dari ADMIN_USERNAME/ADMIN_PASSWORD.`
+      : `[FormKita] akun admin "${admin.username}" sudah ada.`
+  );
+
+  if (config.seedDemo) {
+    const hasil = await seedDemo();
+    if (hasil.diisi) console.log("[FormKita] data contoh diisi (SEED_DEMO=true).");
+  }
+
+  // Railway meng-inject PORT; wajib memakai nilai tersebut.
+  const server = app.listen(config.port, "0.0.0.0", () => {
+    console.log(`[FormKita] siap di http://localhost:${config.port} (${config.nodeEnv})`);
+    if (!adaBuild) console.log("[FormKita] client/dist belum ada - hanya API yang dilayani.");
+  });
+
+  const shutdown = async (sinyal) => {
+    console.log(`[FormKita] ${sinyal} diterima, menutup server...`);
+    server.close(async () => {
+      await prisma.$disconnect();
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(1), 10000).unref();
+  };
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+}
+
+start().catch(async (e) => {
+  console.error("[FormKita] gagal start:", e);
+  await prisma.$disconnect().catch(() => {});
+  process.exit(1);
+});
