@@ -1,59 +1,81 @@
-/* Ikon SVG inline - tanpa dependensi tambahan. */
+/**
+ * Ikon aplikasi - seluruhnya dari Lucide (lucide-react).
+ *
+ * Semua ikon dikumpulkan di sini, bukan ditulis inline di komponen, supaya
+ * bentuk dan ketebalan garisnya seragam. Nama ekspor sengaja dipertahankan
+ * seperti sebelumnya agar pemakainya tidak perlu ikut berubah.
+ *
+ * Ketebalan 1.8 dipilih supaya seimbang dengan teks antarmuka; bawaan Lucide
+ * (2) terasa terlalu tebal pada ukuran kecil.
+ */
 
+import {
+  Calendar,
+  Camera,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ClipboardList,
+  FileText,
+  GripVertical,
+  Images,
+  LayoutGrid,
+  Lock,
+  Users,
+} from "lucide-react";
+
+const GARIS = 1.8;
+
+/* ---------- navigasi (sidebar & bilah tab) ---------- */
+
+export const IconGrid = () => <LayoutGrid size={18} strokeWidth={GARIS} aria-hidden="true" />;
+export const IconDoc = () => <FileText size={18} strokeWidth={GARIS} aria-hidden="true" />;
+export const IconUser = () => <Users size={18} strokeWidth={GARIS} aria-hidden="true" />;
+export const IconList = () => <ClipboardList size={18} strokeWidth={GARIS} aria-hidden="true" />;
+
+/** Tombol kembali di bilah atas (HP). */
+export const IconKembali = () => <ChevronLeft size={24} strokeWidth={2.2} aria-hidden="true" />;
+
+/* ---------- status & kontrol ---------- */
+
+export const IconLock = () => <Lock size={13} strokeWidth={GARIS} aria-hidden="true" />;
+
+export const CheckIcon = () => <Check size={15} strokeWidth={2} aria-hidden="true" />;
+
+export const CalIcon = () => <Calendar size={16} strokeWidth={1.5} aria-hidden="true" />;
+
+/** Panah dropdown; CSS memutarnya lewat kelas is-open. */
 export const Chevron = ({ open }) => (
-  <svg className={"fk-chev" + (open ? " is-open" : "")} width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
+  <ChevronDown
+    size={16}
+    strokeWidth={GARIS}
+    className={"fk-chev" + (open ? " is-open" : "")}
+    aria-hidden="true"
+  />
 );
 
-export const CheckIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <path d="M3.5 8.5l3 3 6-7" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
+/* ---------- pertanyaan bertipe foto ---------- */
 
-export const CalIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <rect x="2.5" y="3.5" width="11" height="10" rx="1.6" stroke="currentColor" strokeWidth="1.3" />
-    <path d="M2.5 6.2h11M5.5 2.2v2.4M10.5 2.2v2.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-  </svg>
-);
+/** Pegangan seret (drag & drop) untuk menyusun ulang daftar. */
+export const IkonSeret = () => <GripVertical size={18} strokeWidth={GARIS} aria-hidden="true" />;
 
-export const IconGrid = () => (
-  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-    <rect x="3" y="3" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.5" />
-    <rect x="11" y="3" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.5" />
-    <rect x="3" y="11" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.5" />
-    <rect x="11" y="11" width="6" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.5" />
-  </svg>
-);
+export const IkonKamera = () => <Camera size={20} strokeWidth={GARIS} aria-hidden="true" />;
+export const IkonGaleri = () => <Images size={20} strokeWidth={GARIS} aria-hidden="true" />;
 
-export const IconDoc = () => (
-  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-    <path d="M5 2.5h6l4 4V17a.5.5 0 0 1-.5.5h-9A.5.5 0 0 1 5 17V3a.5.5 0 0 1 0-.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-    <path d="M11 2.5V6.5h4M7.5 10h5M7.5 13h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
+/* ---------- lambang ---------- */
 
-export const IconUser = () => (
-  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-    <circle cx="10" cy="6.5" r="3" stroke="currentColor" strokeWidth="1.5" />
-    <path d="M4 16.5c0-2.8 2.7-4.5 6-4.5s6 1.7 6 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-  </svg>
-);
-
-export const IconList = () => (
-  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-    <path d="M7 5.5h9M7 10h9M7 14.5h9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    <circle cx="4" cy="5.5" r="1" fill="currentColor" />
-    <circle cx="4" cy="10" r="1" fill="currentColor" />
-    <circle cx="4" cy="14.5" r="1" fill="currentColor" />
-  </svg>
-);
-
-export const IconLock = () => (
-  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <rect x="3.5" y="7" width="9" height="6.5" rx="1.2" stroke="currentColor" strokeWidth="1.4" />
-    <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.4" />
-  </svg>
+/**
+ * Lambang Kota Banjarbaru sebagai logo aplikasi.
+ * Memakai berkas kecil (logo.webp, ~3,6 KB) - bukan lambang.webp beresolusi
+ * penuh - supaya tidak memakan kuota petugas di lapangan.
+ */
+export const Lambang = ({ className = "" }) => (
+  <img
+    src="/logo.webp"
+    alt=""
+    width="77"
+    height="96"
+    className={("fk-lambang " + className).trim()}
+    aria-hidden="true"
+  />
 );

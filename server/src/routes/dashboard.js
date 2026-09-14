@@ -40,6 +40,7 @@ router.get(
       terbaru: terbaru.map((k) => ({
         id: k.id,
         nomor: k.nomor,
+        judul: k.judul,
         status: k.status,
         createdAt: k.createdAt,
         petugas: bentukTim(k.petugas),

@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../api.js";
 import { useToast } from "../components/Toast.jsx";
-import { Panel, PageHead, Loading, ErrorBox } from "../components/Ui.jsx";
+import { useDialog } from "../components/Dialog.jsx";
+import { Panel, PageHead, Loading, ErrorBox, KunciAdmin } from "../components/Ui.jsx";
+import { useAdmin } from "../lib/admin.js";
 
 export default function PetugasPage() {
   const toast = useToast();
+  const { konfirmasi } = useDialog();
+  const admin = useAdmin();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -62,7 +66,13 @@ export default function PetugasPage() {
   };
 
   const hapus = async (p) => {
-    if (!window.confirm(`Hapus petugas "${p.nama}"?`)) return;
+    const ya = await konfirmasi({
+      judul: `Hapus petugas "${p.nama}"?`,
+      pesan: "Petugas yang masih tercatat di kertas kerja tidak bisa dihapus.",
+      ya: "Hapus",
+      bahaya: true,
+    });
+    if (!ya) return;
     try {
       await api.deletePetugas(p.id);
       await muat();
@@ -76,38 +86,42 @@ export default function PetugasPage() {
     <>
       <PageHead
         title="Data Petugas"
-        sub="Daftar ini menjadi sumber dropdown petugas saat membuat kertas kerja."
+        sub="Daftar Ini Menjadi Sumber Dropdown Petugas Saat Membuat Kertas Kerja."
       />
 
-      <Panel title="Tambah petugas">
-        <div className="fk-newpet">
-          <input
-            className="fk-input"
-            placeholder="Nama petugas"
-            value={form.nama}
-            onChange={(e) => setForm((f) => ({ ...f, nama: e.target.value }))}
-            onKeyDown={(e) => e.key === "Enter" && tambah()}
-          />
-          <input
-            className="fk-input"
-            placeholder="NIP (opsional)"
-            inputMode="numeric"
-            value={form.nip}
-            onChange={(e) => setForm((f) => ({ ...f, nip: e.target.value }))}
-            onKeyDown={(e) => e.key === "Enter" && tambah()}
-          />
-          <button type="button" className="fk-btn" onClick={tambah} disabled={menyimpan}>
-            {menyimpan ? "Menyimpan..." : "Tambah"}
-          </button>
-        </div>
-      </Panel>
+      {admin ? (
+        <Panel title="Tambah Petugas">
+          <div className="fk-newpet">
+            <input
+              className="fk-input"
+              placeholder="Nama Petugas"
+              value={form.nama}
+              onChange={(e) => setForm((f) => ({ ...f, nama: e.target.value }))}
+              onKeyDown={(e) => e.key === "Enter" && tambah()}
+            />
+            <input
+              className="fk-input"
+              placeholder="NIP (Opsional)"
+              inputMode="numeric"
+              value={form.nip}
+              onChange={(e) => setForm((f) => ({ ...f, nip: e.target.value }))}
+              onKeyDown={(e) => e.key === "Enter" && tambah()}
+            />
+            <button type="button" className="fk-btn" onClick={tambah} disabled={menyimpan}>
+              {menyimpan ? "Menyimpan..." : "Tambah"}
+            </button>
+          </div>
+        </Panel>
+      ) : (
+        <KunciAdmin>Menambah, mengubah, dan menghapus petugas hanya bisa dilakukan admin.</KunciAdmin>
+      )}
 
       <Panel title="Daftar petugas" sub={`${list.length} orang`}>
         {error && <ErrorBox onRetry={muat}>{error}</ErrorBox>}
         {loading ? (
           <Loading />
         ) : list.length === 0 ? (
-          <div className="fk-lt-empty">Belum ada petugas.</div>
+          <div className="fk-lt-empty">Belum Ada Petugas.</div>
         ) : (
           <div className="fk-lib-list">
             {list.map((p) =>
@@ -141,18 +155,20 @@ export default function PetugasPage() {
                     <div className="fk-lib-title">{p.nama}</div>
                     <div className="fk-lib-sub">NIP {p.nip || "—"}</div>
                   </div>
-                  <div className="fk-kk-card-actions">
-                    <button
-                      type="button"
-                      className="fk-mini"
-                      onClick={() => setEdit({ id: p.id, nama: p.nama, nip: p.nip })}
-                    >
-                      Ubah
-                    </button>
-                    <button type="button" className="fk-mini is-danger" onClick={() => hapus(p)}>
-                      Hapus
-                    </button>
-                  </div>
+                  {admin && (
+                    <div className="fk-kk-card-actions">
+                      <button
+                        type="button"
+                        className="fk-mini"
+                        onClick={() => setEdit({ id: p.id, nama: p.nama, nip: p.nip })}
+                      >
+                        Ubah
+                      </button>
+                      <button type="button" className="fk-mini is-danger" onClick={() => hapus(p)}>
+                        Hapus
+                      </button>
+                    </div>
+                  )}
                 </div>
               )
             )}

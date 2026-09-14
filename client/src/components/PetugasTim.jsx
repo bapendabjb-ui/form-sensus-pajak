@@ -2,8 +2,8 @@ import { useState } from "react";
 import * as api from "../api.js";
 import CustomSelect from "./CustomSelect.jsx";
 import { useToast } from "./Toast.jsx";
-
-export const PETUGAS_MAKS = 8;
+import { useAdmin } from "../lib/admin.js";
+import { useKonfigurasi } from "../lib/konfigurasi.js";
 
 const labelPetugas = (p) => (p.nip ? `${p.nama} — ${p.nip}` : p.nama);
 
@@ -17,12 +17,14 @@ const labelPetugas = (p) => (p.nip ? `${p.nama} — ${p.nip}` : p.nama);
  */
 export default function PetugasTim({ petugas, value, onChange, onPetugasBaru, galat }) {
   const toast = useToast();
+  const admin = useAdmin();
+  const { petugasMaks } = useKonfigurasi();
   const baris = value && value.length ? value : [null];
   const [formBaru, setFormBaru] = useState(null); // { nama, nip } | null
   const [menyimpan, setMenyimpan] = useState(false);
 
   const terisi = baris.filter(Boolean).length;
-  const penuh = baris.length >= PETUGAS_MAKS;
+  const penuh = baris.length >= petugasMaks;
 
   const pilih = (i, id) => onChange(baris.map((x, j) => (j === i ? id : x)));
   const hapus = (i) => onChange(baris.filter((_, j) => j !== i));
@@ -41,7 +43,7 @@ export default function PetugasTim({ petugas, value, onChange, onPetugasBaru, ga
       const kosong = baris.indexOf(null);
       if (kosong >= 0) onChange(baris.map((x, j) => (j === kosong ? p.id : x)));
       else if (!penuh) onChange([...baris, p.id]);
-      else toast(`Petugas terdaftar, tetapi tim sudah berisi ${PETUGAS_MAKS} orang.`, true);
+      else toast(`Petugas terdaftar, tetapi tim sudah berisi ${petugasMaks} orang.`, true);
 
       setFormBaru(null);
       toast(`${p.nama} ditambahkan ke tim.`);
@@ -58,8 +60,8 @@ export default function PetugasTim({ petugas, value, onChange, onPetugasBaru, ga
         <span className="fk-q-name" style={{ margin: 0 }}>
           Petugas pendataan <span className="fk-star">*</span>
         </span>
-        <span className={"fk-tim-hitung" + (terisi >= PETUGAS_MAKS ? " is-penuh" : "")}>
-          {terisi} dari {PETUGAS_MAKS}
+        <span className={"fk-tim-hitung" + (terisi >= petugasMaks ? " is-penuh" : "")}>
+          {terisi} dari {petugasMaks}
         </span>
       </div>
 
@@ -96,11 +98,11 @@ export default function PetugasTim({ petugas, value, onChange, onPetugasBaru, ga
 
       {!penuh && (
         <button type="button" className="fk-tim-tambah" onClick={tambahBaris}>
-          + Tambah petugas
+          + Tambah Petugas
         </button>
       )}
 
-      {formBaru ? (
+      {admin && (formBaru ? (
         <div className="fk-tim-baru">
           <span className="fk-opts-cap">Daftarkan petugas baru</span>
           <div className="fk-newpet">
@@ -131,10 +133,11 @@ export default function PetugasTim({ petugas, value, onChange, onPetugasBaru, ga
         <button type="button" className="fk-add-opt" onClick={() => setFormBaru({ nama: "", nip: "" })}>
           + Petugas belum terdaftar
         </button>
-      )}
+      ))}
 
       <p className="fk-hint" style={{ marginTop: 0 }}>
-        Petugas nomor 1 menjadi penanggung jawab. Maksimal {PETUGAS_MAKS} orang per kertas kerja.
+        Maksimal {petugasMaks} orang.
+        {!admin && " Petugas baru hanya bisa didaftarkan admin."}
       </p>
     </div>
   );

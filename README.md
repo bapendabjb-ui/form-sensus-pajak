@@ -1,11 +1,12 @@
-# FormKita
+# Sensus Pajak
 
 Sistem entry data & kertas kerja untuk administrasi pajak daerah (**PBJT** — Pajak Barang dan
 Jasa Tertentu). Admin menyusun **bank formulir**; petugas membuat **kertas kerja** bernomor
 otomatis bersama timnya, lalu mengisi **data per formulir** — satu formulir boleh diisi
 berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengekspornya ke CSV.
 
-- **Frontend** — React 18 + Vite, CSS biasa (tanpa framework UI), seluruh antarmuka Bahasa Indonesia
+- **Frontend** — React 18 + Vite, CSS biasa (tanpa framework UI), ikon [Lucide](https://lucide.dev),
+  seluruh antarmuka Bahasa Indonesia
 - **Backend** — Node.js + Express + Prisma ORM
 - **Database** — MySQL 8
 - **Auth** — JWT + bcrypt (khusus admin)
@@ -25,15 +26,20 @@ berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengeksporny
 8. [Format JSON jawaban](#format-json-jawaban)
 9. [Foto](#foto)
 10. [Penomoran anti-duplikat](#penomoran-anti-duplikat)
-11. [Referensi API](#referensi-api)
-12. [Deploy ke Railway](#deploy-ke-railway)
-13. [Pemecahan masalah](#pemecahan-masalah)
+11. [Lokasi (GPS)](#lokasi-gps)
+12. [NIK, NPWP, NOP PBB, RT & RW](#nik-npwp-nop-pbb-rt--rw)
+13. [Menyusun urutan formulir & pertanyaan](#menyusun-urutan-formulir--pertanyaan)
+14. [Batas aplikasi](#batas-aplikasi)
+15. [Referensi API](#referensi-api)
+16. [Deploy ke Railway](#deploy-ke-railway)
+17. [Pemecahan masalah](#pemecahan-masalah)
 
 ---
 
 ## Alur pemakaian
 
-1. **Buat kertas kerja** — nomor 5 digit tampil otomatis; pilih **tim petugas 1–8 orang** dari
+1. **Buat kertas kerja** — nomor 5 digit tampil otomatis; isi **judul** kertas kerja (identitasnya
+   di daftar, mis. "Survei hiburan Kec. Cempaka tahap 1"); pilih **tim petugas 1–8 orang** dari
    data petugas (petugas nomor 1 = penanggung jawab). Petugas yang belum terdaftar bisa
    didaftarkan langsung dari layar ini. Tekan **Buat kertas kerja**.
 2. **Isi data per formulir** — halaman kertas kerja menampilkan seluruh bank formulir.
@@ -41,8 +47,11 @@ berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengeksporny
    dengan formulir yang sama. Hanya formulir yang benar-benar diisi yang tersimpan.
 3. **Foto** — pertanyaan bertipe foto menyediakan **Ambil foto** (kamera belakang) dan
    **Dari galeri**. Foto diperkecil di browser lalu langsung diunggah.
-4. **Tandai selesai** (minimal satu data), **Ekspor CSV**, atau **Ubah petugas** kapan saja.
-   Data yang sudah tersimpan tetap bisa dibuka, diubah, atau dihapus.
+4. **Susun bank formulir** (admin) — tambah pertanyaan dari bilah **Tambah pertanyaan**, lalu
+   seret pegangan ⠿ untuk mengatur urutan formulir maupun urutan pertanyaan di dalamnya.
+5. **Tandai selesai** (minimal satu data), **Ekspor CSV**, atau **Ubah judul** kapan saja.
+   **Ubah petugas** dan penghapusan memerlukan login admin. Data yang sudah tersimpan tetap
+   bisa dibuka dan diubah.
 
 ---
 
@@ -67,7 +76,9 @@ untuk HP lebih dulu (desktop tetap memakai sidebar).
   tawaran **Lanjutkan isian**. Draf dihapus setelah data berhasil tersimpan. Foto pada draf yang
   lebih tua dari 20 jam perlu diambil ulang (unggahan yang tak pernah disimpan dibersihkan server
   setelah 24 jam).
-- **Konfirmasi** muncul bila meninggalkan isian yang belum disimpan.
+- **Dialog milik aplikasi** — konfirmasi hapus dan peringatan "belum disimpan" memakai dialog
+  sendiri, bukan `window.confirm` bawaan browser: bahasanya Indonesia, tombolnya setinggi jari
+  dan menempel di dasar layar, serta bisa ditutup dengan tombol Kembali HP.
 - **Pasang ke layar utama** — Chrome Android: menu ⋮ → *Instal aplikasi / Tambahkan ke layar
   utama*. Safari iPhone: *Bagikan* → *Tambah ke Layar Utama*. Aplikasi lalu terbuka tanpa bilah
   alamat, langsung ke daftar kertas kerja. Fitur ini membutuhkan HTTPS (sudah tersedia di Railway).
@@ -84,27 +95,35 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 ```
 .
 ├── client/                         React (Vite)
+│   ├── public/                     lambang.webp (sumber) + ikon turunannya, manifest
 │   └── src/
 │       ├── App.jsx                 sidebar, navigasi, status login
 │       ├── api.js                  klien REST, token, unggah foto
 │       ├── styles.css
 │       ├── lib/
-│       │   ├── format.js           format tanggal & ribuan, daftar tipe pertanyaan
-│       │   ├── answers.js          konversi nilai UI <-> JSON API, validasi wajib
+│       │   ├── format.js           format tanggal, ribuan, NIK/NPWP/NOP, daftar tipe pertanyaan
+│       │   ├── answers.js          konversi nilai UI <-> JSON API, validasi wajib & panjang digit
 │       │   ├── ringkas.js          judul & ringkasan data untuk daftar
 │       │   ├── router.js           alamat per layar + tombol Kembali HP + konfirmasi keluar
+│       │   ├── admin.js            status login admin untuk komponen dalam
+│       │   ├── konfigurasi.js      batas aplikasi dari server (petugasMaks dll.)
+│       │   ├── useDragUrut.js      seret (drag & drop) untuk menyusun ulang daftar
 │       │   ├── useMobile.js        deteksi tata letak HP
 │       │   └── useOutside.js
 │       ├── components/
+│       │   ├── Icons.jsx           semua ikon (Lucide) + lambang, satu tempat
 │       │   ├── CustomSelect.jsx    dropdown kustom (BUKAN <select>)
 │       │   ├── DatePicker.jsx      kalender kustom (BUKAN <input type="date">)
 │       │   ├── MoneyInput.jsx      nominal berformat ribuan + awalan "Rp"
 │       │   ├── FotoInput.jsx       kamera/galeri, perkecil, unggah, pratinjau
 │       │   ├── PetugasTim.jsx      penyusun tim petugas 1–8 orang
+│       │   ├── LoginAdmin.jsx      kartu login admin (dipakai /masuk & /formulir)
 │       │   ├── Sheet.jsx           lembar pilihan dari bawah layar (HP)
 │       │   ├── WilayahInput.jsx    kecamatan & kelurahan bertingkat
-│       │   ├── Fields.jsx          semua 11 tipe input pengisian
-│       │   └── Icons.jsx, Toast.jsx, Ui.jsx
+│       │   ├── LokasiInput.jsx     titik GPS + akurasi
+│       │   ├── Dialog.jsx          dialog konfirmasi aplikasi (pengganti window.confirm)
+│       │   ├── Fields.jsx          semua 16 tipe input pengisian (termasuk NIK, NPWP, NOP, RT & RW)
+│       │   └── Toast.jsx, Ui.jsx
 │       └── pages/
 │           ├── Dashboard.jsx
 │           ├── KertasKerjaPage.jsx daftar · buat · detail · isi data
@@ -119,11 +138,12 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │   │   └── seed.js                 data contoh (formulir + petugas)
 │   └── src/
 │       ├── config.js               pembacaan .env + guard produksi
+│       ├── batas.js                petugasMaks & fotoMaks - satu sumber untuk klien juga
 │       ├── auth.js                 bcrypt, JWT, middleware admin, seed admin
 │       ├── nomor.js                penomoran 5 digit dalam transaksi
 │       ├── answers.js              normalisasi & validasi nilai per tipe
 │       ├── entri.js                simpan data: jawaban, rincian tarif, tautan foto
-│       ├── foto.js                 simpan/hapus berkas foto + pembersih foto yatim
+│       ├── foto.js                 simpan/hapus berkas foto + pembersih foto yatim (per batch)
 │       ├── wilayah.js              data kecamatan & kelurahan Kota Banjarbaru
 │       ├── bentuk.js               bentuk keluaran JSON bersama
 │       ├── format.js               format tanggal/uang + penyusun CSV
@@ -235,12 +255,40 @@ contoh (termasuk pertanyaan foto dan kecamatan & kelurahan) dan 3 petugas. Manua
 
 ## Hak akses
 
-| Aksi                                                   | Perlu login admin |
-| ------------------------------------------------------ | :---------------: |
-| Dashboard, kertas kerja, isi data, foto, petugas        |        —          |
-| **Membuat/mengubah/menghapus formulir**                |       ✅          |
+Prinsipnya: **pekerjaan lapangan terbuka, pengelolaan dan penghapusan butuh admin.**
+Petugas tidak perlu akun — mereka membuka aplikasi dan langsung bekerja.
 
-Menu **Formulir** di sidebar bertanda gembok selama belum login.
+| Aksi                                                                         | Perlu login admin |
+| ---------------------------------------------------------------------------- | :---------------: |
+| Melihat dashboard, kertas kerja, formulir, dan daftar petugas                 |        —          |
+| Membuat kertas kerja beserta judul & timnya, menandai selesai, mengubah judul |        —          |
+| Mengisi data, mengubah data, mengunggah & melihat foto, ekspor CSV            |        —          |
+| **Mengubah tim petugas kertas kerja yang sudah dibuat**                       |       ✅          |
+| **Menambah / mengubah / menghapus petugas**                                   |       ✅          |
+| **Menghapus kertas kerja**                                                    |       ✅          |
+| **Menghapus data (entri)**                                                    |       ✅          |
+| **Membuat / mengubah / menghapus formulir**                                   |       ✅          |
+
+Aksi khusus admin **tidak ditampilkan** selama belum login; di tempatnya muncul
+pemberitahuan singkat beserta tombol **Masuk admin**. Menu **Formulir** di sidebar
+dan bilah tab bertanda gembok. Login bisa dibuka kapan saja lewat `/masuk`
+(tombol **Masuk admin** di kaki sidebar, atau **Masuk** di bilah atas pada HP).
+
+Menyembunyikan tombol hanya untuk kenyamanan — **server memeriksa token pada setiap
+aksi khusus admin** dan menjawab `401` bila tidak ada, jadi memanggil API langsung
+pun tetap ditolak.
+
+> **Belum tertutup:** `GET /api/foto/:id` masih terbuka dan id-nya berurutan, sehingga
+> foto bisa dienumerasi oleh siapa pun yang tahu alamat aplikasinya. Menutupnya
+> memerlukan sesi untuk petugas juga (mis. kode akses bersama), karena `<img src>`
+> tidak bisa mengirim header `Authorization`.
+
+### Mengubah pembagian ini
+
+Semuanya ditentukan oleh ada-tidaknya middleware `requireAdmin` pada sebuah route.
+Misalnya, agar petugas boleh menghapus datanya sendiri, hapus `requireAdmin` dari
+`DELETE` di [`server/src/routes/entri.js`](server/src/routes/entri.js) lalu buang
+`auth: true` pada `deleteEntri` di [`client/src/api.js`](client/src/api.js).
 
 ---
 
@@ -250,10 +298,10 @@ Menu **Formulir** di sidebar bertanda gembok selama belum login.
 | ----------------------- | --------------------------------------------------------------------------- |
 | `admin`                 | `username` unik + `password_hash`                                           |
 | `petugas`               | Nama & NIP — sumber dropdown tim petugas                                    |
-| `formulir`              | Bank formulir                                                               |
-| `pertanyaan`            | `tipe` (11 enum, termasuk `foto` & `wilayah`), `label`, `wajib`, `range_harga`, `urutan` |
+| `formulir`              | Bank formulir + `urutan` (susunan tampil, diatur admin lewat seret)         |
+| `pertanyaan`            | `tipe` (16 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `nik`, `npwp` & `nop`), `label`, `wajib`, `range_harga`, `urutan` |
 | `pertanyaan_opsi`       | Opsi dropdown/radio/checkbox & daftar "Jenis tarif"                         |
-| `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status`                                        |
+| `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `judul` (diketik petugas, wajib), `status`      |
 | `kertas_kerja_petugas`  | Tim petugas (1–8), `urutan` 0 = penanggung jawab                            |
 | `entri`                 | Satu data: `kertas_kerja_id` + `formulir_id` (boleh berulang)               |
 | `jawaban`               | `nilai` JSON, **UNIQUE(entri_id, pertanyaan_id)**                           |
@@ -272,6 +320,18 @@ Perilaku relasi:
 
 ### Migrasi dari versi sebelumnya
 
+Migrasi `20260914130000_tipe_nop` menambah satu nilai enum tipe pertanyaan: `nop`
+(Nomor Objek Pajak PBB, 18 digit).
+
+Migrasi `20260914120000_urutan_formulir_identitas` menambah kolom `formulir.urutan` —
+formulir lama diberi nomor urut mengikuti urutan pembuatannya sehingga susunan yang
+selama ini tampil tidak berubah — dan menambah tiga nilai enum tipe pertanyaan:
+`rtrw`, `nik`, dan `npwp`.
+
+Migrasi `20260914100000_judul_kertas_kerja` menambah kolom `judul` dan mengisinya untuk
+kertas kerja lama dengan `"Kertas kerja <nomor>"`, sehingga tidak ada baris yang tampil
+tanpa judul di daftar. Judul baru wajib diketik petugas saat membuat.
+
 Migrasi `20260913120000_entri_tim_foto` memindahkan data lama, bukan membuangnya:
 petugas tunggal menjadi anggota pertama tim, setiap formulir terpilih yang sudah punya
 jawaban menjadi satu entri, dan jawaban serta rincian tarifnya ditautkan ke entri itu.
@@ -289,6 +349,9 @@ Kolom `kertas_kerja.nama_objek` dihapus — nama objek kini diisi lewat pertanya
 | `linetariff`                                              | array `{ layanan, jenis, harga_min, harga_max }`  |
 | `foto`                                                    | array `{ id, nama }`                              |
 | `wilayah`                                                 | `{ kecamatan, kode_kecamatan, kelurahan, kode_kelurahan }` |
+| `lokasi`                                                  | `{ lat, lon, akurasi, ketinggian, waktu }`        |
+| `rtrw`                                                    | `{ rt, rw }` — dua string tepat 3 digit (`"007"`) |
+| `nik`, `npwp`, `nop`                                      | string digit (`"3172010101010001"`)               |
 
 `harga_max` **null** = harga tunggal; **terisi** = rentang (diatur per baris, hanya bila admin
 menyalakan **"Izinkan harga rentang"**). Server selalu menormalkan nilai masuk: string di-`trim`,
@@ -307,9 +370,62 @@ mana pun. Saat data disimpan, id foto dikirim di jawaban lalu ditautkan ke entri
 - **Tidak bisa dicuri antar-data** — id foto yang sudah milik entri lain diabaikan.
 - **Foto yang dilepas** saat mengubah data dihapus dari disk setelah penyimpanan berhasil.
 - **Pembersih otomatis** (saat start & tiap 6 jam): menghapus unggahan yang tidak disimpan
-  dalam 24 jam, serta berkas di disk yang tidak lagi tercatat di database.
+  dalam 24 jam, serta berkas di disk yang tidak lagi tercatat di database. Keduanya
+  diproses **500 berkas sekali jalan** — disk ditelusuri sambil jalan dan hanya berkas
+  yang sudah cukup tua yang ditanyakan ke database, jadi pemakaian memorinya tetap sama
+  baik ada seratus foto maupun ratusan ribu. Berkas berumur < 30 menit selalu dilewati
+  agar unggahan yang sedang berjalan tidak ikut terhapus.
 
 Berkas disajikan lewat `GET /api/foto/:id`, jadi hanya foto yang tercatat yang bisa diakses.
+
+---
+
+## Lokasi (GPS)
+
+Tipe pertanyaan **Lokasi (GPS)** menyimpan satu titik koordinat beserta akurasinya.
+
+Akurasi diperoleh dengan **mengamati** posisi, bukan sekali ambil. Pembacaan pertama sebuah
+perangkat biasanya berasal dari jaringan seluler/Wi-Fi dan bisa meleset ratusan meter; setelah
+beberapa detik GPS mengunci lebih banyak satelit dan angkanya membaik. Karena itu petugas menekan
+**Ambil lokasi** lalu:
+
+1. `watchPosition` berjalan dengan `enableHighAccuracy` dan `maximumAge: 0` (tolak posisi cache),
+2. tiap pembacaan dibandingkan — hanya yang **paling akurat** yang disimpan,
+3. pengamatan berhenti sendiri begitu akurasi **≤ 10 m**, atau setelah **12 detik tanpa perbaikan
+   sama sekali** — hitungannya disetel ulang tiap kali angkanya membaik, jadi perangkat yang masih
+   menurunkan akurasinya tidak dipotong di tengah jalan (pengaman keras: 60 detik),
+4. petugas boleh menekan **Tunggu lebih lama** untuk satu ronde tambahan tanpa kehilangan angka
+   terbaik, berhenti lebih awal, atau mengambil ulang di tempat terbuka.
+
+Hasilnya tampil sebagai **dua kartu** — Lintang dan Bujur — masing-masing dengan angka desimal
+6 digit (untuk disalin ke aplikasi lain) dan bentuk derajat/menit/detik di bawahnya
+(`3°26'21.1" LS`), bentuk yang lazim dibaca di peta cetak dan dokumen. Tombol **Salin koordinat**
+menyalin `lat, lon` ke papan klip.
+
+Akurasi ditampilkan sebagai lencana berwarna: hijau ≤ 10 m, kuning ≤ 30 m, merah di atas itu —
+jadi petugas tahu kapan hasilnya layak disimpan. Tersedia juga tautan **Buka di peta**.
+
+### Kalau akurasinya mentok kasar (puluhan–ratusan meter)
+
+Sebabnya bisa dibaca dari pola pembacaan yang tampil selama pencarian
+(`… terbaik sejauh ini ±87 m · 1 pembacaan`):
+
+| Gejala | Artinya |
+| ------ | -------- |
+| Akurasi ≥ 50 m dan hanya **1–2 pembacaan** | Hampir pasti **bukan sinyal satelit**, melainkan posisi tebakan dari Wi-Fi / menara seluler. Posisinya tidak pernah berubah, jadi `watchPosition` tidak pernah berbunyi lagi. Inilah yang terjadi di **laptop/PC — perangkatnya memang tidak punya penerima GPS** |
+| Akurasi kasar tetapi pembacaannya banyak | GPS sedang bekerja tetapi sinyal satelit tertutup — di dalam ruangan, di bawah atap seng, atau terhalang gedung |
+
+Jadi angka seperti **±87 m dengan "1 pembacaan"** bukan kerusakan aplikasi: itu tanda perangkatnya
+tidak sedang memakai satelit. Ujilah dari HP, lewat `https://`, dengan mode akurasi tinggi menyala,
+di tempat terbuka — di sana angkanya biasanya turun ke 5–20 m.
+
+Yang tersimpan: `lat` & `lon` (7 desimal ≈ 1 cm), `akurasi` dan `ketinggian` dalam meter, serta
+`waktu` pengambilan. Server menolak koordinat di luar jangkauan sah (lat ±90, lon ±180) dengan
+menganggapnya kosong, sehingga pertanyaan wajib akan gagal validasi. Di CSV, sel berisi
+`-3.4456123, 114.8412988 (±8 m)` — bisa langsung ditempel ke aplikasi peta mana pun.
+
+> Geolocation hanya berjalan di **konteks aman**: HTTPS atau `localhost`. Di Railway sudah HTTPS.
+> Petugas juga harus mengizinkan akses lokasi saat browser bertanya.
 
 ---
 
@@ -329,6 +445,50 @@ Untuk menambah atau mengubah wilayah, sunting `server/src/wilayah.js` lalu deplo
 
 ---
 
+## NIK, NPWP, NOP PBB, RT & RW
+
+Empat tipe pertanyaan khusus identitas. Semuanya hanya menerima angka — huruf dan tanda baca
+dibuang saat diketik — dan panjang digitnya diperiksa **dua kali**: di browser sebelum kirim
+(`client/src/lib/answers.js`) dan lagi di server sebelum simpan (`server/src/answers.js`),
+supaya nilai yang salah panjang tidak pernah masuk database.
+
+| Tipe            | Panjang            | Catatan                                                            |
+| --------------- | ------------------ | ------------------------------------------------------------------ |
+| **NIK**         | tepat **16** digit | Sesuai KTP-el. Ditampilkan berkelompok empat: `3172 0101 0101 0001` |
+| **NPWP**        | **15–17** digit    | 15 = format lama, 16 = NPWP baru (memakai NIK), 17 = NITKU          |
+| **NOP PBB**     | tepat **18** digit | Nomor Objek Pajak. Ditampilkan `63.72.010.001.002-0123.0`            |
+| **RT & RW**     | masing-masing **3** digit | Dua kolom terpisah, disimpan sebagai `{ rt, rw }`            |
+
+- Di bawah kolom NIK/NPWP/NOP ada penghitung `12/16 digit` yang berubah kuning selama belum cukup.
+- RT/RW yang diketik pendek dilengkapi nol di depan saat kursor pindah kolom — `7` menjadi `007`.
+- Mengisi salah satu dari RT atau RW saja ditolak; keduanya harus lengkap. Pertanyaan yang tidak
+  ditandai **wajib** boleh dikosongkan sepenuhnya.
+- NPWP 15 digit ditampilkan bertanda titik (`09.123.456.7-890.123`) di isian, ringkasan data, dan
+  CSV. Titik itu hanya hiasan — yang tersimpan tetap deret digitnya saja.
+- NOP dikelompokkan sambil diketik mengikuti susunan resminya — provinsi 2, kabupaten/kota 2,
+  kecamatan 3, kelurahan 3, blok 3, nomor urut objek 4, kode khusus 1.
+
+---
+
+## Menyusun urutan formulir & pertanyaan
+
+Urutan diatur admin di halaman **Bank Formulir**, dengan menyeret pegangan ⠿ (`useDragUrut.js`).
+Karena memakai *Pointer Events*, bukan HTML5 drag-and-drop, cara ini jalan sama baiknya dengan
+tetikus maupun sentuhan layar HP. Halaman ikut tergulir sendiri saat seretan menyentuh tepi layar.
+
+| Yang diurutkan       | Cara simpan                                                              |
+| -------------------- | ------------------------------------------------------------------------ |
+| **Urutan formulir**  | Langsung dikirim ke server saat dilepas (`PUT /formulir/urutan`); bila gagal, susunan kembali seperti semula |
+| **Urutan pertanyaan** | Ikut tersimpan bersama formulir saat menekan **Simpan formulir**         |
+
+Untuk papan ketik dan pembaca layar, pegangan ⠿ bisa difokuskan lalu digeser dengan **panah
+atas/bawah**. Daftar pertanyaan juga masih punya tombol ▲ ▼ seperti sebelumnya.
+
+Urutan formulir dipakai konsisten di seluruh aplikasi: daftar bank formulir, daftar formulir di
+halaman kertas kerja, pengelompokan data terkumpul, dan urutan kolom pada ekspor CSV.
+
+---
+
 ## Penomoran anti-duplikat
 
 Nomor digenerate **di server, dalam satu transaksi** bersama pembuatan barisnya:
@@ -341,6 +501,19 @@ SELECT last_nomor FROM nomor_counter WHERE id = 1;   -- -> LPAD 5 digit
 `UPDATE` mengunci baris counter sampai transaksi selesai, sehingga pembuatan bersamaan tetap
 mendapat nomor berbeda. `kertas_kerja.nomor` juga `UNIQUE` sebagai pengaman terakhir. Nomor
 di layar "Buat kertas kerja" hanya pratinjau.
+
+---
+
+## Batas aplikasi
+
+Angka batas hanya ditulis sekali, di [`server/src/batas.js`](server/src/batas.js):
+`PETUGAS_MAKS` (8) dan `FOTO_MAKS_PER_PERTANYAAN` (10). Klien membacanya lewat
+`GET /api/konfigurasi` (dimuat sekali per sesi) sehingga tampilan dan validasi server
+tidak pernah berbeda. Untuk mengubahnya, sunting `batas.js` lalu deploy ulang — tidak
+ada angka kembar yang perlu ikut diubah.
+
+`client/src/lib/konfigurasi.js` menyimpan nilai sementara yang dipakai hanya selama
+jawaban server belum tiba, supaya layar tidak berkedip saat pertama kali dibuka.
 
 ---
 
@@ -360,9 +533,9 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | Method   | Endpoint       | Keterangan                                   |
 | -------- | -------------- | -------------------------------------------- |
 | `GET`    | `/petugas`     | Daftar petugas                               |
-| `POST`   | `/petugas`     | `{ nama, nip }`                              |
-| `PUT`    | `/petugas/:id` | Ubah nama / NIP                              |
-| `DELETE` | `/petugas/:id` | **409** bila masih ada di tim kertas kerja   |
+| `POST`   | `/petugas`     | 🔒 `{ nama, nip }`                           |
+| `PUT`    | `/petugas/:id` | 🔒 Ubah nama / NIP                           |
+| `DELETE` | `/petugas/:id` | 🔒 **409** bila masih ada di tim kertas kerja |
 
 ### Formulir
 
@@ -372,6 +545,7 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | `GET`    | `/formulir/:id` | Formulir lengkap (pertanyaan + opsi)                         |
 | `POST`   | `/formulir`     | 🔒 Simpan formulir beserta pertanyaan & opsinya              |
 | `PUT`    | `/formulir/:id` | 🔒 Idem, mempertahankan id pertanyaan yang dikirim ulang     |
+| `PUT`    | `/formulir/urutan` | 🔒 `{ ids: [...] }` — susun ulang urutan tampil bank formulir |
 | `DELETE` | `/formulir/:id` | 🔒 **409** bila sudah diisi; `?force=true` tetap menghapus   |
 
 ### Kertas kerja
@@ -380,12 +554,13 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | -------- | --------------------------------- | --------------------------------------------------------- |
 | `GET`    | `/kertas-kerja`                   | Daftar + tim petugas + `jumlahData`                       |
 | `GET`    | `/kertas-kerja/nomor-berikutnya`  | Pratinjau nomor + `petugasMaks` (8)                       |
-| `POST`   | `/kertas-kerja`                   | `{ petugasIds: [1..8 id] }` → nomor otomatis              |
+| `POST`   | `/kertas-kerja`                   | `{ judul, petugasIds: [1..8 id] }` → nomor otomatis       |
 | `GET`    | `/kertas-kerja/:id`               | Tim petugas, seluruh entri, definisi formulir yang diisi  |
-| `PUT`    | `/kertas-kerja/:id/petugas`       | `{ petugasIds }` — ganti tim                              |
+| `PUT`    | `/kertas-kerja/:id/judul`         | `{ judul }` — ganti judul (wajib terisi)                  |
+| `PUT`    | `/kertas-kerja/:id/petugas`       | 🔒 `{ petugasIds }` — ganti tim                           |
 | `PUT`    | `/kertas-kerja/:id/status`        | `{ status }` — `selesai` butuh minimal 1 data (**422**)   |
 | `POST`   | `/kertas-kerja/:id/entri`         | `{ formulirId, jawaban }` — tambah satu data              |
-| `DELETE` | `/kertas-kerja/:id`               | Hapus beserta seluruh data & foto                         |
+| `DELETE` | `/kertas-kerja/:id`               | 🔒 Hapus beserta seluruh data & foto                      |
 | `GET`    | `/kertas-kerja/:id/export`        | Unduh CSV                                                 |
 
 ### Data (entri)
@@ -394,7 +569,7 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | -------- | ------------ | --------------------------------------------- |
 | `GET`    | `/entri/:id` | Satu data + formulirnya + nomor kertas kerja  |
 | `PUT`    | `/entri/:id` | `{ jawaban }` — ubah data                     |
-| `DELETE` | `/entri/:id` | Hapus data beserta fotonya                    |
+| `DELETE` | `/entri/:id` | 🔒 Hapus data beserta fotonya                 |
 
 Body `jawaban` berbentuk `{ "<pertanyaanId>": nilai }` (lihat format di atas). Kolom wajib
 **selalu** divalidasi saat menyimpan data; bila ada yang kosong server menjawab **422**
@@ -413,6 +588,8 @@ Body `jawaban` berbentuk `{ "<pertanyaanId>": nilai }` (lihat format di atas). K
 | ------ | ------------------ | --------------------------------------------------------------------------------- |
 | `GET`  | `/dashboard/stats` | Kertas kerja, selesai, data, foto, formulir, petugas + 5 kertas kerja terbaru     |
 | `GET`  | `/health`          | Health check (dipakai Railway)                                                    |
+| `GET`  | `/konfigurasi`     | Batas aplikasi: `petugasMaks`, `fotoMaksPerPertanyaan`, `uploadMaksMb`            |
+| `GET`  | `/wilayah`         | Kecamatan & kelurahan Kota Banjarbaru                                             |
 
 ### Bentuk error
 
@@ -422,7 +599,7 @@ ditemukan · `409` data masih dipakai · `422` validasi gagal.
 
 ### Ekspor CSV
 
-Diawali **BOM UTF-8** agar rapi di Excel. **Satu baris per data.** Kolom: `Nomor`, `Status`,
+Diawali **BOM UTF-8** agar rapi di Excel. **Satu baris per data.** Kolom: `Nomor`, `Judul`, `Status`,
 `Petugas` (nama tim digabung `; `), `NIP`, `Formulir`, `No. data`, `Waktu input`, lalu satu kolom
 per pertanyaan berjudul `Judul formulir - Label`. Sel milik formulir lain dibiarkan kosong;
 pertanyaan foto berisi tautan lengkap ke fotonya.

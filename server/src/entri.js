@@ -7,13 +7,16 @@
  */
 
 const prisma = require("./prisma");
-const { normalizeNilai, nilaiTerisi, barisRincianTarif } = require("./answers");
-const { FOTO_MAKS_PER_PERTANYAAN } = require("./foto");
+const { normalizeNilai, nilaiTerisi, pesanFormat, barisRincianTarif } = require("./answers");
+const { FOTO_MAKS_PER_PERTANYAAN } = require("./batas");
 const { includePertanyaan, bentukFormulir, petaJawaban } = require("./bentuk");
 const { notFound } = require("./http");
 
 /**
  * Siapkan jawaban dari kiriman klien.
+ *
+ * Dua lapis pemeriksaan: kolom wajib harus terisi, dan kolom identitas
+ * (NIK / NPWP / NOP / RT & RW) harus benar panjang digitnya bila diisi.
  *
  * @param {object} formulir  formulir Prisma lengkap dengan pertanyaan
  * @param {object} masuk     { [pertanyaanId]: nilai }
@@ -57,6 +60,9 @@ async function siapkanJawaban(formulir, masuk, entriId) {
 
     if (q.wajib && !nilaiTerisi(q.tipe, nilai)) {
       siap.errors[q.id] = q.tipe === "foto" ? "Tambahkan minimal satu foto." : "Kolom ini wajib diisi.";
+    } else {
+      const galat = pesanFormat(q.tipe, nilai);
+      if (galat) siap.errors[q.id] = galat;
     }
 
     siap.baris.push({ pertanyaanId: q.id, nilai });
@@ -112,7 +118,12 @@ async function muatEntri(id) {
   if (!e) throw notFound("Data tidak ditemukan.");
   return {
     id: e.id,
-    kertasKerja: { id: e.kertasKerja.id, nomor: e.kertasKerja.nomor, status: e.kertasKerja.status },
+    kertasKerja: {
+      id: e.kertasKerja.id,
+      nomor: e.kertasKerja.nomor,
+      judul: e.kertasKerja.judul,
+      status: e.kertasKerja.status,
+    },
     formulir: bentukFormulir(e.formulir),
     jawaban: petaJawaban(e.jawaban),
     createdAt: e.createdAt,

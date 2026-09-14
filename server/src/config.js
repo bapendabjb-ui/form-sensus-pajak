@@ -28,11 +28,11 @@ config.isProd = config.nodeEnv === "production";
 
 if (!config.jwtSecret) {
   if (config.isProd) {
-    console.error("[FormKita] JWT_SECRET wajib diisi di produksi. Hentikan proses.");
+    console.error("[Sensus Pajak] JWT_SECRET wajib diisi di produksi. Hentikan proses.");
     process.exit(1);
   }
-  config.jwtSecret = "formkita-dev-secret-jangan-dipakai-di-produksi";
-  console.warn("[FormKita] JWT_SECRET belum diset - memakai secret pengembangan.");
+  config.jwtSecret = "sensus-pajak-dev-secret-jangan-dipakai-di-produksi";
+  console.warn("[Sensus Pajak] JWT_SECRET belum diset - memakai secret pengembangan.");
 }
 
 module.exports = config;

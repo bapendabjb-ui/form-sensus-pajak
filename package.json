@@ -1,8 +1,8 @@
 {
-  "name": "formkita",
+  "name": "sensus-pajak",
   "private": true,
   "version": "1.0.0",
-  "description": "FormKita - sistem entry data & kertas kerja administrasi pajak daerah (PBJT)",
+  "description": "Sensus Pajak - sistem entry data & kertas kerja administrasi pajak daerah (PBJT)",
   "engines": {
     "node": ">=18.18"
   },

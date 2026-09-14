@@ -9,6 +9,8 @@
  *   range                                     : { min: number|null, max: number|null }
  *   linetariff                                : array { layanan, jenis, harga_min, harga_max }
  *                                               (harga_max null = harga tunggal)
+ *   rtrw                                      : { rt, rw } - dua string 3 digit
+ *   nik / npwp / nop                          : string digit (16 / 15-17 / 18 digit)
  */
 
 const { normalWilayah } = require("./wilayah");
@@ -25,6 +27,11 @@ const TIPE = [
   "linetariff",
   "foto",
   "wilayah",
+  "lokasi",
+  "rtrw",
+  "nik",
+  "npwp",
+  "nop",
 ];
 
 /** Tipe yang menyimpan daftar opsi di tabel pertanyaan_opsi. */
@@ -42,15 +49,62 @@ function toNumberOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Angka desimal apa adanya, titik sebagai pemisah desimal.
+ *
+ * Koordinat TIDAK boleh lewat toNumberOrNull(): fungsi itu membuang titik
+ * karena memperlakukannya sebagai pemisah ribuan, sehingga -3.4521234 akan
+ * berubah menjadi -34521234.
+ */
+function toDesimal(v) {
+  if (v === "" || v === null || v === undefined) return null;
+  const n = typeof v === "number" ? v : Number(String(v).trim());
+  return Number.isFinite(n) ? n : null;
+}
+
 const toTrimmedString = (v) => (v === null || v === undefined ? "" : String(v).trim());
 
+/** Sisakan hanya angka, lalu potong pada `maks` digit. */
+const hanyaDigit = (v, maks) => toTrimmedString(v).replace(/\D/g, "").slice(0, maks);
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Panjang digit yang sah per tipe identitas.
+ *   nik  : 16 digit (sesuai KTP-el)
+ *   npwp : 15 digit (format lama), 16 digit (NPWP baru = NIK), 17 digit (NITKU)
+ *   nop  : 18 digit (NOP PBB: provinsi 2, kab/kota 2, kecamatan 3, kelurahan 3,
+ *          blok 3, nomor urut objek 4, kode khusus 1)
+ *   rtrw : masing-masing tepat 3 digit
+ */
+const PANJANG_NIK = 16;
+const PANJANG_NPWP_MIN = 15;
+const PANJANG_NPWP_MAKS = 17;
+const PANJANG_NOP = 18;
+const PANJANG_RTRW = 3;
+
+/**
+ * Batas aman penyimpanan digit identitas. Sengaja lebih longgar dari panjang
+ * yang sah supaya nilai kepanjangan tetap utuh saat diperiksa pesanFormat()
+ * dan ditolak dengan jelas, bukan dipotong diam-diam menjadi "kelihatan benar".
+ */
+const PANJANG_SIMPAN_MAKS = 40;
+
+/** Bulatkan ke `desimal` angka di belakang koma. */
+const bulat = (n, desimal) => {
+  const f = 10 ** desimal;
+  return Math.round(n * f) / f;
+};
+
+const LOKASI_KOSONG = { lat: null, lon: null, akurasi: null, ketinggian: null, waktu: "" };
 
 /** Bentuk nilai kosong per tipe, dipakai sebagai fallback. */
 function nilaiKosong(tipe) {
   if (tipe === "checkbox" || tipe === "linetariff" || tipe === "foto") return [];
   if (tipe === "range") return { min: null, max: null };
+  if (tipe === "lokasi") return { ...LOKASI_KOSONG };
   if (tipe === "wilayah") return normalWilayah("", "");
+  if (tipe === "rtrw") return { rt: "", rw: "" };
   return "";
 }
 
@@ -106,6 +160,47 @@ function normalizeNilai(tipe, raw) {
       return normalWilayah(toTrimmedString(obj.kecamatan), toTrimmedString(obj.kelurahan));
     }
 
+    case "lokasi": {
+      // { lat, lon, akurasi, ketinggian, waktu } dari GPS perangkat petugas.
+      const obj = raw && typeof raw === "object" ? raw : {};
+      const lat = toDesimal(obj.lat);
+      const lon = toDesimal(obj.lon);
+
+      // Koordinat di luar jangkauan yang sah dianggap tidak terisi sama sekali.
+      if (lat === null || lon === null || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        return { ...LOKASI_KOSONG };
+      }
+
+      const akurasi = toDesimal(obj.akurasi);
+      const ketinggian = toDesimal(obj.ketinggian);
+      const waktu = toTrimmedString(obj.waktu);
+      const stempel = waktu && !Number.isNaN(Date.parse(waktu)) ? new Date(waktu).toISOString() : "";
+
+      return {
+        // 7 desimal ~ 1 cm; selebihnya hanya derau GPS.
+        lat: bulat(lat, 7),
+        lon: bulat(lon, 7),
+        akurasi: akurasi === null || akurasi < 0 ? null : bulat(akurasi, 1),
+        ketinggian: ketinggian === null ? null : bulat(ketinggian, 1),
+        waktu: stempel,
+      };
+    }
+
+    case "nik":
+    case "npwp":
+    case "nop":
+      return hanyaDigit(raw, PANJANG_SIMPAN_MAKS);
+
+    case "rtrw": {
+      // { rt, rw } - dilengkapi nol di depan supaya selalu 3 digit ("7" -> "007").
+      const obj = raw && typeof raw === "object" ? raw : {};
+      const rapikan = (v) => {
+        const d = hanyaDigit(v, PANJANG_RTRW);
+        return d === "" ? "" : d.padStart(PANJANG_RTRW, "0");
+      };
+      return { rt: rapikan(obj.rt), rw: rapikan(obj.rw) };
+    }
+
     case "foto": {
       // Array { id, nama }. Keberadaan & kepemilikan foto diperiksa di src/entri.js.
       if (!Array.isArray(raw)) return [];
@@ -136,10 +231,60 @@ function nilaiTerisi(tipe, nilai) {
       return !!nilai && typeof nilai === "object" && nilai.min !== null && nilai.max !== null;
     case "wilayah":
       return !!nilai && typeof nilai === "object" && !!nilai.kecamatan && !!nilai.kelurahan;
+    case "lokasi":
+      return !!nilai && typeof nilai === "object" && nilai.lat !== null && nilai.lon !== null;
     case "linetariff":
       return Array.isArray(nilai) && nilai.some((r) => toTrimmedString(r.layanan) !== "");
+    case "rtrw":
+      return !!nilai && typeof nilai === "object" && !!nilai.rt && !!nilai.rw;
     default:
       return toTrimmedString(nilai) !== "";
+  }
+}
+
+/**
+ * Periksa panjang digit tipe identitas (nik / npwp / nop / rtrw).
+ *
+ * Hanya berlaku untuk nilai yang SUDAH terisi - kolom kosong diurus validasi
+ * "wajib diisi" supaya pertanyaan opsional tidak ikut ditolak.
+ *
+ * @returns {string} pesan galat, atau "" bila tidak ada masalah
+ */
+function pesanFormat(tipe, nilai) {
+  switch (tipe) {
+    case "nik": {
+      const s = toTrimmedString(nilai);
+      if (s === "" || s.length === PANJANG_NIK) return "";
+      return `NIK harus ${PANJANG_NIK} digit (baru ${s.length} digit).`;
+    }
+
+    case "npwp": {
+      const s = toTrimmedString(nilai);
+      if (s === "" || (s.length >= PANJANG_NPWP_MIN && s.length <= PANJANG_NPWP_MAKS)) return "";
+      return `NPWP harus ${PANJANG_NPWP_MIN}-${PANJANG_NPWP_MAKS} digit (baru ${s.length} digit).`;
+    }
+
+    case "nop": {
+      const s = toTrimmedString(nilai);
+      if (s === "" || s.length === PANJANG_NOP) return "";
+      return `NOP PBB harus ${PANJANG_NOP} digit (baru ${s.length} digit).`;
+    }
+
+    case "rtrw": {
+      const o = nilai && typeof nilai === "object" ? nilai : {};
+      const rt = toTrimmedString(o.rt);
+      const rw = toTrimmedString(o.rw);
+      // Salah satu terisi berarti keduanya harus lengkap.
+      if (rt === "" && rw === "") return "";
+      if (rt === "" || rw === "") return "RT dan RW harus diisi keduanya.";
+      if (rt.length !== PANJANG_RTRW || rw.length !== PANJANG_RTRW) {
+        return `RT dan RW masing-masing ${PANJANG_RTRW} digit.`;
+      }
+      return "";
+    }
+
+    default:
+      return "";
   }
 }
 
@@ -165,5 +310,11 @@ module.exports = {
   nilaiKosong,
   normalizeNilai,
   nilaiTerisi,
+  pesanFormat,
   barisRincianTarif,
+  PANJANG_NIK,
+  PANJANG_NPWP_MIN,
+  PANJANG_NPWP_MAKS,
+  PANJANG_NOP,
+  PANJANG_RTRW,
 };

@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
 import * as api from "../api.js";
 import { useToast } from "./Toast.jsx";
+import { useKonfigurasi } from "../lib/konfigurasi.js";
+import { IkonKamera, IkonGaleri } from "./Icons.jsx";
 
-const MAKS_FOTO = 10;
 const SISI_MAKS = 1600;
 
 /** Muat gambar lewat <img> bila createImageBitmap tidak tersedia. */
@@ -59,21 +60,6 @@ async function perkecil(file) {
   return new File([blob], nama, { type: "image/jpeg" });
 }
 
-const IkonKamera = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M14 4a2 2 0 0 1 1.76 1.05l.49.9A2 2 0 0 0 18 7h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2a2 2 0 0 0 1.76-1.05l.49-.9A2 2 0 0 1 10 4z" />
-    <circle cx="12" cy="13" r="3" />
-  </svg>
-);
-
-const IkonGaleri = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <rect width="18" height="18" x="3" y="3" rx="2" />
-    <circle cx="9" cy="9" r="2" />
-    <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
-  </svg>
-);
-
 /**
  * Pertanyaan bertipe foto: ambil dari kamera atau pilih dari galeri,
  * unggah langsung, tampilkan pratinjau, bisa dihapus / diulang bila gagal.
@@ -84,6 +70,8 @@ const IkonGaleri = () => (
  */
 export default function FotoInput({ value, onChange, invalid }) {
   const toast = useToast();
+  // Batas foto ditentukan server (server/src/batas.js), dibaca lewat /api/konfigurasi.
+  const { fotoMaksPerPertanyaan: MAKS_FOTO } = useKonfigurasi();
   const items = Array.isArray(value) ? value : [];
   const kamera = useRef(null);
   const galeri = useRef(null);
@@ -203,7 +191,7 @@ export default function FotoInput({ value, onChange, invalid }) {
       <input ref={galeri} type="file" accept="image/*" multiple hidden onChange={pilihBerkas} />
 
       <span className="fk-hint-kecil">
-        {items.length} dari {MAKS_FOTO} foto · diperkecil otomatis sebelum diunggah
+        Diperkecil Otomatis · Maksimal {MAKS_FOTO} Foto | <strong>{items.length} dari {MAKS_FOTO} Foto</strong> 
       </span>
     </div>
   );

@@ -16,7 +16,9 @@ const config = require("./config");
 const prisma = require("./prisma");
 
 const EKSTENSI = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
-const FOTO_MAKS_PER_PERTANYAAN = 10;
+
+/** Jumlah berkas yang diperiksa ke database sekali jalan saat penyapuan. */
+const SAPU_BATCH = 500;
 
 /** Kenali jenis gambar dari byte awalnya, bukan dari nama atau header kiriman. */
 function kenaliMime(buf) {
@@ -64,34 +66,83 @@ async function simpanFoto(buffer, namaAsli) {
   return { foto };
 }
 
-/** Hapus berkas-berkas di disk (baris database-nya sudah dihapus pemanggil). */
+/**
+ * Hapus berkas-berkas di disk (baris database-nya sudah dihapus pemanggil).
+ * Satu path yang bermasalah tidak boleh menggagalkan penghapusan sisanya.
+ */
 async function hapusBerkas(daftar) {
   await Promise.all(
-    (daftar || []).map((berkas) => fsp.unlink(pathBerkas(berkas)).catch(() => {}))
+    (daftar || []).map(async (berkas) => {
+      try {
+        await fsp.unlink(pathBerkas(berkas));
+      } catch {
+        /* berkas sudah tidak ada atau path tidak valid - abaikan */
+      }
+    })
   );
 }
 
 /**
- * Bersihkan foto yatim:
- *   1. foto yang diunggah tetapi tidak pernah ditautkan ke entri dalam 24 jam,
- *   2. berkas di disk yang tidak lagi tercatat (mis. terhapus lewat cascade saat
- *      pertanyaan atau formulir dihapus).
- * Berkas yang baru berumur < 30 menit dilewati agar unggahan yang sedang
- * berjalan tidak ikut terhapus.
+ * Hapus baris foto yang diunggah tetapi tidak pernah ditautkan ke entri dalam
+ * 24 jam, berikut berkasnya. Diproses per batch agar tidak menarik seluruh
+ * tabel ke memori.
+ * @returns {Promise<number>} jumlah foto yang dibersihkan
  */
-async function sapuFotoYatim() {
+async function sapuUnggahanTerlantar() {
   const batasTautan = new Date(Date.now() - 24 * 3600 * 1000);
-  const yatim = await prisma.foto.findMany({
-    where: { entriId: null, createdAt: { lt: batasTautan } },
-    select: { id: true },
-  });
-  if (yatim.length) {
+  let total = 0;
+
+  for (;;) {
+    const yatim = await prisma.foto.findMany({
+      where: { entriId: null, createdAt: { lt: batasTautan } },
+      select: { id: true, berkas: true },
+      take: SAPU_BATCH,
+    });
+    if (yatim.length === 0) break;
+
     await prisma.foto.deleteMany({ where: { id: { in: yatim.map((f) => f.id) } } });
+    await hapusBerkas(yatim.map((f) => f.berkas));
+    total += yatim.length;
+
+    if (yatim.length < SAPU_BATCH) break;
   }
 
-  const tercatat = new Set((await prisma.foto.findMany({ select: { berkas: true } })).map((f) => f.berkas));
+  return total;
+}
+
+/**
+ * Hapus berkas di disk yang tidak lagi tercatat di database - misalnya sisa
+ * cascade ketika pertanyaan atau formulir dihapus.
+ *
+ * Disk ditelusuri sambil jalan dan hanya berkas yang sudah cukup tua yang
+ * ditanyakan ke database, sekali tanya per SAPU_BATCH berkas. Pemakaian memori
+ * karena itu tetap datar berapa pun banyaknya foto. Berkas berumur < 30 menit
+ * dilewati agar unggahan yang sedang berjalan tidak ikut terhapus.
+ * @returns {Promise<number>} jumlah berkas yang dihapus
+ */
+async function sapuBerkasTakTercatat() {
   const batasUmur = Date.now() - 30 * 60 * 1000;
-  let dihapus = 0;
+  let total = 0;
+  let batch = [];
+
+  // Tanyakan satu batch ke database, hapus yang tidak tercatat.
+  async function bilas() {
+    if (batch.length === 0) return;
+    const daftar = batch;
+    batch = [];
+
+    const rows = await prisma.foto.findMany({
+      where: { berkas: { in: daftar } },
+      select: { berkas: true },
+    });
+    const tercatat = new Set(rows.map((r) => r.berkas));
+
+    const buang = daftar.filter((b) => !tercatat.has(b));
+    if (buang.length) {
+      await hapusBerkas(buang);
+      total += buang.length;
+    }
+  }
 
   async function jelajah(dir, rel) {
     let isi;
@@ -107,22 +158,34 @@ async function sapuFotoYatim() {
         await jelajah(full, relatif);
         continue;
       }
-      if (tercatat.has(relatif)) continue;
       const info = await fsp.stat(full).catch(() => null);
       if (!info || info.mtimeMs > batasUmur) continue;
-      await fsp.unlink(full).catch(() => {});
-      dihapus++;
+
+      batch.push(relatif);
+      if (batch.length >= SAPU_BATCH) await bilas();
     }
   }
 
   await jelajah(config.uploadDir, "");
-  return dihapus;
+  await bilas();
+  return total;
+}
+
+/**
+ * Bersihkan foto yatim:
+ *   1. unggahan yang tidak pernah ditautkan ke entri dalam 24 jam,
+ *   2. berkas di disk yang tidak lagi tercatat di database.
+ * @returns {Promise<number>} total berkas yang dibersihkan
+ */
+async function sapuFotoYatim() {
+  const terlantar = await sapuUnggahanTerlantar();
+  const takTercatat = await sapuBerkasTakTercatat();
+  return terlantar + takTercatat;
 }
 
 const bentukFoto = (f) => ({ id: f.id, nama: f.namaAsli, url: `/api/foto/${f.id}`, ukuran: f.ukuran });
 
 module.exports = {
-  FOTO_MAKS_PER_PERTANYAAN,
   kenaliMime,
   pathBerkas,
   siapkanFolder,

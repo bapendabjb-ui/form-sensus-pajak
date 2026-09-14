@@ -1,21 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../api.js";
 import { useToast } from "../components/Toast.jsx";
-import { PageHead, Panel, Loading, ErrorBox, Empty, StatusPill } from "../components/Ui.jsx";
+import { useDialog } from "../components/Dialog.jsx";
+import { PageHead, Panel, Loading, ErrorBox, Empty, StatusPill, KunciAdmin } from "../components/Ui.jsx";
 import FieldInput from "../components/Fields.jsx";
 import PetugasTim from "../components/PetugasTim.jsx";
 import { fromApi, emptyValue, buildPayload, validateRequired, statusFoto } from "../lib/answers.js";
 import { judulEntri, ringkasEntri, fotoEntri } from "../lib/ringkas.js";
 import { formatTimestamp } from "../lib/format.js";
+import { useAdmin } from "../lib/admin.js";
 import { navigate, kembali, pasangPenjaga } from "../lib/router.js";
 
-const namaTim = (petugas = []) => petugas.map((p) => p.nama).join(", ") || "—";
 const urlKk = (id) => `/kertas-kerja/${id}`;
+
+/** "Andi Saputra" atau "Andi Saputra +2" - cukup pendek untuk baris keterangan. */
+const ringkasTim = (petugas = []) => {
+  if (!petugas.length) return "—";
+  const lain = petugas.length - 1;
+  return lain > 0 ? `${petugas[0].nama} +${lain}` : petugas[0].nama;
+};
 
 /* ================= daftar kertas kerja ================= */
 
 export function DaftarKertasKerja() {
   const toast = useToast();
+  const { konfirmasi } = useDialog();
+  const admin = useAdmin();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -37,10 +47,15 @@ export function DaftarKertasKerja() {
   }, [muat]);
 
   const hapus = async (k) => {
-    const pesan =
-      `Hapus kertas kerja ${k.nomor}?\n` +
-      (k.jumlahData ? `${k.jumlahData} data beserta fotonya ikut terhapus.` : "Kertas kerja ini belum berisi data.");
-    if (!window.confirm(pesan)) return;
+    const ya = await konfirmasi({
+      judul: `Hapus kertas kerja ${k.nomor}?`,
+      pesan: k.jumlahData
+        ? `${k.jumlahData} data beserta fotonya ikut terhapus. Tindakan ini tidak dapat dibatalkan.`
+        : "Kertas kerja ini belum berisi data.",
+      ya: "Hapus",
+      bahaya: true,
+    });
+    if (!ya) return;
     try {
       await api.deleteKertasKerja(k.id);
       await muat();
@@ -54,7 +69,7 @@ export function DaftarKertasKerja() {
 
   return (
     <>
-      <PageHead title="Kertas Kerja" sub="Satu nomor, satu tim petugas, banyak data per formulir.">
+      <PageHead title="Kertas Kerja" sub="Satu Nomor, Satu Tim Petugas, Data Per Formulir.">
         <button type="button" className="fk-btn" onClick={buat}>
           + Buat kertas kerja
         </button>
@@ -87,9 +102,9 @@ export function DaftarKertasKerja() {
             >
               <span className="fk-nomor">{k.nomor}</span>
               <div className="fk-kk-card-body">
-                <div className="fk-lib-title fk-ellipsis">{namaTim(k.petugas)}</div>
-                <div className="fk-lib-sub">
-                  {k.petugas.length} petugas · {k.jumlahData} data · {formatTimestamp(k.createdAt)}
+                <div className="fk-lib-title fk-ellipsis">{k.judul}</div>
+                <div className="fk-lib-sub fk-ellipsis">
+                  {ringkasTim(k.petugas)} · {k.jumlahData} data · {formatTimestamp(k.createdAt)}
                 </div>
               </div>
               <StatusPill status={k.status} />
@@ -98,9 +113,11 @@ export function DaftarKertasKerja() {
                 <button type="button" className="fk-mini" onClick={() => api.unduhCsv(k.id)}>
                   CSV
                 </button>
-                <button type="button" className="fk-mini is-danger" onClick={() => hapus(k)}>
-                  Hapus
-                </button>
+                {admin && (
+                  <button type="button" className="fk-mini is-danger" onClick={() => hapus(k)}>
+                    Hapus
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -115,6 +132,8 @@ export function DaftarKertasKerja() {
 export function BuatKertasKerja() {
   const toast = useToast();
   const [nomor, setNomor] = useState("—");
+  const [judul, setJudul] = useState("");
+  const [galatJudul, setGalatJudul] = useState("");
   const [petugas, setPetugas] = useState([]);
   const [tim, setTim] = useState([null]);
   const [galatTim, setGalatTim] = useState("");
@@ -138,14 +157,16 @@ export function BuatKertasKerja() {
   }, []);
 
   const buat = async () => {
+    // Tandai semua yang kurang sekaligus, bukan satu per satu.
+    const j = judul.trim();
     const ids = tim.filter(Boolean);
-    if (!ids.length) {
-      setGalatTim("Pilih minimal satu petugas.");
-      return;
-    }
+    if (!j) setGalatJudul("Judul kertas kerja wajib diisi.");
+    if (!ids.length) setGalatTim("Pilih minimal satu petugas.");
+    if (!j || !ids.length) return;
+
     setMembuat(true);
     try {
-      const kk = await api.createKertasKerja(ids);
+      const kk = await api.createKertasKerja(j, ids);
       toast(`Kertas kerja ${kk.nomor} dibuat. Silakan isi data per formulir.`);
       // replace: tombol Kembali dari kertas kerja tidak kembali ke layar "buat".
       navigate(urlKk(kk.id), { replace: true });
@@ -162,15 +183,34 @@ export function BuatKertasKerja() {
     <>
       <PageHead
         title="Buat Kertas Kerja"
-        sub="Tentukan tim petugas. Data diisi per formulir setelah kertas kerja dibuat."
+        sub="Beri judul dan tentukan tim petugas. Data diisi per formulir setelah kertas kerja dibuat."
       />
 
       <Panel>
         <div className="fk-wiz-body">
           <div>
-            <span className="fk-opts-cap">Nomor kertas kerja (otomatis)</span>
+            <span className="fk-opts-cap"><strong>Nomor Kertas Kerja</strong></span>
             <div className="fk-nomor-big">{nomor}</div>
-            <p className="fk-hint">Nomor final diambil server saat dibuat, sehingga tidak pernah duplikat.</p>
+          </div>
+
+          <div className="fk-divider" />
+
+          <div>
+            <label className="fk-q-name" htmlFor="fk-judul-kk">
+              Judul Kertas Kerja <span className="fk-star">*</span>
+            </label>
+            <input
+              id="fk-judul-kk"
+              className={"fk-input" + (galatJudul ? " is-invalid" : "")}
+              placeholder="mis. Survei hiburan Kec. Cempaka tahap 1"
+              maxLength={200}
+              value={judul}
+              onChange={(e) => {
+                setJudul(e.target.value);
+                setGalatJudul("");
+              }}
+            />
+            {galatJudul && <span className="fk-err">{galatJudul}</span>}
           </div>
 
           <div className="fk-divider" />
@@ -206,11 +246,14 @@ export function BuatKertasKerja() {
 
 export function DetailKertasKerja({ id }) {
   const toast = useToast();
+  const { konfirmasi } = useDialog();
+  const admin = useAdmin();
   const [kk, setKk] = useState(null);
   const [bank, setBank] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [timEdit, setTimEdit] = useState(null); // array id | null
+  const [judulEdit, setJudulEdit] = useState(null); // string | null
   const [petugas, setPetugas] = useState([]);
   const [galatTim, setGalatTim] = useState("");
   const [sibuk, setSibuk] = useState(false);
@@ -253,6 +296,24 @@ export function DetailKertasKerja({ id }) {
     for (const g of kelompok) m.set(g.formulir.id, g.entri.length);
     return m;
   }, [kelompok]);
+
+  const simpanJudul = async () => {
+    const j = (judulEdit || "").trim();
+    if (!j) {
+      toast("Judul kertas kerja wajib diisi.", true);
+      return;
+    }
+    setSibuk(true);
+    try {
+      setKk(await api.updateJudulKertasKerja(id, j));
+      setJudulEdit(null);
+      toast("Judul kertas kerja diperbarui.");
+    } catch (e) {
+      toast(e.message, true);
+    } finally {
+      setSibuk(false);
+    }
+  };
 
   const mulaiUbahTim = async () => {
     try {
@@ -297,10 +358,15 @@ export function DetailKertasKerja({ id }) {
 
   const hapusKk = async () => {
     const jumlah = kk.entri.length;
-    const pesan =
-      `Hapus kertas kerja ${kk.nomor}?\n` +
-      (jumlah ? `${jumlah} data beserta fotonya ikut terhapus. Tindakan ini tidak dapat dibatalkan.` : "Kertas kerja ini belum berisi data.");
-    if (!window.confirm(pesan)) return;
+    const ya = await konfirmasi({
+      judul: `Hapus kertas kerja ${kk.nomor}?`,
+      pesan: jumlah
+        ? `${jumlah} data beserta fotonya ikut terhapus. Tindakan ini tidak dapat dibatalkan.`
+        : "Kertas kerja ini belum berisi data.",
+      ya: "Hapus",
+      bahaya: true,
+    });
+    if (!ya) return;
     setSibuk(true);
     try {
       await api.deleteKertasKerja(id);
@@ -342,7 +408,27 @@ export function DetailKertasKerja({ id }) {
         <div className="fk-kk-detail-head">
           <span className="fk-nomor is-big">{kk.nomor}</span>
           <div className="fk-kk-detail-meta">
-            <h1 className="fk-kk-title-top">Kertas Kerja</h1>
+            {judulEdit === null ? (
+              <h1 className="fk-kk-title-top">{kk.judul}</h1>
+            ) : (
+              <div className="fk-judul-edit">
+                <input
+                  className="fk-input"
+                  value={judulEdit}
+                  maxLength={200}
+                  autoFocus
+                  aria-label="Judul kertas kerja"
+                  onChange={(e) => setJudulEdit(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && simpanJudul()}
+                />
+                <button type="button" className="fk-mini" onClick={simpanJudul} disabled={sibuk}>
+                  Simpan
+                </button>
+                <button type="button" className="fk-mini" onClick={() => setJudulEdit(null)}>
+                  Batal
+                </button>
+              </div>
+            )}
             <p className="fk-form-desc">
               Dibuat {formatTimestamp(kk.createdAt)} · {totalData} data
             </p>
@@ -404,9 +490,14 @@ export function DetailKertasKerja({ id }) {
               >
                 {selesai ? "Buka kembali (draft)" : "Tandai selesai"}
               </button>
-              <button type="button" className="fk-btn-ghost" onClick={mulaiUbahTim}>
-                Ubah petugas
+              <button type="button" className="fk-btn-ghost" onClick={() => setJudulEdit(kk.judul)}>
+                Ubah judul
               </button>
+              {admin && (
+                <button type="button" className="fk-btn-ghost" onClick={mulaiUbahTim}>
+                  Ubah petugas
+                </button>
+              )}
               <button type="button" className="fk-btn-ghost" onClick={() => api.unduhCsv(kk.id)}>
                 Ekspor CSV
               </button>
@@ -486,19 +577,21 @@ export function DetailKertasKerja({ id }) {
         ))
       )}
 
-      <div className="fk-zona-bahaya">
-        <button type="button" className="fk-btn-danger" onClick={hapusKk} disabled={sibuk}>
-          Hapus kertas kerja
-        </button>
-      </div>
+      {admin ? (
+        <div className="fk-zona-bahaya">
+          <button type="button" className="fk-btn-danger" onClick={hapusKk} disabled={sibuk}>
+            Hapus kertas kerja
+          </button>
+        </div>
+      ) : (
+        <KunciAdmin>Menghapus kertas kerja hanya bisa dilakukan admin.</KunciAdmin>
+      )}
     </div>
   );
 }
 
 /* ================= isi / ubah satu data ================= */
 
-const PESAN_BELUM_DISIMPAN =
-  "Isian belum disimpan ke server.\nDraf tetap tersimpan di perangkat ini dan bisa dilanjutkan nanti.\n\nTinggalkan halaman ini?";
 const UMUR_FOTO_DRAF_MS = 20 * 3600 * 1000; // unggahan yang tak disimpan dibersihkan server setelah 24 jam
 
 /** Salin jawaban untuk disimpan sebagai draf: foto hanya yang sudah terunggah. */
@@ -515,8 +608,11 @@ function jawabanUntukDraf(pertanyaan, answers) {
 
 export function IsiData({ kkId, formulirId, entriId }) {
   const toast = useToast();
+  const { konfirmasi } = useDialog();
+  const admin = useAdmin();
   const [formulir, setFormulir] = useState(null);
   const [nomor, setNomor] = useState("");
+  const [judulKk, setJudulKk] = useState("");
   const [answers, setAnswers] = useState({});
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
@@ -527,7 +623,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
   const berubah = useRef(false);
 
   const urlKembali = urlKk(kkId);
-  const kunciDraf = entriId ? `formkita:draf:data-${entriId}` : `formkita:draf:kk${kkId}-f${formulirId}`;
+  const kunciDraf = entriId ? `sensus-pajak:draf:data-${entriId}` : `sensus-pajak:draf:kk${kkId}-f${formulirId}`;
 
   const hapusDraf = useCallback(() => {
     try {
@@ -557,6 +653,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
           if (batal) return;
           f = e.formulir;
           setNomor(e.kertasKerja.nomor);
+          setJudulKk(e.kertasKerja.judul);
           const awal = {};
           for (const q of f.pertanyaan) {
             awal[q.id] = e.jawaban[q.id] === undefined ? emptyValue(q.tipe) : fromApi(q.tipe, e.jawaban[q.id]);
@@ -567,6 +664,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
           if (batal) return;
           f = form;
           setNomor(kk.nomor);
+          setJudulKk(kk.judul);
           kosongkan(form);
         }
         setFormulir(f);
@@ -605,7 +703,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
   }, [answers, formulir, draf, kunciDraf]);
 
   // Konfirmasi sebelum meninggalkan layar bila ada isian yang belum disimpan.
-  useEffect(() => pasangPenjaga(() => (berubah.current ? PESAN_BELUM_DISIMPAN : null)), []);
+  useEffect(() => pasangPenjaga(() => berubah.current), []);
 
   const pulihkanDraf = () => {
     const fotoKedaluwarsa = Date.now() - draf.waktu > UMUR_FOTO_DRAF_MS;
@@ -661,7 +759,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
     const errs = validateRequired(pertanyaan, answers);
     if (Object.keys(errs).length) {
       setErrors(errs);
-      toast("Lengkapi kolom wajib yang ditandai merah.", true);
+      toast("Periksa kolom yang ditandai merah.", true);
       fokusError(errs);
       return;
     }
@@ -697,7 +795,13 @@ export function IsiData({ kkId, formulirId, entriId }) {
   };
 
   const hapus = async () => {
-    if (!window.confirm("Hapus data ini beserta fotonya dari kertas kerja?")) return;
+    const ya = await konfirmasi({
+      judul: "Hapus data ini?",
+      pesan: "Data beserta fotonya dihapus dari kertas kerja. Tindakan ini tidak dapat dibatalkan.",
+      ya: "Hapus",
+      bahaya: true,
+    });
+    if (!ya) return;
     try {
       await api.deleteEntri(entriId);
       berubah.current = false;
@@ -750,7 +854,8 @@ export function IsiData({ kkId, formulirId, entriId }) {
       <section className="fk-panel fk-form fk-form-kepala">
         <div className="fk-form-accent" />
         <span className="fk-opts-cap">
-          Kertas kerja {nomor} · {entriId ? "ubah data" : "data baru"}
+          Kertas kerja {nomor}
+          {judulKk ? ` · ${judulKk}` : ""} · {entriId ? "ubah data" : "data baru"}
         </span>
         <h2 className="fk-kk-title-top" style={{ marginTop: 6 }}>
           {formulir.judul}
@@ -777,18 +882,23 @@ export function IsiData({ kkId, formulirId, entriId }) {
         ))}
       </section>
 
-      {entriId && (
-        <div className="fk-zona-bahaya">
-          <button type="button" className="fk-btn-danger" onClick={hapus} disabled={sibuk}>
-            Hapus data ini
-          </button>
-        </div>
-      )}
+      {entriId &&
+        (admin ? (
+          <div className="fk-zona-bahaya">
+            <button type="button" className="fk-btn-danger" onClick={hapus} disabled={sibuk}>
+              Hapus data ini
+            </button>
+          </div>
+        ) : (
+          <KunciAdmin>
+            Menghapus data hanya bisa dilakukan admin. Isian yang keliru masih bisa Anda perbaiki lalu simpan.
+          </KunciAdmin>
+        ))}
 
       <div className="fk-form-actions fk-sticky-actions">
         {!entriId && (
           <button type="button" className="fk-btn-ghost" onClick={() => simpan(true)} disabled={sibuk || unggah > 0}>
-            {menyimpan === "lagi" ? "Menyimpan..." : "Simpan & tambah lagi"}
+            {menyimpan === "lagi" ? "Menyimpan..." : "Simpan & Tambah Lagi"}
           </button>
         )}
         <button type="button" className="fk-btn" onClick={() => simpan(false)} disabled={sibuk || unggah > 0}>

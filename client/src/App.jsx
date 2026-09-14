@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import * as api from "./api.js";
 import { ToastProvider } from "./components/Toast.jsx";
+import { DialogProvider } from "./components/Dialog.jsx";
 import { Empty } from "./components/Ui.jsx";
-import { CheckIcon, IconGrid, IconDoc, IconUser, IconList, IconLock } from "./components/Icons.jsx";
+import { Lambang, IconKembali, IconGrid, IconDoc, IconUser, IconList, IconLock } from "./components/Icons.jsx";
+import LoginAdmin from "./components/LoginAdmin.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import { DaftarKertasKerja, BuatKertasKerja, DetailKertasKerja, IsiData } from "./pages/KertasKerjaPage.jsx";
 import PetugasPage from "./pages/PetugasPage.jsx";
 import FormulirPage from "./pages/FormulirPage.jsx";
+import { AdminContext } from "./lib/admin.js";
 import { useLokasi, navigate, kembali, cocokkanRute } from "./lib/router.js";
 
 const NAV = [
@@ -15,12 +18,6 @@ const NAV = [
   { tab: "petugas", path: "/petugas", label: "Petugas", pendek: "Petugas", Icon: IconUser },
   { tab: "formulir", path: "/formulir", label: "Formulir", pendek: "Formulir", Icon: IconList, admin: true },
 ];
-
-const IconKembali = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="m15 18-6-6 6-6" />
-  </svg>
-);
 
 /** Klik tautan internal tanpa memuat ulang halaman (Ctrl/Cmd+klik tetap membuka tab baru). */
 const klikTautan = (path) => (e) => {
@@ -68,7 +65,7 @@ function Shell() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    document.title = rute.nama === "dashboard" ? "FormKita" : `${rute.judul} · FormKita`;
+    document.title = rute.nama === "dashboard" ? "Sensus Pajak" : `${rute.judul} · Sensus Pajak`;
   }, [lokasi]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Layar pengisian tidak menampilkan bilah tab supaya ruang layar lega.
@@ -80,6 +77,8 @@ function Shell() {
     api.clearToken();
     navigate("/");
   };
+
+  const masuk = () => navigate("/masuk");
 
   let halaman;
   switch (rute.nama) {
@@ -107,6 +106,10 @@ function Shell() {
     case "formulir":
       halaman = <FormulirPage admin={admin} onAuthChanged={() => setAdmin(api.isLoggedIn())} />;
       break;
+    case "masuk":
+      // Setelah berhasil masuk, kembali ke layar yang tadi ditinggalkan.
+      halaman = <LoginAdmin onLoggedIn={() => kembali("/")} />;
+      break;
     default:
       halaman = (
         <Empty
@@ -126,10 +129,8 @@ function Shell() {
       {/* ---------- desktop: sidebar ---------- */}
       <aside className="fk-side">
         <a className="fk-side-logo" href="/" onClick={klikTautan("/")}>
-          <span className="fk-logo">
-            <CheckIcon />
-          </span>
-          <span className="fk-word">FormKita</span>
+          <Lambang />
+          <span className="fk-word">Sensus Pajak</span>
         </a>
 
         <nav className="fk-nav" aria-label="Navigasi utama">
@@ -163,7 +164,10 @@ function Shell() {
               </button>
             </div>
           ) : (
-            <span className="fk-side-note">Mode pengguna</span>
+            <button type="button" className="fk-side-masuk" onClick={masuk}>
+              <IconLock />
+              <span>Masuk admin</span>
+            </button>
           )}
         </div>
       </aside>
@@ -175,20 +179,27 @@ function Shell() {
             <IconKembali />
           </button>
         ) : (
-          <span className="fk-logo fk-appbar-logo" aria-hidden="true">
-            <CheckIcon />
-          </span>
+          <Lambang className="fk-appbar-logo" />
         )}
-        <h1 className="fk-appbar-judul">{rute.nama === "dashboard" ? "FormKita" : rute.judul}</h1>
-        {admin && (
+        <h1 className="fk-appbar-judul">{rute.nama === "dashboard" ? "Sensus Pajak" : rute.judul}</h1>
+        {admin ? (
           <button type="button" className="fk-appbar-aksi" onClick={keluar}>
             Keluar
           </button>
+        ) : (
+          rute.nama !== "masuk" && (
+            <button type="button" className="fk-appbar-aksi" onClick={masuk}>
+              Masuk
+            </button>
+          )
         )}
       </header>
 
       <div className="fk-content">
-        <main className="fk-main">{halaman}</main>
+        <main className="fk-main">
+          {/* Hanya halaman yang perlu tahu status admin; sidebar & bilah atas memakai `admin` langsung. */}
+          <AdminContext.Provider value={admin}>{halaman}</AdminContext.Provider>
+        </main>
       </div>
 
       {/* ---------- HP: bilah tab bawah ---------- */}
@@ -222,7 +233,10 @@ function Shell() {
 export default function App() {
   return (
     <ToastProvider>
-      <Shell />
+      {/* DialogProvider juga memasang konfirmasi "isian belum disimpan" milik router. */}
+      <DialogProvider>
+        <Shell />
+      </DialogProvider>
     </ToastProvider>
   );
 }

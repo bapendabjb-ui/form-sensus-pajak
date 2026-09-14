@@ -1,8 +1,8 @@
 {
-  "name": "@formkita/server",
+  "name": "@sensus-pajak/server",
   "private": true,
   "version": "1.0.0",
-  "description": "API Express + Prisma untuk FormKita",
+  "description": "API Express + Prisma untuk Sensus Pajak",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

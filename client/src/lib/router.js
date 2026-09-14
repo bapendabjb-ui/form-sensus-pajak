@@ -27,13 +27,54 @@ if (!window.history.state || typeof window.history.state.fkIdx !== "number") {
 const idxSekarang = () => (window.history.state && window.history.state.fkIdx) || 0;
 const umumkan = () => pendengar.forEach((fn) => fn(lokasi));
 
-/** Tanya pengguna bila layar aktif punya perubahan yang belum disimpan. */
-function bolehPergi() {
-  const pesan = penjaga ? penjaga() : null;
-  if (!pesan) return true;
-  if (!window.confirm(pesan)) return false;
-  penjaga = null;
-  return true;
+/**
+ * Penanya konfirmasi keluar, dipasang oleh DialogProvider agar memakai dialog
+ * aplikasi, bukan window.confirm bawaan browser. Jawabannya asinkron, jadi
+ * perpindahan layar ditunda sampai pengguna menjawab.
+ */
+let tanyaKeluar = null;
+
+export function pasangTanyaKeluar(fn) {
+  tanyaKeluar = fn;
+  return () => {
+    if (tanyaKeluar === fn) tanyaKeluar = null;
+  };
+}
+
+/** Dipakai hanya bila dialog aplikasi belum terpasang. */
+const PESAN_CADANGAN = "Tinggalkan halaman ini? Perubahan yang belum disimpan akan hilang.";
+
+/**
+ * Jalankan `lanjut` bila layar aktif boleh ditinggalkan.
+ * Tanpa perubahan tertunda, `lanjut` berjalan langsung (tetap sinkron).
+ */
+function bilaBolehPergi(lanjut) {
+  const tertahan = penjaga ? penjaga() : false;
+  if (!tertahan) {
+    lanjut();
+    return;
+  }
+  // Cadangan: dialog belum terpasang (mis. modul router dipakai sebelum render).
+  if (!tanyaKeluar) {
+    if (window.confirm(PESAN_CADANGAN)) {
+      penjaga = null;
+      lanjut();
+    }
+    return;
+  }
+  tanyaKeluar().then((ya) => {
+    if (!ya) return;
+    penjaga = null;
+    lanjut();
+  });
+}
+
+/** Tulis alamat baru ke riwayat lalu beri tahu komponen. */
+function pindah(path, replace) {
+  if (replace) window.history.replaceState({ fkIdx: idxSekarang() }, "", path);
+  else window.history.pushState({ fkIdx: idxSekarang() + 1 }, "", path);
+  lokasi = path;
+  umumkan();
 }
 
 /** Pindah ke alamat lain di dalam aplikasi. */
@@ -43,11 +84,7 @@ export function navigate(path, { replace = false } = {}) {
     return;
   }
   if (path === lokasi) return;
-  if (!bolehPergi()) return;
-  if (replace) window.history.replaceState({ fkIdx: idxSekarang() }, "", path);
-  else window.history.pushState({ fkIdx: idxSekarang() + 1 }, "", path);
-  lokasi = path;
-  umumkan();
+  bilaBolehPergi(() => pindah(path, replace));
 }
 
 /** Kembali ke layar sebelumnya; bila tidak ada (dibuka langsung dari tautan), ke `cadangan`. */
@@ -56,13 +93,16 @@ export function kembali(cadangan = "/") {
     antrean = () => kembali(cadangan);
     return;
   }
-  if (idxSekarang() > 0) window.history.back();
-  else navigate(cadangan, { replace: true });
+  bilaBolehPergi(() => {
+    if (idxSekarang() > 0) window.history.back();
+    else pindah(cadangan, true);
+  });
 }
 
 /**
- * Pasang penjaga perubahan belum disimpan. `fn` mengembalikan pesan konfirmasi
- * atau null. Mengembalikan fungsi pelepas (cocok sebagai cleanup useEffect).
+ * Pasang penjaga perubahan belum disimpan. `fn` mengembalikan true bila layar
+ * masih punya perubahan yang belum tersimpan.
+ * Mengembalikan fungsi pelepas (cocok sebagai cleanup useEffect).
  */
 export function pasangPenjaga(fn) {
   penjaga = fn;
@@ -72,12 +112,18 @@ export function pasangPenjaga(fn) {
 }
 
 /**
- * Buang entri riwayat sementara (milik lembar pilihan) yang sedang aktif.
- * Navigasi yang diminta sebelum selesai akan dijalankan setelahnya.
+ * Buang entri riwayat sementara (milik lembar pilihan atau dialog) yang sedang
+ * aktif. `lanjut` dijalankan setelah pembuangan itu selesai — pembuangan lewat
+ * history.back() berjalan asinkron, jadi apa pun yang menyentuh riwayat harus
+ * menunggu giliran.
  */
-export function buangEntriSementara() {
-  if (!window.history.state || !window.history.state.fkSheet) return;
+export function buangEntriSementara(lanjut) {
+  if (!window.history.state || !window.history.state.fkSheet) {
+    if (lanjut) lanjut();
+    return;
+  }
   menungguBuang = true;
+  antrean = lanjut || null;
   window.history.back();
 }
 
@@ -90,12 +136,17 @@ window.addEventListener("popstate", () => {
     return;
   }
   const tujuan = window.location.pathname;
-  // Alamat sama = entri riwayat milik lembar pilihan (bottom sheet) yang ditutup.
+  // Alamat sama = entri riwayat milik lembar pilihan / dialog yang ditutup.
   if (tujuan === lokasi) return;
-  if (!bolehPergi()) {
+
+  if (penjaga && penjaga()) {
+    // Kembalikan dulu ke alamat semula supaya layar tidak terlanjur berpindah
+    // selagi pengguna menjawab, lalu ulangi perpindahannya bila disetujui.
     window.history.pushState({ fkIdx: idxSekarang() + 1 }, "", lokasi);
+    bilaBolehPergi(() => pindah(tujuan, true));
     return;
   }
+
   lokasi = tujuan;
   umumkan();
 });
@@ -149,6 +200,9 @@ export function cocokkanRute(pathname) {
     }
   }
 
+  if (b.length === 1 && b[0] === "masuk") {
+    return { nama: "masuk", tab: null, judul: "Masuk Admin", kembali: "/", fokus: true };
+  }
   if (b.length === 1 && b[0] === "petugas") return { nama: "petugas", tab: "petugas", judul: "Petugas" };
   if (b.length === 1 && b[0] === "formulir") return { nama: "formulir", tab: "formulir", judul: "Formulir" };
 

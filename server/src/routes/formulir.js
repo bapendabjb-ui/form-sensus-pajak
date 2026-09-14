@@ -10,6 +10,18 @@ const { hapusBerkas, sapuFotoYatim } = require("../foto");
 
 const router = express.Router();
 
+/**
+ * Urutan tampil bank formulir: kolom `urutan` yang disusun admin, lalu id
+ * sebagai pemutus supaya formulir yang urutannya kembar tetap stabil.
+ */
+const URUT_FORMULIR = [{ urutan: "asc" }, { id: "asc" }];
+
+/** Nomor urut untuk formulir baru: selalu di ujung daftar. */
+async function urutanBerikutnya(db) {
+  const terakhir = await db.formulir.aggregate({ _max: { urutan: true } });
+  return (terakhir._max.urutan ?? 0) + 1;
+}
+
 /* ---------- validasi payload ---------- */
 
 /** Validasi & normalisasi body {judul, deskripsi, pertanyaan[]} dari editor admin. */
@@ -120,7 +132,7 @@ router.get(
   "/",
   wrap(async (_req, res) => {
     const list = await prisma.formulir.findMany({
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      orderBy: URUT_FORMULIR,
       include: { _count: { select: { pertanyaan: true, entri: true } } },
     });
     res.json(
@@ -128,6 +140,7 @@ router.get(
         id: f.id,
         judul: f.judul,
         deskripsi: f.deskripsi || "",
+        urutan: f.urutan,
         createdAt: f.createdAt,
         jumlahPertanyaan: f._count.pertanyaan,
         jumlahData: f._count.entri,
@@ -157,12 +170,54 @@ router.post(
     const { judul, deskripsi, pertanyaan } = bacaPayload(req.body);
 
     const hasil = await prisma.$transaction(async (tx) => {
-      const f = await tx.formulir.create({ data: { judul, deskripsi } });
+      const f = await tx.formulir.create({
+        data: { judul, deskripsi, urutan: await urutanBerikutnya(tx) },
+      });
       await tulisPertanyaan(tx, f.id, pertanyaan);
       return tx.formulir.findUnique({ where: { id: f.id }, include: includePertanyaan });
     });
 
     res.status(201).json(bentukFormulir(hasil));
+  })
+);
+
+/**
+ * PUT /api/formulir/urutan  { ids: [3, 1, 2] }
+ * Susun ulang bank formulir. Id yang tidak disebut tetap ada, ditaruh di
+ * belakang mengikuti urutan lamanya.
+ *
+ * Didaftarkan sebelum PUT /:id agar "urutan" tidak terbaca sebagai id.
+ */
+router.put(
+  "/urutan",
+  requireAdmin,
+  wrap(async (req, res) => {
+    const masuk = Array.isArray(req.body?.ids) ? req.body.ids : null;
+    if (!masuk) throw badRequest("Daftar urutan formulir wajib dikirim.");
+
+    const diminta = [];
+    const dilihat = new Set();
+    for (const raw of masuk) {
+      const id = Number(raw);
+      if (!Number.isInteger(id) || id <= 0) throw badRequest("Id formulir tidak sah.");
+      if (dilihat.has(id)) throw badRequest("Ada id formulir yang dikirim dua kali.");
+      dilihat.add(id);
+      diminta.push(id);
+    }
+
+    const semua = await prisma.formulir.findMany({ orderBy: URUT_FORMULIR, select: { id: true } });
+    const adaId = new Set(semua.map((f) => f.id));
+    const hilang = diminta.find((id) => !adaId.has(id));
+    if (hilang) throw badRequest(`Formulir ${hilang} tidak ditemukan.`);
+
+    // Formulir yang tidak ikut dikirim (mis. baru dibuat di sesi lain) menyusul di belakang.
+    const susunan = [...diminta, ...semua.map((f) => f.id).filter((id) => !dilihat.has(id))];
+
+    await prisma.$transaction(
+      susunan.map((id, i) => prisma.formulir.update({ where: { id }, data: { urutan: i + 1 } }))
+    );
+
+    res.json({ ids: susunan });
   })
 );
 

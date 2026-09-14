@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * FormKita - server Express.
+ * Sensus Pajak - server Express.
  *
  * Di produksi satu proses ini melayani dua hal:
  *   1. REST API dengan prefix /api
@@ -39,7 +39,7 @@ if (config.corsOrigin) {
 /* ---------- API ---------- */
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, service: "formkita", env: config.nodeEnv, time: new Date().toISOString() });
+  res.json({ ok: true, service: "sensus-pajak", env: config.nodeEnv, time: new Date().toISOString() });
 });
 
 app.use("/api/auth", require("./src/routes/auth"));
@@ -54,6 +54,17 @@ app.use("/api/dashboard", require("./src/routes/dashboard"));
 app.get("/api/wilayah", (_req, res) => {
   res.setHeader("Cache-Control", "public, max-age=3600");
   res.json(require("./src/wilayah").KECAMATAN);
+});
+
+// Batas aplikasi yang juga dipakai klien - satu sumber angka untuk keduanya.
+app.get("/api/konfigurasi", (_req, res) => {
+  const batas = require("./src/batas");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.json({
+    petugasMaks: batas.PETUGAS_MAKS,
+    fotoMaksPerPertanyaan: batas.FOTO_MAKS_PER_PERTANYAAN,
+    uploadMaksMb: config.uploadMaxMb,
+  });
 });
 
 // Route /api yang tidak dikenal -> JSON 404 (jangan jatuh ke index.html).
@@ -115,7 +126,7 @@ app.use((err, _req, res, _next) => {
     }
   }
 
-  console.error("[FormKita] error tak tertangani:", err);
+  console.error("[Sensus Pajak] error tak tertangani:", err);
   res.status(500).json({ error: "Terjadi kesalahan pada server." });
 });
 
@@ -124,9 +135,9 @@ app.use((err, _req, res, _next) => {
 async function start() {
   try {
     await prisma.$connect();
-    console.log("[FormKita] terhubung ke database.");
+    console.log("[Sensus Pajak] terhubung ke database.");
   } catch (e) {
-    console.error("[FormKita] gagal terhubung ke database. Periksa DATABASE_URL.");
+    console.error("[Sensus Pajak] gagal terhubung ke database. Periksa DATABASE_URL.");
     console.error(e.message);
     process.exit(1);
   }
@@ -134,36 +145,36 @@ async function start() {
   await ensureCounter();
 
   await siapkanFolder();
-  console.log(`[FormKita] folder foto: ${config.uploadDir}`);
+  console.log(`[Sensus Pajak] folder foto: ${config.uploadDir}`);
 
   // Bersihkan foto yatim saat start lalu setiap 6 jam (tidak menahan startup).
   const sapu = () =>
     sapuFotoYatim()
-      .then((n) => n && console.log(`[FormKita] ${n} berkas foto yatim dibersihkan.`))
-      .catch((e) => console.error("[FormKita] pembersihan foto gagal:", e.message));
+      .then((n) => n && console.log(`[Sensus Pajak] ${n} berkas foto yatim dibersihkan.`))
+      .catch((e) => console.error("[Sensus Pajak] pembersihan foto gagal:", e.message));
   sapu();
   setInterval(sapu, 6 * 3600 * 1000).unref();
 
   const admin = await ensureAdminSeed();
   console.log(
     admin.created
-      ? `[FormKita] akun admin "${admin.username}" dibuat dari ADMIN_USERNAME/ADMIN_PASSWORD.`
-      : `[FormKita] akun admin "${admin.username}" sudah ada.`
+      ? `[Sensus Pajak] akun admin "${admin.username}" dibuat dari ADMIN_USERNAME/ADMIN_PASSWORD.`
+      : `[Sensus Pajak] akun admin "${admin.username}" sudah ada.`
   );
 
   if (config.seedDemo) {
     const hasil = await seedDemo();
-    if (hasil.diisi) console.log("[FormKita] data contoh diisi (SEED_DEMO=true).");
+    if (hasil.diisi) console.log("[Sensus Pajak] data contoh diisi (SEED_DEMO=true).");
   }
 
   // Railway meng-inject PORT; wajib memakai nilai tersebut.
   const server = app.listen(config.port, "0.0.0.0", () => {
-    console.log(`[FormKita] siap di http://localhost:${config.port} (${config.nodeEnv})`);
-    if (!adaBuild) console.log("[FormKita] client/dist belum ada - hanya API yang dilayani.");
+    console.log(`[Sensus Pajak] siap di http://localhost:${config.port} (${config.nodeEnv})`);
+    if (!adaBuild) console.log("[Sensus Pajak] client/dist belum ada - hanya API yang dilayani.");
   });
 
   const shutdown = async (sinyal) => {
-    console.log(`[FormKita] ${sinyal} diterima, menutup server...`);
+    console.log(`[Sensus Pajak] ${sinyal} diterima, menutup server...`);
     server.close(async () => {
       await prisma.$disconnect();
       process.exit(0);
@@ -176,7 +187,7 @@ async function start() {
 }
 
 start().catch(async (e) => {
-  console.error("[FormKita] gagal start:", e);
+  console.error("[Sensus Pajak] gagal start:", e);
   await prisma.$disconnect().catch(() => {});
   process.exit(1);
 });

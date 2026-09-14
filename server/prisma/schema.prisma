@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------
-// FormKita - skema database (MySQL 8)
+// Sensus Pajak - skema database (MySQL 8)
 // Nama tabel & kolom dipetakan ke snake_case agar sama dengan DDL rujukan.
 // ------------------------------------------------------------------
 
@@ -38,6 +38,8 @@ model Formulir {
   id        Int      @id @default(autoincrement())
   judul     String   @db.VarChar(200)
   deskripsi String?  @db.Text
+  /// Urutan tampil di bank formulir - diatur admin lewat seret (drag & drop).
+  urutan    Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
 
   pertanyaan Pertanyaan[]
@@ -58,6 +60,11 @@ enum TipePertanyaan {
   linetariff
   foto
   wilayah
+  lokasi
+  rtrw
+  nik
+  npwp
+  nop
 }
 
 /// Satu pertanyaan di dalam sebuah formulir.
@@ -103,6 +110,8 @@ enum StatusKertasKerja {
 model KertasKerja {
   id        Int               @id @default(autoincrement())
   nomor     String            @unique(map: "kertas_kerja_nomor_key") @db.Char(5)
+  /// Judul yang diketik petugas saat membuat - dipakai sebagai identitas di daftar.
+  judul     String            @default("") @db.VarChar(200)
   status    StatusKertasKerja @default(draft)
   createdAt DateTime          @default(now()) @map("created_at")
 
@@ -154,6 +163,9 @@ model Entri {
 ///   linetariff                                : array { layanan, jenis, harga_min, harga_max }
 ///   foto                                      : array { id, nama }
 ///   wilayah                                   : { kecamatan, kode_kecamatan, kelurahan, kode_kelurahan }
+///   lokasi                                    : { lat, lon, akurasi, ketinggian, waktu }
+///   rtrw                                      : { rt, rw }  (masing-masing 3 digit)
+///   nik / npwp / nop                          : string digit (16 / 15-17 / 18 digit)
 model Jawaban {
   id           Int  @id @default(autoincrement())
   entriId      Int  @map("entri_id")

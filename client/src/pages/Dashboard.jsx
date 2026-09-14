@@ -3,7 +3,12 @@ import * as api from "../api.js";
 import { Panel, PageHead, Loading, ErrorBox, StatusPill } from "../components/Ui.jsx";
 import { navigate } from "../lib/router.js";
 
-const namaTim = (petugas = []) => petugas.map((p) => p.nama).join(", ") || "—";
+/** "Andi Saputra" atau "Andi Saputra +2" - cukup pendek untuk baris keterangan. */
+const ringkasTim = (petugas = []) => {
+  if (!petugas.length) return "—";
+  const lain = petugas.length - 1;
+  return lain > 0 ? `${petugas[0].nama} +${lain}` : petugas[0].nama;
+};
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -30,8 +35,8 @@ export default function Dashboard() {
     ? [
         [stats.totalKertasKerja, "Kertas kerja"],
         [stats.selesai, "Selesai"],
-        [stats.totalData, "Data terkumpul"],
-        [stats.totalFoto, "Foto terlampir"],
+        [stats.totalData, "Data Terkumpul"],
+        [stats.totalFoto, "Foto Terlampir"],
         [stats.totalFormulir, "Formulir"],
         [stats.totalPetugas, "Petugas"],
       ]
@@ -39,7 +44,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageHead title="Dashboard" sub="Ringkasan kertas kerja PBJT." />
+      <PageHead title="Dashboard" sub="Ringkasan Kertas Kerja Sensus Pajak." />
 
       {error && <ErrorBox onRetry={muat}>{error}</ErrorBox>}
       {loading && !stats && <Loading />}
@@ -48,10 +53,10 @@ export default function Dashboard() {
         <>
           <div className="fk-dash-actions">
             <button type="button" className="fk-btn" onClick={() => navigate("/kertas-kerja/baru")}>
-              + Buat kertas kerja
+              + Buat Kertas Kerja
             </button>
             <button type="button" className="fk-btn-ghost" onClick={() => navigate("/formulir")}>
-              Kelola formulir
+              Kelola Formulir
             </button>
           </div>
 
@@ -64,7 +69,7 @@ export default function Dashboard() {
             ))}
           </div>
 
-          <Panel title="Kertas kerja terbaru">
+          <Panel title="Kertas Kerja Terbaru">
             {stats.terbaru.length === 0 ? (
               <div className="fk-lt-empty">Belum ada kertas kerja.</div>
             ) : (
@@ -78,9 +83,9 @@ export default function Dashboard() {
                   >
                     <span className="fk-nomor">{k.nomor}</span>
                     <div className="fk-kk-card-body">
-                      <div className="fk-lib-title fk-ellipsis">{namaTim(k.petugas)}</div>
+                      <div className="fk-lib-title fk-ellipsis">{k.judul}</div>
                       <div className="fk-lib-sub">
-                        {k.petugas.length} petugas · {k.jumlahData} data
+                        {ringkasTim(k.petugas)} · {k.jumlahData} data
                       </div>
                     </div>
                     <StatusPill status={k.status} />

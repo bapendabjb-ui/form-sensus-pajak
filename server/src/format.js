@@ -42,6 +42,38 @@ function formatHargaBaris(row) {
   return "";
 }
 
+/**
+ * NPWP 15 digit -> "00.000.000.0-000.000" (format lama yang masih banyak dipakai).
+ * NPWP 16 digit (NIK) & 17 digit (NITKU) ditulis apa adanya.
+ */
+function formatNpwp(digit) {
+  const d = String(digit === null || digit === undefined ? "" : digit).replace(/\D/g, "");
+  if (d.length !== 15) return d;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}.${d.slice(8, 9)}-${d.slice(9, 12)}.${d.slice(12)}`;
+}
+
+/**
+ * NOP PBB 18 digit -> "63.72.010.001.002-0123.0".
+ *
+ * Kelompoknya mengikuti susunan resmi: provinsi 2, kabupaten/kota 2,
+ * kecamatan 3, kelurahan 3, blok 3, nomor urut objek 4, kode khusus 1.
+ */
+function formatNop(digit) {
+  const d = String(digit === null || digit === undefined ? "" : digit).replace(/\D/g, "");
+  if (d.length !== 18) return d;
+  return `${d.slice(0, 2)}.${d.slice(2, 4)}.${d.slice(4, 7)}.${d.slice(7, 10)}.${d.slice(10, 13)}-${d.slice(13, 17)}.${d.slice(17)}`;
+}
+
+/** { rt, rw } -> "RT 003 / RW 005". */
+function formatRtRw(v) {
+  if (!v || typeof v !== "object") return "";
+  const rt = String(v.rt || "").trim();
+  const rw = String(v.rw || "").trim();
+  if (!rt && !rw) return "";
+  if (rt && rw) return `RT ${rt} / RW ${rw}`;
+  return rt ? `RT ${rt}` : `RW ${rw}`;
+}
+
 /** Tanggal + jam dalam zona waktu tertentu -> "13 September 2026 14.05". */
 function formatWaktuID(value, timeZone) {
   const d = value instanceof Date ? value : new Date(value);
@@ -66,9 +98,26 @@ function csvNilai(tipe, nilai, opsi = {}) {
     case "wilayah":
       if (!nilai || typeof nilai !== "object" || !nilai.kecamatan) return "";
       return nilai.kelurahan ? `Kel. ${nilai.kelurahan}, Kec. ${nilai.kecamatan}` : `Kec. ${nilai.kecamatan}`;
+    case "lokasi": {
+      // Koordinat desimal — bisa langsung ditempel ke Google Maps / aplikasi peta.
+      if (!nilai || typeof nilai !== "object" || nilai.lat === null || nilai.lat === undefined) return "";
+      const titik = `${nilai.lat}, ${nilai.lon}`;
+      return nilai.akurasi === null || nilai.akurasi === undefined
+        ? titik
+        : `${titik} (±${Math.round(nilai.akurasi)} m)`;
+    }
     case "foto":
       if (!Array.isArray(nilai)) return "";
       return nilai.map((f) => `${opsi.baseUrl || ""}/api/foto/${f.id}`).join(" ; ");
+    case "rtrw":
+      return formatRtRw(nilai);
+    case "nik":
+      // Sengaja tanpa pemisah: NIK adalah deret digit, bukan angka hitung.
+      return String(nilai);
+    case "npwp":
+      return formatNpwp(nilai);
+    case "nop":
+      return formatNop(nilai);
     case "date":
       return formatDateID(nilai);
     case "range":
@@ -110,6 +159,9 @@ module.exports = {
   formatWaktuID,
   formatRange,
   formatHargaBaris,
+  formatNpwp,
+  formatNop,
+  formatRtRw,
   csvNilai,
   buildCsv,
 };

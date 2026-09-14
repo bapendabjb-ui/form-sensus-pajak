@@ -1,10 +1,10 @@
 /**
- * Klien REST untuk API FormKita.
+ * Klien REST untuk API Sensus Pajak.
  * Token admin disimpan di localStorage agar login tetap bertahan saat reload.
  */
 
 const BASE = "/api";
-const TOKEN_KEY = "formkita_token";
+const TOKEN_KEY = "sensus_pajak_token";
 
 let token = "";
 try {
@@ -103,10 +103,10 @@ export async function cekSesi() {
 /* ---------- petugas ---------- */
 
 export const listPetugas = () => request("/petugas");
-export const createPetugas = (nama, nip) => request("/petugas", { method: "POST", body: { nama, nip } });
+export const createPetugas = (nama, nip) => request("/petugas", { method: "POST", body: { nama, nip }, auth: true });
 export const updatePetugas = (id, nama, nip) =>
-  request(`/petugas/${id}`, { method: "PUT", body: { nama, nip } });
-export const deletePetugas = (id) => request(`/petugas/${id}`, { method: "DELETE" });
+  request(`/petugas/${id}`, { method: "PUT", body: { nama, nip }, auth: true });
+export const deletePetugas = (id) => request(`/petugas/${id}`, { method: "DELETE", auth: true });
 
 /* ---------- formulir ---------- */
 
@@ -115,6 +115,9 @@ export const getFormulir = (id) => request(`/formulir/${id}`);
 export const createFormulir = (payload) => request("/formulir", { method: "POST", body: payload, auth: true });
 export const updateFormulir = (id, payload) =>
   request(`/formulir/${id}`, { method: "PUT", body: payload, auth: true });
+/** Susun ulang bank formulir. `ids` = daftar id sesuai urutan tampil baru. */
+export const urutkanFormulir = (ids) =>
+  request("/formulir/urutan", { method: "PUT", body: { ids }, auth: true });
 export const deleteFormulir = (id, force = false) =>
   request(`/formulir/${id}${force ? "?force=true" : ""}`, { method: "DELETE", auth: true });
 
@@ -123,13 +126,15 @@ export const deleteFormulir = (id, force = false) =>
 export const listKertasKerja = () => request("/kertas-kerja");
 export const nomorBerikutnya = () => request("/kertas-kerja/nomor-berikutnya");
 export const getKertasKerja = (id) => request(`/kertas-kerja/${id}`);
-export const createKertasKerja = (petugasIds) =>
-  request("/kertas-kerja", { method: "POST", body: { petugasIds } });
+export const createKertasKerja = (judul, petugasIds) =>
+  request("/kertas-kerja", { method: "POST", body: { judul, petugasIds } });
+export const updateJudulKertasKerja = (id, judul) =>
+  request(`/kertas-kerja/${id}/judul`, { method: "PUT", body: { judul } });
 export const updateTimKertasKerja = (id, petugasIds) =>
-  request(`/kertas-kerja/${id}/petugas`, { method: "PUT", body: { petugasIds } });
+  request(`/kertas-kerja/${id}/petugas`, { method: "PUT", body: { petugasIds }, auth: true });
 export const setStatusKertasKerja = (id, status) =>
   request(`/kertas-kerja/${id}/status`, { method: "PUT", body: { status } });
-export const deleteKertasKerja = (id) => request(`/kertas-kerja/${id}`, { method: "DELETE" });
+export const deleteKertasKerja = (id) => request(`/kertas-kerja/${id}`, { method: "DELETE", auth: true });
 
 /* ---------- entri: satu data yang diisi lewat formulir ---------- */
 
@@ -137,7 +142,7 @@ export const getEntri = (id) => request(`/entri/${id}`);
 export const createEntri = (kertasKerjaId, formulirId, jawaban) =>
   request(`/kertas-kerja/${kertasKerjaId}/entri`, { method: "POST", body: { formulirId, jawaban } });
 export const updateEntri = (id, jawaban) => request(`/entri/${id}`, { method: "PUT", body: { jawaban } });
-export const deleteEntri = (id) => request(`/entri/${id}`, { method: "DELETE" });
+export const deleteEntri = (id) => request(`/entri/${id}`, { method: "DELETE", auth: true });
 
 /* ---------- foto ---------- */
 
@@ -181,4 +186,22 @@ export function getWilayah() {
     });
   }
   return wilayahCache;
+}
+
+/* ---------- konfigurasi aplikasi (batas-batas dari server) ---------- */
+
+let konfigurasiCache = null;
+
+/**
+ * Batas aplikasi (petugasMaks, fotoMaksPerPertanyaan, uploadMaksMb).
+ * Server adalah sumber angkanya; cukup dimuat sekali per sesi.
+ */
+export function getKonfigurasi() {
+  if (!konfigurasiCache) {
+    konfigurasiCache = request("/konfigurasi").catch((e) => {
+      konfigurasiCache = null;
+      throw e;
+    });
+  }
+  return konfigurasiCache;
 }

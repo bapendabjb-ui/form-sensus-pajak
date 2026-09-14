@@ -1,3 +1,6 @@
+import { IconLock } from "./Icons.jsx";
+import { navigate } from "../lib/router.js";
+
 /* Komponen tampilan kecil yang dipakai di beberapa halaman. */
 
 export function PageHead({ title, sub, children }) {
@@ -63,5 +66,24 @@ export function StatusPill({ status }) {
     <span className={"fk-pill" + (selesai ? " is-done" : " is-draft")}>
       {selesai ? "Selesai" : "Draft"}
     </span>
+  );
+}
+
+/**
+ * Pemberitahuan bahwa sebuah aksi hanya untuk admin, lengkap dengan jalan
+ * masuknya. Dipakai di tempat tombol yang disembunyikan supaya petugas tahu
+ * ke mana harus pergi, bukan sekadar kehilangan tombol.
+ */
+export function KunciAdmin({ children }) {
+  return (
+    <div className="fk-kunci-admin">
+      <span className="fk-kunci-ikon" aria-hidden="true">
+        <IconLock />
+      </span>
+      <span className="fk-kunci-teks">{children}</span>
+      <button type="button" className="fk-mini" onClick={() => navigate("/masuk")}>
+        Masuk admin
+      </button>
+    </div>
   );
 }

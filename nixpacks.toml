@@ -1,4 +1,4 @@
-# Konfigurasi build Railway / Nixpacks untuk FormKita.
+# Konfigurasi build Railway / Nixpacks untuk Sensus Pajak.
 # - install : npm ci (monorepo workspaces: client + server) lalu `prisma generate` via postinstall
 # - build   : vite build -> client/dist
 # - start   : jalankan migrasi Prisma, lalu server Express (yang juga menyajikan client/dist)

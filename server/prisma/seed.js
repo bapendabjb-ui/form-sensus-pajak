@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Data contoh FormKita (bank formulir + petugas).
+ * Data contoh Sensus Pajak (bank formulir + petugas).
  *
  * Dijalankan otomatis saat server start bila SEED_DEMO=true DAN database masih
  * kosong, atau manual dengan `npm run db:seed`. Idempoten: tidak menimpa data
@@ -20,9 +20,11 @@ const FORMULIR_CONTOH = [
     deskripsi: "Data dasar wajib pajak dan lokasi objek.",
     pertanyaan: [
       { tipe: "text", label: "Nama wajib pajak", wajib: true },
-      { tipe: "text", label: "NPWPD" },
+      { tipe: "nik", label: "NIK penanggung jawab", wajib: true },
+      { tipe: "npwp", label: "NPWP" },
       { tipe: "paragraph", label: "Alamat objek pajak" },
       { tipe: "wilayah", label: "Kecamatan & kelurahan" },
+      { tipe: "rtrw", label: "RT & RW", wajib: true },
       { tipe: "text", label: "Nomor telepon / narahubung" },
     ],
   },
@@ -92,11 +94,12 @@ async function seedDemo() {
     return { diisi: false, alasan: "Database sudah berisi data, seed dilewati." };
   }
 
-  for (const f of FORMULIR_CONTOH) {
+  for (const [urutForm, f] of FORMULIR_CONTOH.entries()) {
     await prisma.formulir.create({
       data: {
         judul: f.judul,
         deskripsi: f.deskripsi,
+        urutan: urutForm + 1,
         pertanyaan: {
           create: f.pertanyaan.map((q, i) => ({
             tipe: q.tipe,

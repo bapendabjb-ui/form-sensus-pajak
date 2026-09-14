@@ -59,7 +59,7 @@ export default function WilayahInput({ value, onChange, invalid }) {
         <CustomSelect
           value={v.kecamatan}
           options={data.map((k) => k.nama)}
-          placeholder="Pilih kecamatan"
+          placeholder="Pilih Kecamatan"
           invalid={invalid && !v.kecamatan}
           onChange={pilihKecamatan}
         />
@@ -69,7 +69,7 @@ export default function WilayahInput({ value, onChange, invalid }) {
         <CustomSelect
           value={v.kelurahan}
           options={opsiKelurahan}
-          placeholder="Pilih kelurahan"
+          placeholder="Pilih Kelurahan"
           invalid={invalid && !v.kelurahan}
           onChange={pilihKelurahan}
         />

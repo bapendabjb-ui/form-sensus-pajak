@@ -1,6 +1,15 @@
 /* Ringkasan satu entri untuk daftar "Data terkumpul". */
 
-import { formatDateID, groupNum, formatRange } from "./format.js";
+import {
+  formatDateID,
+  groupNum,
+  formatRange,
+  formatLokasi,
+  formatNik,
+  formatNpwp,
+  formatNop,
+  formatRtRw,
+} from "./format.js";
 
 const TIPE_JUDUL = ["text", "dropdown", "radio", "paragraph"];
 
@@ -25,6 +34,16 @@ export function formatNilai(q, nilai) {
     case "wilayah":
       if (!nilai || typeof nilai !== "object" || !nilai.kecamatan) return "";
       return nilai.kelurahan ? `${nilai.kelurahan}, ${nilai.kecamatan}` : nilai.kecamatan;
+    case "lokasi":
+      return formatLokasi(nilai, { ringkas: true });
+    case "rtrw":
+      return formatRtRw(nilai);
+    case "nik":
+      return formatNik(nilai);
+    case "npwp":
+      return formatNpwp(nilai);
+    case "nop":
+      return formatNop(nilai);
     default:
       return typeof nilai === "string" ? nilai.trim() : "";
   }

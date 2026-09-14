@@ -20,6 +20,7 @@ const bentukFormulir = (f) => ({
   id: f.id,
   judul: f.judul,
   deskripsi: f.deskripsi || "",
+  urutan: f.urutan ?? 0,
   createdAt: f.createdAt,
   pertanyaan: (f.pertanyaan || []).map(bentukPertanyaan),
 });

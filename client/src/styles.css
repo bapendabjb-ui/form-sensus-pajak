@@ -26,6 +26,7 @@ body {
 .fk-side{width:230px; flex:none; background:var(--surface); border-right:1px solid var(--line); display:flex; flex-direction:column; padding:18px 14px; position:sticky; top:0; height:100vh;}
 .fk-side-logo{display:flex; align-items:center; gap:10px; padding:4px 8px 18px;}
 .fk-logo{width:30px; height:30px; border-radius:9px; background:var(--brand); color:#fff; display:grid; place-items:center; flex:none;}
+.fk-lambang{height:30px; width:auto; display:block; flex:none;}
 .fk-word{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; letter-spacing:-.01em;}
 .fk-nav{display:flex; flex-direction:column; gap:3px; flex:1;}
 .fk-nav-item{display:flex; align-items:center; gap:11px; border:0; background:transparent; color:var(--muted); padding:10px 12px; border-radius:10px; font-size:14px; font-weight:500; text-align:left; width:100%;}
@@ -35,7 +36,8 @@ body {
 .fk-nav-label{flex:1;}
 .fk-nav-lock{color:var(--faint); display:grid; place-items:center;}
 .fk-side-foot{border-top:1px solid var(--line-soft); padding-top:12px; margin-top:8px;}
-.fk-side-note{font-size:12px; color:var(--faint); padding:0 8px;}
+.fk-side-masuk{display:flex; align-items:center; gap:8px; width:100%; border:1px solid var(--line); background:var(--surface); color:var(--muted); font-size:13px; font-weight:500; padding:9px 12px; border-radius:10px; text-align:left;}
+.fk-side-masuk:hover{border-color:var(--brand); color:var(--brand-dark); background:var(--brand-tint);}
 .fk-admin-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:0 6px;}
 .fk-admin-badge{font-size:12px; font-weight:600; color:var(--brand);}
 .fk-logout{border:1px solid var(--line); background:var(--surface); color:var(--muted); font-size:12px; padding:5px 10px; border-radius:8px;}
@@ -113,6 +115,8 @@ body {
 .fk-kk-detail-head{display:flex; align-items:center; gap:14px;}
 .fk-kk-detail-meta{flex:1; min-width:0;}
 .fk-kk-title-top{font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:600; margin:0 0 3px;}
+.fk-judul-edit{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 3px;}
+.fk-judul-edit .fk-input{flex:1; min-width:170px;}
 
 /* ================= login ================= */
 .fk-login{display:grid; place-items:center; padding:40px 0;}
@@ -122,6 +126,29 @@ body {
 .fk-login-sub{font-size:13px; color:var(--muted); margin:0 0 8px;}
 .fk-login-card .fk-input{text-align:left;}
 .fk-login-btn{margin-top:4px;}
+
+/* ================= seret untuk menyusun ulang (drag & drop) ================= */
+/* Dipakai bank formulir & daftar pertanyaan, lihat lib/useDragUrut.js. */
+.fk-seret-item{transition:transform .16s ease;}
+.fk-seret-item.is-seret{transition:none; position:relative; z-index:5;}
+.fk-seret-item.is-seret .fk-q,.fk-seret-item.is-seret .fk-lib-row{
+  border-color:var(--brand); box-shadow:0 10px 24px rgba(23,33,43,.16); opacity:.97;
+}
+/* Sentuhan pada pegangan dipakai untuk menyeret, bukan menggulir halaman. */
+.fk-grip{
+  display:grid; place-items:center; flex:none; border:0; background:transparent; color:var(--faint);
+  padding:4px; border-radius:7px; touch-action:none; cursor:grab;
+}
+.fk-grip:hover{color:var(--brand); background:var(--brand-tint);}
+.fk-grip:focus-visible{outline:2px solid var(--brand); outline-offset:1px;}
+.fk-grip:active{cursor:grabbing;}
+/* Selama menyeret, jangan ada teks yang ikut tersorot. */
+body.fk-sedang-seret{user-select:none; -webkit-user-select:none;}
+body.fk-sedang-seret .fk-grip{cursor:grabbing;}
+.fk-susun-cap{display:flex; align-items:center; gap:5px; flex-wrap:wrap; font-size:12.5px; color:var(--muted); margin:0 0 10px;}
+.fk-susun-cap svg{color:var(--faint); vertical-align:middle;}
+.fk-susun-simpan{color:var(--brand); font-weight:600;}
+.fk-q-list{display:flex; flex-direction:column; gap:16px;}
 
 /* ================= penyusun formulir ================= */
 .fk-title-input{width:100%; border:0; border-bottom:2px solid var(--line); background:transparent; font-family:'Space Grotesk',sans-serif; font-size:23px; font-weight:600; padding:4px 0 8px; color:var(--ink);}
@@ -179,6 +206,8 @@ body {
 .fk-lib-row.is-sel{border-color:var(--brand); background:var(--brand-tint);}
 .fk-lib-row.is-editing{cursor:default; border-color:var(--brand);}
 .fk-lib-row > div:first-child{min-width:0;}
+/* Isi baris bank formulir — melebar mengisi sisa ruang di samping pegangan seret. */
+.fk-lib-main{flex:1; min-width:0;}
 
 /* ================= pengisian form ================= */
 .fk-form{position:relative; padding-top:26px;}
@@ -349,11 +378,49 @@ body {
 .fk-wilayah-cap{font-size:12px; font-weight:600; color:var(--muted);}
 .fk-wilayah-hint{grid-column:1 / -1;}
 
+/* RT & RW: dua kolom sempit, masing-masing 3 digit. */
+.fk-rtrw{display:grid; grid-template-columns:repeat(2,minmax(0,110px)); gap:10px 12px;}
+.fk-rtrw-in{text-align:center; letter-spacing:.18em; font-variant-numeric:tabular-nums;}
+.fk-rtrw-hint{grid-column:1 / -1;}
+
+/* NIK & NPWP: deret digit dengan penghitung panjangnya. */
+.fk-digit{display:flex; flex-direction:column; gap:5px;}
+.fk-digit-in{letter-spacing:.08em; font-variant-numeric:tabular-nums;}
+.fk-digit-hitung{font-size:11.5px; font-weight:600; color:var(--faint); font-variant-numeric:tabular-nums;}
+.fk-digit-hitung.is-kurang{color:var(--amber);}
+.fk-digit-hint{color:var(--amber);}
+
 .fk-btn-danger{border:1px solid #EBC2BD; background:var(--surface); color:var(--danger); font-weight:600; font-size:14px; padding:11px 18px; border-radius:10px; margin-left:auto;}
 .fk-btn-danger:hover:not(:disabled){background:#FBE9E7;}
 .fk-btn-danger:disabled{opacity:.5; cursor:default;}
 .fk-stats.is-6{grid-template-columns:repeat(3,1fr);}
 
+
+/* ================= lokasi (GPS) ================= */
+.fk-lokasi{display:flex; flex-direction:column; gap:9px; border:1px solid var(--line); border-radius:12px; padding:13px 14px; background:var(--surface);}
+.fk-lokasi.is-invalid{border-color:var(--danger);}
+.fk-lokasi-hasil{display:flex; flex-direction:column; gap:10px;}
+
+/* Kartu koordinat: lintang & bujur berdampingan, masing-masing berlabel. */
+.fk-koor{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.fk-koor-kartu{display:flex; flex-direction:column; gap:3px; min-width:0; border:1px solid var(--line-soft); border-radius:10px; padding:10px 12px; background:#F8FAFB;}
+.fk-koor-label{font-size:11px; font-weight:600; color:var(--faint); text-transform:uppercase; letter-spacing:.04em;}
+.fk-koor-nilai{font-family:'Space Grotesk',sans-serif; font-size:18px; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; letter-spacing:-.01em;}
+.fk-koor-dms{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums;}
+.fk-koor-dms b{font-weight:600; color:var(--brand-dark);}
+
+.fk-lokasi-meta{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.fk-lokasi-salin{border:0; background:transparent; color:var(--brand); font-size:12.5px; font-weight:600; padding:0;}
+.fk-lokasi-salin:hover{text-decoration:underline;}
+
+.fk-lokasi-akurasi{font-size:12px; font-weight:600; padding:3px 9px; border-radius:20px; background:#EEF1F4; color:var(--muted);}
+.fk-lokasi-akurasi.is-baik{background:var(--brand-tint); color:var(--brand-dark);}
+.fk-lokasi-akurasi.is-cukup{background:#FBF0DC; color:var(--amber);}
+.fk-lokasi-akurasi.is-kasar{background:#F8E3E1; color:var(--danger);}
+.fk-lokasi-peta{font-size:12.5px; font-weight:600; color:var(--brand); text-decoration:none;}
+.fk-lokasi-peta:hover{text-decoration:underline;}
+.fk-lokasi-cari{display:flex; align-items:center; gap:9px; font-size:13px; color:var(--muted);}
+.fk-lokasi-aksi{display:flex; gap:8px; flex-wrap:wrap;}
 /* ================= token global =================
    Toast dan lembar pilihan dirender di luar .fk-app, jadi token juga ada di :root. */
 :root{
@@ -386,6 +453,16 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-sheet-opsi:last-child{border-bottom:0;}
 .fk-sheet-opsi:active{background:#F2F5F7;}
 .fk-sheet-opsi.is-selected{color:var(--brand-dark); font-weight:600; background:var(--brand-tint); border-radius:10px; border-bottom-color:transparent;}
+
+/* ---------- dialog konfirmasi (pengganti window.confirm) ---------- */
+.fk-dialog-latar{position:fixed; inset:0; z-index:95; background:rgba(16,24,32,.45); display:flex; align-items:center; justify-content:center; padding:20px; animation:fk-pudar .15s ease-out;}
+.fk-dialog{width:100%; max-width:400px; background:var(--surface); color:var(--ink); border-radius:16px; padding:22px; box-shadow:0 18px 44px rgba(16,24,32,.22); animation:fk-naik .18s ease-out;}
+.fk-dialog button{font-family:inherit; cursor:pointer;}
+.fk-dialog-judul{font-family:'Space Grotesk',sans-serif; font-size:17px; font-weight:600; margin:0;}
+.fk-dialog-pesan{font-size:14px; line-height:1.55; color:var(--muted); margin:8px 0 0; white-space:pre-line;}
+.fk-dialog-aksi{display:flex; justify-content:flex-end; gap:8px; margin-top:20px; flex-wrap:wrap;}
+.fk-dialog.is-ringkas{max-width:360px;}
+.fk-dialog.is-ringkas .fk-dialog-aksi{margin-top:18px;}
 .fk-sheet-opsi svg{color:var(--brand); flex:none;}
 .fk-select-cari{margin-bottom:6px;}
 .fk-cal.is-sheet{position:static; width:auto; border:0; box-shadow:none; padding:4px 2px 6px; margin:0;}
@@ -402,6 +479,11 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-draf span{flex:1 1 220px;}
 .fk-zona-bahaya{display:flex; justify-content:flex-end;}
 .fk-zona-bahaya .fk-btn-danger{margin-left:0;}
+
+/* pemberitahuan aksi khusus admin (pengganti tombol yang disembunyikan) */
+.fk-kunci-admin{display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--surface); border:1px dashed var(--line); border-radius:12px; padding:14px 16px; font-size:13px; color:var(--muted);}
+.fk-kunci-ikon{display:grid; place-items:center; color:var(--faint); flex:none;}
+.fk-kunci-teks{flex:1; min-width:170px;}
 
 /* ================= responsif: HP & tablet kecil ================= */
 @media (max-width:820px){
@@ -420,6 +502,7 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   /* ---- bilah atas ---- */
   .fk-appbar{display:flex; align-items:center; gap:6px; position:sticky; top:0; z-index:40; min-height:56px; padding:env(safe-area-inset-top) 10px 0 12px; background:rgba(255,255,255,.95); -webkit-backdrop-filter:saturate(1.4) blur(10px); backdrop-filter:saturate(1.4) blur(10px); border-bottom:1px solid var(--line);}
   .fk-appbar-logo{width:32px; height:32px; margin-right:4px;}
+  .fk-appbar .fk-lambang{height:30px; margin-right:4px;}
   .fk-appbar-btn{width:44px; height:44px; margin-left:-8px; border:0; background:transparent; color:var(--ink); display:grid; place-items:center; border-radius:12px;}
   .fk-appbar-btn:active{background:#EEF1F4;}
   .fk-appbar-judul{flex:1; min-width:0; margin:0; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -497,7 +580,8 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-kk-title-top{font-size:19px;}
   .fk-maju-teks{font-size:13px;}
   .fk-detail-aksi{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
-  .fk-detail-aksi > :first-child:nth-last-child(3){grid-column:1 / -1;}
+  .fk-detail-aksi > :first-child:nth-last-child(3),
+  .fk-detail-aksi > :first-child:nth-last-child(4){grid-column:1 / -1;}
   .fk-chip{font-size:13px; padding:6px 11px;}
   .fk-bagian{margin:6px 2px -4px;}
   .fk-baris{min-height:64px; padding:14px;}
@@ -507,6 +591,13 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-baris-foto img{width:46px; height:46px;}
   .fk-zona-bahaya{justify-content:stretch;}
   .fk-zona-bahaya .fk-btn-danger{width:100%;}
+  /* dialog menempel di dasar layar: sasaran sentuh dekat ibu jari */
+  .fk-dialog-latar{align-items:flex-end; padding:0;}
+  .fk-dialog,
+  .fk-dialog.is-ringkas{max-width:600px; border-radius:20px 20px 0 0; padding:22px 18px calc(18px + env(safe-area-inset-bottom));}
+  .fk-dialog-aksi,
+  .fk-dialog.is-ringkas .fk-dialog-aksi{margin-top:22px;}
+  .fk-dialog-aksi > button{flex:1; min-height:48px;}
 
   /* ---- buat kertas kerja & tim ---- */
   .fk-nomor-big{font-size:38px;}
@@ -528,6 +619,7 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-newpet .fk-input{min-width:0; flex:none;}
   .fk-lib-row{padding:14px; gap:8px; flex-wrap:wrap;}
   .fk-lib-row > div:first-child{flex:1 1 60%;}
+  .fk-lib-main{flex:1 1 60%;}
   .fk-login{padding:4px 0;}
   .fk-login-card{padding:22px 18px;}
 
@@ -537,11 +629,15 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-q-top{flex-wrap:wrap;}
   .fk-title-input{font-size:20px;}
   .fk-q-move button{font-size:13px; padding:6px;}
+  /* Pegangan seret butuh sasaran sentuh yang cukup besar di HP. */
+  .fk-grip{min-width:40px; min-height:40px;}
+  .fk-lib-row .fk-grip{margin-left:-6px;}
 }
 @media (max-width:560px){
   .fk-btn-danger{margin-left:0;}
   .fk-foto-grid{grid-template-columns:repeat(3,1fr);}
   .fk-wilayah{grid-template-columns:1fr;}
+  .fk-koor{grid-template-columns:1fr;}
   .fk-cal{width:calc(100vw - 64px); max-width:300px;}
   .fk-range{flex-direction:column; align-items:stretch;}
   .fk-range-sep{display:none;}
@@ -553,6 +649,8 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-kk-card-actions{order:3; flex-basis:100%;}
   .fk-q{flex-direction:column;}
   .fk-q-side{flex-direction:row; justify-content:space-between; border-right:0; border-bottom:1px solid var(--line-soft); padding:10px 14px;}
+  .fk-q-list{gap:14px;}
+  .fk-rtrw{grid-template-columns:repeat(2,minmax(0,1fr));}
   .fk-page-title{font-size:21px;}
   .fk-nomor-big{font-size:36px;}
 }

@@ -3,6 +3,7 @@
 const express = require("express");
 const prisma = require("../prisma");
 const config = require("../config");
+const { requireAdmin } = require("../auth");
 const { wrap, badRequest, notFound, parseId, ApiError } = require("../http");
 const { ambilNomorBerikutnya, previewNomorBerikutnya } = require("../nomor");
 const { siapkanJawaban, tulisJawaban, muatEntri } = require("../entri");
@@ -12,7 +13,7 @@ const { csvNilai, buildCsv, formatWaktuID } = require("../format");
 
 const router = express.Router();
 
-const PETUGAS_MAKS = 8;
+const { PETUGAS_MAKS } = require("../batas");
 
 const includeTim = { petugas: { include: { petugas: true } } };
 
@@ -33,6 +34,14 @@ async function bacaTim(body) {
   return ids;
 }
 
+/** Baca & periksa judul kertas kerja - identitasnya di daftar, jadi wajib diisi. */
+function bacaJudul(body) {
+  const judul = String(body?.judul ?? "").trim();
+  if (!judul) throw badRequest("Judul kertas kerja wajib diisi.");
+  if (judul.length > 200) throw badRequest("Judul kertas kerja maksimal 200 karakter.");
+  return judul;
+}
+
 /* ---------- pemuatan ---------- */
 
 /** Kertas kerja + tim + seluruh entri beserta definisi formulir yang dipakai. */
@@ -50,7 +59,8 @@ async function muatDetail(id) {
   const formulir = formIds.length
     ? await prisma.formulir.findMany({
         where: { id: { in: formIds } },
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        // Sama dengan urutan bank formulir yang disusun admin.
+        orderBy: [{ urutan: "asc" }, { id: "asc" }],
         include: includePertanyaan,
       })
     : [];
@@ -62,6 +72,7 @@ function bentukDetail({ kk, formulir }) {
   return {
     id: kk.id,
     nomor: kk.nomor,
+    judul: kk.judul,
     status: kk.status,
     createdAt: kk.createdAt,
     petugas: bentukTim(kk.petugas),
@@ -79,6 +90,7 @@ function bentukDetail({ kk, formulir }) {
 const bentukRingkas = (k) => ({
   id: k.id,
   nomor: k.nomor,
+  judul: k.judul,
   status: k.status,
   createdAt: k.createdAt,
   petugas: bentukTim(k.petugas),
@@ -110,10 +122,11 @@ router.get(
   })
 );
 
-/** POST /api/kertas-kerja  { petugasIds: [] } -> buat kertas kerja bernomor otomatis. */
+/** POST /api/kertas-kerja  { judul, petugasIds: [] } -> buat kertas kerja bernomor otomatis. */
 router.post(
   "/",
   wrap(async (req, res) => {
+    const judul = bacaJudul(req.body);
     const ids = await bacaTim(req.body);
 
     const dibuat = await prisma.$transaction(async (tx) => {
@@ -121,6 +134,7 @@ router.post(
       return tx.kertasKerja.create({
         data: {
           nomor,
+          judul,
           status: "draft",
           petugas: { create: ids.map((petugasId, urutan) => ({ petugasId, urutan })) },
         },
@@ -141,9 +155,25 @@ router.get(
   })
 );
 
-/** PUT /api/kertas-kerja/:id/petugas  { petugasIds: [] } -> ganti tim petugas. */
+/** PUT /api/kertas-kerja/:id/judul  { judul } -> ganti judul kertas kerja. */
+router.put(
+  "/:id/judul",
+  wrap(async (req, res) => {
+    const id = parseId(req.params.id);
+    const ada = await prisma.kertasKerja.findUnique({ where: { id } });
+    if (!ada) throw notFound("Kertas kerja tidak ditemukan.");
+
+    const judul = bacaJudul(req.body);
+    await prisma.kertasKerja.update({ where: { id }, data: { judul } });
+
+    res.json(bentukDetail(await muatDetail(id)));
+  })
+);
+
+/** PUT /api/kertas-kerja/:id/petugas  { petugasIds: [] } -> ganti tim petugas. Khusus admin. */
 router.put(
   "/:id/petugas",
+  requireAdmin,
   wrap(async (req, res) => {
     const id = parseId(req.params.id);
     const ada = await prisma.kertasKerja.findUnique({ where: { id } });
@@ -223,9 +253,10 @@ router.post(
   })
 );
 
-/** DELETE /api/kertas-kerja/:id -> hapus beserta seluruh entri & fotonya. */
+/** DELETE /api/kertas-kerja/:id -> hapus beserta seluruh entri & fotonya. Khusus admin. */
 router.delete(
   "/:id",
+  requireAdmin,
   wrap(async (req, res) => {
     const id = parseId(req.params.id);
     const ada = await prisma.kertasKerja.findUnique({ where: { id } });
@@ -262,6 +293,7 @@ router.get(
     const kolom = formulir.flatMap((f) => f.pertanyaan.map((q) => ({ f, q })));
     const header = [
       "Nomor",
+      "Judul",
       "Status",
       "Petugas",
       "NIP",
@@ -289,6 +321,7 @@ router.get(
       const f = formulir[urutForm.get(e.formulirId)];
       return [
         kk.nomor,
+        kk.judul,
         status,
         namaTim,
         nipTim,
@@ -301,7 +334,7 @@ router.get(
       ];
     });
 
-    if (baris.length === 0) baris.push([kk.nomor, status, namaTim, nipTim, "", "", ""]);
+    if (baris.length === 0) baris.push([kk.nomor, kk.judul, status, namaTim, nipTim, "", "", ""]);
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="kertas-kerja-${kk.nomor}.csv"`);
@@ -310,4 +343,3 @@ router.get(
 );
 
 module.exports = router;
-module.exports.PETUGAS_MAKS = PETUGAS_MAKS;

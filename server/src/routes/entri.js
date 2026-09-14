@@ -2,6 +2,7 @@
 
 const express = require("express");
 const prisma = require("../prisma");
+const { requireAdmin } = require("../auth");
 const { wrap, notFound, parseId, ApiError } = require("../http");
 const { siapkanJawaban, tulisJawaban, muatEntri } = require("../entri");
 const { hapusBerkas } = require("../foto");
@@ -44,9 +45,10 @@ router.put(
   })
 );
 
-/** DELETE /api/entri/:id -> hapus satu data beserta fotonya. */
+/** DELETE /api/entri/:id -> hapus satu data beserta fotonya. Khusus admin. */
 router.delete(
   "/:id",
+  requireAdmin,
   wrap(async (req, res) => {
     const id = parseId(req.params.id);
     const ada = await prisma.entri.findUnique({ where: { id } });
