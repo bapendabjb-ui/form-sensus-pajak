@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import { keDMS, urlPeta } from "../lib/format.js";
+
+// Leaflet cukup besar: unduh hanya saat petugas membuka peta.
+const PetaLokasi = lazy(() => import("./PetaLokasi.jsx"));
 
 /**
  * Pertanyaan bertipe lokasi: satu titik koordinat GPS.
@@ -18,7 +21,10 @@ import { keDMS, urlPeta } from "../lib/format.js";
  *   4. petugas tetap bisa menunggu lebih lama, berhenti lebih awal, atau
  *      mengambil ulang di titik yang lebih terbuka.
  *
- * value : { lat, lon, akurasi, ketinggian, waktu }
+ * Titik juga bisa dipilih lewat peta (PetaLokasi). Titik dari peta tidak punya
+ * akurasi, jadi asalnya dicatat di `sumber`.
+ *
+ * value : { lat, lon, akurasi, ketinggian, waktu, sumber: "gps" | "peta" | "" }
  */
 
 /** Akurasi (meter) yang dianggap sudah cukup baik untuk berhenti otomatis. */
@@ -35,7 +41,7 @@ const TIMEOUT_PEMBACAAN_MS = 30000;
 
 const adaGps = () => typeof navigator !== "undefined" && "geolocation" in navigator;
 
-const kosong = () => ({ lat: null, lon: null, akurasi: null, ketinggian: null, waktu: "" });
+const kosong = () => ({ lat: null, lon: null, akurasi: null, ketinggian: null, waktu: "", sumber: "" });
 
 const terisi = (v) => !!v && typeof v === "object" && v.lat !== null && v.lat !== undefined;
 
@@ -84,6 +90,7 @@ export default function LokasiInput({ value, onChange, invalid }) {
   const [sampel, setSampel] = useState(0);
   const [terbaik, setTerbaik] = useState(null); // akurasi terbaik selama pencarian
   const [tersalin, setTersalin] = useState(false);
+  const [petaTerbuka, setPetaTerbuka] = useState(false);
 
   const watchId = useRef(null);
   const pewaktuDiam = useRef(null);
@@ -155,6 +162,7 @@ export default function LokasiInput({ value, onChange, invalid }) {
           akurasi: accuracy,
           ketinggian: altitude === null || altitude === undefined ? null : altitude,
           waktu: new Date(pos.timestamp || Date.now()).toISOString(),
+          sumber: "gps",
         });
 
         if (accuracy <= AKURASI_BAIK) hentikan();
@@ -169,6 +177,15 @@ export default function LokasiInput({ value, onChange, invalid }) {
 
     segarkanJedaDiam();
     pewaktuMaks.current = setTimeout(hentikan, DURASI_MAKS_MS);
+  };
+
+  /** Titik dari peta: menghentikan GPS yang sedang berjalan, akurasinya tidak diketahui. */
+  const pilihDariPeta = (lat, lon) => {
+    hentikan();
+    setGalat("");
+    setTerbaik(null);
+    akurasiTerbaik.current = Infinity;
+    onChange({ lat, lon, akurasi: null, ketinggian: null, waktu: new Date().toISOString(), sumber: "peta" });
   };
 
   const hapus = () => {
@@ -203,9 +220,13 @@ export default function LokasiInput({ value, onChange, invalid }) {
           </div>
 
           <div className="fk-lokasi-meta">
-            <span className={"fk-lokasi-akurasi" + kelasAkurasi(value.akurasi)}>
-              {value.akurasi === null ? "akurasi tidak diketahui" : `±${Math.round(value.akurasi)} m`}
-            </span>
+            {value.sumber === "peta" ? (
+              <span className="fk-lokasi-akurasi is-peta">Dipilih di peta</span>
+            ) : (
+              <span className={"fk-lokasi-akurasi" + kelasAkurasi(value.akurasi)}>
+                {value.akurasi === null ? "akurasi tidak diketahui" : `±${Math.round(value.akurasi)} m`}
+              </span>
+            )}
             {value.ketinggian !== null && value.ketinggian !== undefined && (
               <span className="fk-hint-kecil">{Math.round(value.ketinggian)} mdpl</span>
             )}
@@ -219,6 +240,19 @@ export default function LokasiInput({ value, onChange, invalid }) {
             )}
           </div>
         </div>
+      )}
+
+      {petaTerbuka && (
+        <Suspense
+          fallback={
+            <div className="fk-lokasi-cari" role="status">
+              <span className="fk-spinner" aria-hidden="true" />
+              <span>Memuat peta…</span>
+            </div>
+          }
+        >
+          <PetaLokasi titik={punyaTitik ? { lat: value.lat, lon: value.lon } : null} onPilih={pilihDariPeta} />
+        </Suspense>
       )}
 
       {mencari && (
@@ -244,6 +278,14 @@ export default function LokasiInput({ value, onChange, invalid }) {
             {punyaTitik ? "Ambil ulang" : "Ambil lokasi"}
           </button>
         )}
+        <button
+          type="button"
+          className={petaTerbuka ? "fk-btn-ghost is-on" : "fk-btn-ghost"}
+          onClick={() => setPetaTerbuka((b) => !b)}
+          aria-expanded={petaTerbuka}
+        >
+          {petaTerbuka ? "Tutup peta" : "Pilih di peta"}
+        </button>
         {/* Perangkat yang lambat mengunci sering butuh satu ronde tambahan. */}
         {punyaTitik && !mencari && value.akurasi > AKURASI_BAIK && (
           <button type="button" className="fk-mini" onClick={() => mulai(true)}>

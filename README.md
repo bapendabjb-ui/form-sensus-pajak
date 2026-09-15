@@ -358,7 +358,7 @@ Kolom `kertas_kerja.nama_objek` dihapus — nama objek kini diisi lewat pertanya
 | `linetariff`                                              | array `{ layanan, jenis, harga_min, harga_max }`  |
 | `foto`                                                    | array `{ id, nama }`                              |
 | `wilayah`                                                 | `{ kecamatan, kode_kecamatan, kelurahan, kode_kelurahan }` |
-| `lokasi`                                                  | `{ lat, lon, akurasi, ketinggian, waktu }`        |
+| `lokasi`                                                  | `{ lat, lon, akurasi, ketinggian, waktu, sumber }` — `sumber` = `"gps"` / `"peta"` |
 | `rtrw`                                                    | `{ rt, rw }` — dua string tepat 3 digit (`"007"`) |
 | `nik`, `npwp`, `nop`                                      | string digit (`"3172010101010001"`)               |
 | `niknpwp`                                                 | `{ nik, npwp }` — dua string digit, boleh salah satu kosong |
@@ -392,7 +392,20 @@ Berkas disajikan lewat `GET /api/foto/:id`, jadi hanya foto yang tercatat yang b
 
 ## Lokasi (GPS)
 
-Tipe pertanyaan **Lokasi (GPS)** menyimpan satu titik koordinat beserta akurasinya.
+Tipe pertanyaan **Lokasi (GPS / peta)** menyimpan satu titik koordinat beserta akurasinya.
+
+### Memilih titik lewat peta
+
+Selain **Ambil lokasi**, petugas bisa menekan **Pilih di peta** (`PetaLokasi.jsx`, Leaflet) lalu
+mengetuk titik atau menggeser penanda. Tersedia peta jalan (OpenStreetMap) dan citra **satelit**
+(Esri World Imagery) — berguna untuk menunjuk bangunan yang sinyal GPS-nya buruk.
+
+- Peta dimuat terpisah (`React.lazy`), jadi Leaflet hanya diunduh saat peta dibuka.
+- Peta dibuka di titik yang sudah ada; bila masih kosong, di pusat Kota Banjarbaru.
+- Titik dari peta tersimpan dengan `sumber: "peta"` dan `akurasi: null`; tampil berlencana
+  **Dipilih di peta**, dan di CSV/Excel sebagai `-3.44, 114.84 (dipilih di peta)`.
+- Petugas bisa mengambil GPS dulu lalu membetulkannya di peta — penanda ikut pindah ke titik GPS.
+- Potongan peta diambil dari internet, jadi **peta butuh koneksi**; Ambil lokasi (GPS) tetap jalan tanpanya.
 
 Akurasi diperoleh dengan **mengamati** posisi, bukan sekali ambil. Pembacaan pertama sebuah
 perangkat biasanya berasal dari jaringan seluler/Wi-Fi dan bisa meleset ratusan meter; setelah
@@ -429,8 +442,8 @@ Jadi angka seperti **±87 m dengan "1 pembacaan"** bukan kerusakan aplikasi: itu
 tidak sedang memakai satelit. Ujilah dari HP, lewat `https://`, dengan mode akurasi tinggi menyala,
 di tempat terbuka — di sana angkanya biasanya turun ke 5–20 m.
 
-Yang tersimpan: `lat` & `lon` (7 desimal ≈ 1 cm), `akurasi` dan `ketinggian` dalam meter, serta
-`waktu` pengambilan. Server menolak koordinat di luar jangkauan sah (lat ±90, lon ±180) dengan
+Yang tersimpan: `lat` & `lon` (7 desimal ≈ 1 cm), `akurasi` dan `ketinggian` dalam meter,
+`waktu` pengambilan, serta `sumber` (`gps` atau `peta`). Server menolak koordinat di luar jangkauan sah (lat ±90, lon ±180) dengan
 menganggapnya kosong, sehingga pertanyaan wajib akan gagal validasi. Di CSV, sel berisi
 `-3.4456123, 114.8412988 (±8 m)` — bisa langsung ditempel ke aplikasi peta mana pun.
 

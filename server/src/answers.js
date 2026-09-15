@@ -98,7 +98,7 @@ const bulat = (n, desimal) => {
   return Math.round(n * f) / f;
 };
 
-const LOKASI_KOSONG = { lat: null, lon: null, akurasi: null, ketinggian: null, waktu: "" };
+const LOKASI_KOSONG = { lat: null, lon: null, akurasi: null, ketinggian: null, waktu: "", sumber: "" };
 
 /** Bentuk nilai kosong per tipe, dipakai sebagai fallback. */
 function nilaiKosong(tipe) {
@@ -164,7 +164,7 @@ function normalizeNilai(tipe, raw) {
     }
 
     case "lokasi": {
-      // { lat, lon, akurasi, ketinggian, waktu } dari GPS perangkat petugas.
+      // { lat, lon, akurasi, ketinggian, waktu, sumber } dari GPS perangkat petugas atau dipilih di peta.
       const obj = raw && typeof raw === "object" ? raw : {};
       const lat = toDesimal(obj.lat);
       const lon = toDesimal(obj.lon);
@@ -186,6 +186,7 @@ function normalizeNilai(tipe, raw) {
         akurasi: akurasi === null || akurasi < 0 ? null : bulat(akurasi, 1),
         ketinggian: ketinggian === null ? null : bulat(ketinggian, 1),
         waktu: stempel,
+        sumber: obj.sumber === "gps" || obj.sumber === "peta" ? obj.sumber : "",
       };
     }
 

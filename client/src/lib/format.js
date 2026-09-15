@@ -20,7 +20,7 @@ export const TYPES = [
   { key: "foto", label: "Foto" },
   { key: "wilayah", label: "Kecamatan & Kelurahan" },
   { key: "rtrw", label: "RT & RW" },
-  { key: "lokasi", label: "Lokasi (GPS)" },
+  { key: "lokasi", label: "Lokasi (GPS / peta)" },
   { key: "nik", label: "NIK" },
   { key: "npwp", label: "NPWP" },
   { key: "niknpwp", label: "NIK / NPWP" },

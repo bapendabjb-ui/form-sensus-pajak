@@ -49,7 +49,7 @@ export function emptyValue(tipe) {
     case "niknpwp":
       return { nik: "", npwp: "" };
     case "lokasi":
-      return { lat: null, lon: null, akurasi: null, ketinggian: null, waktu: "" };
+      return { lat: null, lon: null, akurasi: null, ketinggian: null, waktu: "", sumber: "" };
     default:
       return "";
   }
@@ -69,6 +69,7 @@ const lokasiDari = (v) => {
     akurasi: angka(o.akurasi),
     ketinggian: angka(o.ketinggian),
     waktu: asString(o.waktu),
+    sumber: o.sumber === "gps" || o.sumber === "peta" ? o.sumber : "",
   };
 };
 

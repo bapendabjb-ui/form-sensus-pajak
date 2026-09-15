@@ -102,6 +102,7 @@ function csvNilai(tipe, nilai, opsi = {}) {
       // Koordinat desimal — bisa langsung ditempel ke Google Maps / aplikasi peta.
       if (!nilai || typeof nilai !== "object" || nilai.lat === null || nilai.lat === undefined) return "";
       const titik = `${nilai.lat}, ${nilai.lon}`;
+      if (nilai.sumber === "peta") return `${titik} (dipilih di peta)`;
       return nilai.akurasi === null || nilai.akurasi === undefined
         ? titik
         : `${titik} (±${Math.round(nilai.akurasi)} m)`;

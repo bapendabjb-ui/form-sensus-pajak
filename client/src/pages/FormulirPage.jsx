@@ -143,6 +143,8 @@ function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove }) {
             Petugas menekan <b>Ambil lokasi</b>; GPS diamati beberapa detik dan hanya pembacaan paling
             akurat yang disimpan (berhenti sendiri pada ±10 m). Tersimpan sebagai koordinat, akurasi
             dalam meter, ketinggian, dan waktu pengambilan. Membutuhkan HTTPS serta izin lokasi di HP.
+            Petugas juga bisa menekan <b>Pilih di peta</b> lalu mengetuk titik atau menggeser penanda
+            (peta jalan atau satelit, butuh koneksi internet).
           </p>
         )}
 

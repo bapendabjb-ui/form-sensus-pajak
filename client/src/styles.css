@@ -452,6 +452,21 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-lokasi-peta:hover{text-decoration:underline;}
 .fk-lokasi-cari{display:flex; align-items:center; gap:9px; font-size:13px; color:var(--muted);}
 .fk-lokasi-aksi{display:flex; gap:8px; flex-wrap:wrap;}
+.fk-lokasi-akurasi.is-peta{background:#E6EEF7; color:#2B5A8C;}
+.fk-lokasi-aksi .fk-btn-ghost.is-on{border-color:var(--brand); color:var(--brand-dark); background:var(--brand-tint);}
+
+/* Peta pemilih lokasi (Leaflet) */
+.fk-peta-wadah{display:flex; flex-direction:column; gap:8px;}
+.fk-peta-alat{display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;}
+.fk-peta-jenis{display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden;}
+.fk-peta-jenis button{border:0; background:var(--surface); color:var(--muted); font-size:12.5px; font-weight:600; padding:7px 13px; min-height:34px;}
+.fk-peta-jenis button + button{border-left:1px solid var(--line);}
+.fk-peta-jenis button.is-on{background:var(--brand-tint); color:var(--brand-dark);}
+/* position + z-index membuat konteks tumpuk sendiri: panel Leaflet (z 400+) tidak menutupi bilah atas & lembar pilihan. */
+.fk-peta{position:relative; z-index:0; height:300px; border-radius:10px; overflow:hidden; border:1px solid var(--line-soft); background:#E6EAEF;}
+@media (max-width:560px){ .fk-peta{height:260px;} }
+.fk-pin{background:transparent; border:0;}
+.fk-pin-kepala{display:block; width:28px; height:28px; border-radius:50% 50% 50% 0; background:var(--brand); border:3px solid #fff; transform:rotate(-45deg); box-shadow:0 2px 6px rgba(0,0,0,.35);}
 /* ================= token global =================
    Toast dan lembar pilihan dirender di luar .fk-app, jadi token juga ada di :root. */
 :root{
