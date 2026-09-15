@@ -453,6 +453,7 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 /* ---------- lembar pilihan (bottom sheet) ---------- */
 .fk-sheet-latar{position:fixed; inset:0; z-index:90; background:rgba(16,24,32,.45); display:flex; align-items:flex-end; justify-content:center; animation:fk-pudar .15s ease-out;}
 .fk-sheet{width:100%; max-width:600px; max-height:84%; background:var(--surface); color:var(--ink); border-radius:20px 20px 0 0; display:flex; flex-direction:column; padding-bottom:env(safe-area-inset-bottom); box-shadow:0 -10px 30px rgba(16,24,32,.18); animation:fk-naik .2s ease-out;}
+.fk-sheet-latar.is-keyboard .fk-sheet{max-height:calc(100% - 8px); padding-bottom:0;}
 .fk-sheet button{font-family:inherit; cursor:pointer;}
 .fk-sheet-pegangan{width:40px; height:4px; border-radius:4px; background:#CFD6DD; margin:8px auto 0; flex:none;}
 .fk-sheet-head{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:4px 10px 6px 18px; flex:none;}
