@@ -46,7 +46,7 @@ function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove }) {
           className="fk-input fk-q-ket-input"
           value={q.keterangan || ""}
           maxLength={500}
-          placeholder="Keterangan / petunjuk pengisian (opsional)"
+          placeholder="Keterangan / Petunjuk Pengisian (Opsional)"
           onChange={(e) => onPatch({ keterangan: e.target.value })}
           aria-label="Keterangan pertanyaan"
         />

@@ -835,7 +835,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
       <div className="fk-form-actions fk-sticky-actions">
         {!entriId && (
           <button type="button" className="fk-btn-ghost" onClick={() => simpan(true)} disabled={sibuk || unggah > 0}>
-            {menyimpan === "lagi" ? "Menyimpan..." : "Simpan & Tambah Lagi"}
+            {menyimpan === "lagi" ? "Menyimpan..." : "Simpan & + Lagi"}
           </button>
         )}
         <button type="button" className="fk-btn" onClick={() => simpan(false)} disabled={sibuk || unggah > 0}>
