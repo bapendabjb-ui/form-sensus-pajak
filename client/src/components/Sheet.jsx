@@ -12,6 +12,7 @@ import { buangEntriSementara } from "../lib/router.js";
 export default function Sheet({ open, onClose, title, children }) {
   const tutupRef = useRef(onClose);
   tutupRef.current = onClose;
+  const latarRef = useRef(null);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -26,9 +27,25 @@ export default function Sheet({ open, onClose, title, children }) {
     const overflowLama = html.style.overflow;
     html.style.overflow = "hidden";
 
+    // Keyboard HP tidak memperkecil layar untuk elemen fixed, jadi latar dipasang
+    // tepat di area yang masih terlihat (visualViewport) agar lembar duduk di atas keyboard.
+    const vv = window.visualViewport;
+    const ikutiLayar = () => {
+      const el = latarRef.current;
+      if (!el || !vv) return;
+      el.style.top = `${vv.offsetTop}px`;
+      el.style.height = `${vv.height}px`;
+      el.style.bottom = "auto";
+    };
+    ikutiLayar();
+    vv?.addEventListener("resize", ikutiLayar);
+    vv?.addEventListener("scroll", ikutiLayar);
+
     return () => {
       window.removeEventListener("popstate", saatKembali);
       document.removeEventListener("keydown", saatTombol);
+      vv?.removeEventListener("resize", ikutiLayar);
+      vv?.removeEventListener("scroll", ikutiLayar);
       html.style.overflow = overflowLama;
       // Ditutup lewat pilihan / tombol Tutup: buang entri riwayat milik lembar ini.
       buangEntriSementara();
@@ -38,7 +55,7 @@ export default function Sheet({ open, onClose, title, children }) {
   if (!open) return null;
 
   return createPortal(
-    <div className="fk-sheet-latar" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fk-sheet-latar" ref={latarRef} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="fk-sheet" role="dialog" aria-modal="true" aria-label={title}>
         <div className="fk-sheet-pegangan" aria-hidden="true" />
         <div className="fk-sheet-head">
