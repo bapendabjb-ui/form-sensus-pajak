@@ -13,20 +13,26 @@ const bentuk = (p) => ({ id: p.id, nama: p.nama, nip: p.nip, createdAt: p.create
 /** NIP dibandingkan tanpa spasi: "031 1998 2021" sama dengan "03119982021". */
 const kunciNip = (nip) => String(nip || "").replace(/\s/g, "");
 
+/** Nama dibandingkan tanpa beda huruf besar-kecil & spasi ganda. */
+const kunciNama = (nama) => String(nama || "").trim().replace(/\s+/g, " ").toLowerCase();
+
 /**
- * Tolak NIP yang sudah dipakai petugas lain. NIP kosong boleh dobel (opsional).
+ * Tolak nama atau NIP yang sudah dipakai petugas lain. NIP kosong boleh dobel (opsional).
  * Dicek di aplikasi, bukan indeks unik database, supaya data lama yang terlanjur
  * dobel tidak menggagalkan migrasi saat deploy.
  */
-async function pastikanNipUnik(nip, kecualiId) {
-  const kunci = kunciNip(nip);
-  if (!kunci) return;
+async function pastikanUnik(nama, nip, kecualiId) {
   const lain = await prisma.petugas.findMany({
-    where: { nip: { not: "" }, ...(kecualiId ? { id: { not: kecualiId } } : {}) },
+    where: kecualiId ? { id: { not: kecualiId } } : {},
     select: { nama: true, nip: true },
   });
-  const sama = lain.find((p) => kunciNip(p.nip) === kunci);
-  if (sama) throw conflict(`NIP ${nip} sudah terdaftar atas nama ${sama.nama}.`);
+
+  const namaSama = lain.find((p) => kunciNama(p.nama) === kunciNama(nama));
+  if (namaSama) throw conflict(`Petugas bernama ${namaSama.nama} sudah terdaftar.`);
+
+  const kunci = kunciNip(nip);
+  const nipSama = kunci && lain.find((p) => kunciNip(p.nip) === kunci);
+  if (nipSama) throw conflict(`NIP ${nip} sudah terdaftar atas nama ${nipSama.nama}.`);
 }
 
 /**
@@ -52,7 +58,7 @@ router.post(
     if (nama.length > 150) throw badRequest("Nama petugas maksimal 150 karakter.");
     if (nip.length > 40) throw badRequest("NIP maksimal 40 karakter.");
 
-    await pastikanNipUnik(nip);
+    await pastikanUnik(nama, nip);
 
     const dibuat = await prisma.petugas.create({ data: { nama, nip } });
     res.status(201).json(bentuk(dibuat));
@@ -73,7 +79,7 @@ router.put(
 
     const ada = await prisma.petugas.findUnique({ where: { id } });
     if (!ada) throw notFound("Petugas tidak ditemukan.");
-    await pastikanNipUnik(nip, id);
+    await pastikanUnik(nama, nip, id);
 
     const diubah = await prisma.petugas.update({ where: { id }, data: { nama, nip } });
     res.json(bentuk(diubah));
