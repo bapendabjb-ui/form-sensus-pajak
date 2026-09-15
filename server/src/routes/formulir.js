@@ -40,6 +40,9 @@ function bacaPayload(body) {
     const label = String(q?.label ?? "").trim();
     if (label.length > 300) throw badRequest("Label pertanyaan maksimal 300 karakter.");
 
+    const keterangan = String(q?.keterangan ?? "").trim();
+    if (keterangan.length > 500) throw badRequest("Keterangan pertanyaan maksimal 500 karakter.");
+
     let opsi = [];
     if (BERTIPE_OPSI.includes(tipe)) {
       opsi = (Array.isArray(q?.opsi) ? q.opsi : [])
@@ -59,6 +62,7 @@ function bacaPayload(body) {
       id: Number.isInteger(id) && id > 0 ? id : null,
       tipe,
       label,
+      keterangan,
       wajib: Boolean(q?.wajib),
       rangeHarga: tipe === "linetariff" ? Boolean(q?.rangeHarga) : false,
       urutan: i,
@@ -89,6 +93,7 @@ async function tulisPertanyaan(tx, formulirId, pertanyaan) {
         data: {
           tipe: q.tipe,
           label: q.label,
+          keterangan: q.keterangan,
           wajib: q.wajib,
           rangeHarga: q.rangeHarga,
           urutan: q.urutan,
@@ -107,6 +112,7 @@ async function tulisPertanyaan(tx, formulirId, pertanyaan) {
           formulirId,
           tipe: q.tipe,
           label: q.label,
+          keterangan: q.keterangan,
           wajib: q.wajib,
           rangeHarga: q.rangeHarga,
           urutan: q.urutan,

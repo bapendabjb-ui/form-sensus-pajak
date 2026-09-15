@@ -42,6 +42,15 @@ function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove }) {
           <span className="fk-tag">{TYPE_LABEL[q.tipe]}</span>
         </div>
 
+        <input
+          className="fk-input fk-q-ket-input"
+          value={q.keterangan || ""}
+          maxLength={500}
+          placeholder="Keterangan / petunjuk pengisian (opsional)"
+          onChange={(e) => onPatch({ keterangan: e.target.value })}
+          aria-label="Keterangan pertanyaan"
+        />
+
         {HAS_OPTIONS.includes(q.tipe) && (
           <div className="fk-opts">
             {q.tipe === "linetariff" && (
@@ -241,7 +250,7 @@ export default function FormulirPage({ admin, onAuthChanged }) {
       ...d,
       pertanyaan: [
         ...d.pertanyaan,
-        { id: null, tipe, label: "", wajib: false, rangeHarga: false, opsi: defaultOptions(tipe) },
+        { id: null, tipe, label: "", keterangan: "", wajib: false, rangeHarga: false, opsi: defaultOptions(tipe) },
       ],
     }));
     setDirty(true);
@@ -349,6 +358,7 @@ export default function FormulirPage({ admin, onAuthChanged }) {
           id: q.id ?? undefined,
           tipe: q.tipe,
           label: q.label,
+          keterangan: q.keterangan || "",
           wajib: q.wajib,
           rangeHarga: q.rangeHarga,
           opsi: q.opsi,

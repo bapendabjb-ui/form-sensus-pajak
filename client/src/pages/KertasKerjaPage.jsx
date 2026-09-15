@@ -807,6 +807,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
               {q.label || "(Pertanyaan Tanpa Judul)"}
               {q.wajib && <span className="fk-star">*</span>}
             </label>
+            {q.keterangan && <p className="fk-q-ket">{q.keterangan}</p>}
             <FieldInput
               q={q}
               value={answers[q.id]}

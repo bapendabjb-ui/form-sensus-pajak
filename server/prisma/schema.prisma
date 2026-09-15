@@ -74,6 +74,8 @@ model Pertanyaan {
   formulirId Int            @map("formulir_id")
   tipe       TipePertanyaan
   label      String         @db.VarChar(300)
+  /// Petunjuk pengisian, tampil di bawah judul pertanyaan.
+  keterangan String         @default("") @db.VarChar(500)
   wajib      Boolean        @default(false)
   /// Khusus tipe "linetariff": izinkan harga rentang per baris.
   rangeHarga Boolean        @default(false) @map("range_harga")

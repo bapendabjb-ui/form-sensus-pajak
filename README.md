@@ -298,7 +298,7 @@ Misalnya, agar petugas boleh menghapus datanya sendiri, hapus `requireAdmin` dar
 | `admin`                 | `username` unik + `password_hash`                                           |
 | `petugas`               | Nama & NIP — sumber dropdown tim petugas                                    |
 | `formulir`              | Bank formulir + `urutan` (susunan tampil, diatur admin lewat seret)         |
-| `pertanyaan`            | `tipe` (17 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `nik`, `npwp`, `niknpwp` & `nop`), `label`, `wajib`, `range_harga`, `urutan` |
+| `pertanyaan`            | `tipe` (17 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `nik`, `npwp`, `niknpwp` & `nop`), `label`, `keterangan`, `wajib`, `range_harga`, `urutan` |
 | `pertanyaan_opsi`       | Opsi dropdown/radio/checkbox & daftar "Jenis tarif"                         |
 | `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status` (kolom `judul` tidak dipakai lagi)     |
 | `kertas_kerja_petugas`  | Tim petugas (1–8), `urutan` 0 = penanggung jawab                            |
@@ -318,6 +318,9 @@ Perilaku relasi:
   yang sudah tersimpan tidak hilang saat admin menambah atau mengurutkan ulang pertanyaan.
 
 ### Migrasi dari versi sebelumnya
+
+Migrasi `20260915100000_keterangan_pertanyaan` menambah kolom `pertanyaan.keterangan`
+(maks. 500 karakter, bawaan kosong) — petunjuk pengisian yang tampil di bawah judul pertanyaan.
 
 Migrasi `20260915090000_tipe_niknpwp` menambah satu nilai enum tipe pertanyaan: `niknpwp`
 (NIK dan NPWP dalam satu pertanyaan).

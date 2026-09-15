@@ -10,6 +10,7 @@ const bentukPertanyaan = (q) => ({
   id: q.id,
   tipe: q.tipe,
   label: q.label,
+  keterangan: q.keterangan || "",
   wajib: q.wajib,
   rangeHarga: q.rangeHarga,
   urutan: q.urutan,
