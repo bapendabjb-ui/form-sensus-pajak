@@ -24,6 +24,7 @@ export const TYPES = [
   { key: "nik", label: "NIK" },
   { key: "npwp", label: "NPWP" },
   { key: "niknpwp", label: "NIK / NPWP" },
+  { key: "telepon", label: "Nomor telepon" },
   { key: "nop", label: "NOP PBB" },
 ];
 
@@ -49,6 +50,26 @@ export const PANJANG_NPWP_MIN = 15;
 export const PANJANG_NPWP_MAKS = 17;
 export const PANJANG_NOP = 18;
 export const PANJANG_RTRW = 3;
+
+/** Nomor telepon: 8-15 digit, maksimal 10 nomor per pertanyaan - sama dengan server. */
+export const PANJANG_TELEPON_MIN = 8;
+export const PANJANG_TELEPON_MAKS = 15;
+export const TELEPON_MAKS_BARIS = 10;
+
+/** Angka saja, tanda + di depan dipertahankan: "+62 812-3456" -> "+628123456". */
+export function nomorTelepon(raw) {
+  const s = String(raw ?? "").trim();
+  const d = s.replace(/\D/g, "").slice(0, PANJANG_TELEPON_MAKS);
+  return s.startsWith("+") && d ? `+${d}` : d;
+}
+
+/** [{ keterangan, nomor }] -> "Pemilik - 081234567890" (+ jumlah nomor lain bila ringkas). */
+export function formatTelepon(v, { ringkas = false } = {}) {
+  const baris = (Array.isArray(v) ? v : []).filter((r) => r && r.nomor);
+  const teks = baris.map((r) => (r.keterangan ? `${r.keterangan} - ${r.nomor}` : r.nomor));
+  if (ringkas && teks.length > 1) return `${teks[0]} +${teks.length - 1}`;
+  return teks.join(", ");
+}
 
 /** Sisakan hanya angka, lalu potong pada `maks` digit. */
 export const hanyaDigit = (raw, maks) => String(raw ?? "").replace(/\D/g, "").slice(0, maks);

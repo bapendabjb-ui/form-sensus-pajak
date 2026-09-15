@@ -409,6 +409,20 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-niknpwp{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 14px;}
 @media (max-width:560px){ .fk-niknpwp{grid-template-columns:minmax(0,1fr);} }
 
+/* Nomor telepon: baris "Keterangan – Nomor", keterangan di atas nomor pada layar sempit. */
+.fk-telepon{display:flex; flex-direction:column; gap:8px;}
+.fk-telepon-baris{display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1.2fr) auto; gap:8px; align-items:center;}
+.fk-telepon-sep{color:var(--faint);}
+.fk-telepon-nomor{font-variant-numeric:tabular-nums; letter-spacing:.03em;}
+.fk-telepon-hapus{border:0; background:transparent; color:var(--faint); font-size:14px; padding:8px; min-width:36px; min-height:36px; border-radius:8px;}
+.fk-telepon-hapus:hover{color:var(--danger); background:#FBE9E7;}
+.fk-telepon > .fk-add-opt{align-self:flex-start;}
+@media (max-width:560px){
+  .fk-telepon-baris{grid-template-columns:minmax(0,1fr) auto; row-gap:6px; padding-bottom:8px; border-bottom:1px solid var(--line-soft);}
+  .fk-telepon-baris > .fk-input:first-child{grid-column:1 / -1;}
+  .fk-telepon-sep{display:none;}
+}
+
 /* RT & RW: dua kolom selebar isian, masing-masing 3 digit. */
 .fk-rtrw{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 12px;}
 .fk-rtrw-in{text-align:center; letter-spacing:.18em; font-variant-numeric:tabular-nums;}

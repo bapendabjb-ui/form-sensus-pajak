@@ -17,6 +17,10 @@ import {
   PANJANG_NPWP_MAKS,
   PANJANG_NOP,
   PANJANG_RTRW,
+  PANJANG_TELEPON_MIN,
+  PANJANG_TELEPON_MAKS,
+  TELEPON_MAKS_BARIS,
+  nomorTelepon,
 } from "../lib/format.js";
 import { kapitalAwalKalimat, ubahDengan } from "../lib/kapital.js";
 
@@ -200,6 +204,73 @@ function NikNpwpInput({ value, onChange, invalid, wajib }) {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ---------- nomor telepon ---------- */
+
+const barisTeleponBaru = () => ({ keterangan: "", nomor: "" });
+
+/**
+ * Satu atau lebih nomor telepon, tiap baris "Keterangan – Nomor".
+ * Selalu tampil minimal satu baris kosong supaya petugas langsung bisa mengetik.
+ *
+ * value : [{ keterangan, nomor }]
+ */
+function TeleponInput({ value, onChange, invalid }) {
+  const rows = Array.isArray(value) && value.length ? value : [barisTeleponBaru()];
+  const adaNomor = rows.some((r) => r.nomor);
+
+  const patch = (i, obj) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...obj } : r)));
+  const tambah = () => onChange([...rows, barisTeleponBaru()]);
+  const hapus = (i) => onChange(rows.length > 1 ? rows.filter((_, idx) => idx !== i) : [barisTeleponBaru()]);
+
+  return (
+    <div className="fk-telepon">
+      {rows.map((r, i) => {
+        const digit = String(r.nomor || "").replace(/\D/g, "").length;
+        // Merah: nomor salah panjang, baris berketerangan tanpa nomor, atau (bila wajib) belum ada nomor sama sekali.
+        const salah =
+          invalid &&
+          (digit === 0
+            ? !!(r.keterangan || "").trim() || (!adaNomor && i === 0)
+            : digit < PANJANG_TELEPON_MIN || digit > PANJANG_TELEPON_MAKS);
+        return (
+          <div className="fk-telepon-baris" key={i}>
+            <input
+              className="fk-input"
+              value={r.keterangan || ""}
+              placeholder="Keterangan, mis. Pemilik"
+              autoCapitalize="sentences"
+              onChange={ubahKapital((keterangan) => patch(i, { keterangan }))}
+              aria-label={`Keterangan telepon ${i + 1}`}
+            />
+            <span className="fk-telepon-sep" aria-hidden="true">
+              –
+            </span>
+            <input
+              type="tel"
+              inputMode="tel"
+              autoComplete="off"
+              className={"fk-input fk-telepon-nomor" + (salah ? " is-invalid" : "")}
+              value={r.nomor || ""}
+              placeholder="08xxxxxxxxxx"
+              onChange={(e) => patch(i, { nomor: nomorTelepon(e.target.value) })}
+              aria-label={`Nomor telepon ${i + 1}`}
+            />
+            <button type="button" className="fk-telepon-hapus" onClick={() => hapus(i)} aria-label={`Hapus nomor ${i + 1}`}>
+              ✕
+            </button>
+          </div>
+        );
+      })}
+
+      {rows.length < TELEPON_MAKS_BARIS && (
+        <button type="button" className="fk-add-opt" onClick={tambah}>
+          + Tambah nomor
+        </button>
+      )}
     </div>
   );
 }
@@ -429,6 +500,9 @@ export default function FieldInput({ q, value, invalid, onChange }) {
     case "niknpwp":
       return <NikNpwpInput value={value} onChange={onChange} invalid={invalid} wajib={q.wajib} />;
 
+    case "telepon":
+      return <TeleponInput value={value} onChange={onChange} invalid={invalid} />;
+
     case "nop":
       return <NopInput value={value} onChange={onChange} invalid={invalid} />;
 
@@ -449,5 +523,6 @@ export {
   NpwpInput,
   NopInput,
   NikNpwpInput,
+  TeleponInput,
   RtRwInput,
 };

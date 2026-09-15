@@ -298,7 +298,7 @@ Misalnya, agar petugas boleh menghapus datanya sendiri, hapus `requireAdmin` dar
 | `admin`                 | `username` unik + `password_hash`                                           |
 | `petugas`               | Nama & NIP — sumber dropdown tim petugas                                    |
 | `formulir`              | Bank formulir + `ikon` (nama ikon kartu, kosong = nomor) + `urutan` (susunan tampil, diatur admin lewat seret) |
-| `pertanyaan`            | `tipe` (17 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `nik`, `npwp`, `niknpwp` & `nop`), `label`, `keterangan`, `wajib`, `range_harga`, `urutan` |
+| `pertanyaan`            | `tipe` (17 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `nik`, `npwp`, `niknpwp`, `telepon` & `nop`), `label`, `keterangan`, `wajib`, `range_harga`, `urutan` |
 | `pertanyaan_opsi`       | Opsi dropdown/radio/checkbox & daftar "Jenis tarif"                         |
 | `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status` (kolom `judul` tidak dipakai lagi)     |
 | `kertas_kerja_petugas`  | Tim petugas (1–8), `urutan` 0 = penanggung jawab                            |
@@ -318,6 +318,9 @@ Perilaku relasi:
   yang sudah tersimpan tidak hilang saat admin menambah atau mengurutkan ulang pertanyaan.
 
 ### Migrasi dari versi sebelumnya
+
+Migrasi `20260915120000_tipe_telepon` menambah satu nilai enum tipe pertanyaan: `telepon`
+(satu atau lebih nomor telepon berketerangan, mis. `Pemilik - 081234567890`).
 
 Migrasi `20260915110000_ikon_formulir` menambah kolom `formulir.ikon` (nama ikon Lucide, mis.
 `store`; bawaan kosong). Formulir lama tetap menampilkan nomor urut sampai admin memilih ikon.
@@ -362,6 +365,7 @@ Kolom `kertas_kerja.nama_objek` dihapus — nama objek kini diisi lewat pertanya
 | `rtrw`                                                    | `{ rt, rw }` — dua string tepat 3 digit (`"007"`) |
 | `nik`, `npwp`, `nop`                                      | string digit (`"3172010101010001"`)               |
 | `niknpwp`                                                 | `{ nik, npwp }` — dua string digit, boleh salah satu kosong |
+| `telepon`                                                 | array `{ keterangan, nomor }` — nomor 8–15 digit, boleh diawali `+`, maks. 10 baris |
 
 `harga_max` **null** = harga tunggal; **terisi** = rentang (diatur per baris, hanya bila admin
 menyalakan **"Izinkan harga rentang"**). Server selalu menormalkan nilai masuk: string di-`trim`,

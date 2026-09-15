@@ -112,6 +112,13 @@ function csvNilai(tipe, nilai, opsi = {}) {
       return nilai.map((f) => `${opsi.baseUrl || ""}/api/foto/${f.id}`).join(" ; ");
     case "rtrw":
       return formatRtRw(nilai);
+    case "telepon":
+      // "Pemilik - 081234567890; Kantor - 05114777123"
+      if (!Array.isArray(nilai)) return "";
+      return nilai
+        .filter((r) => r && r.nomor)
+        .map((r) => (r.keterangan ? `${r.keterangan} - ${r.nomor}` : r.nomor))
+        .join("; ");
     case "nik":
       // Sengaja tanpa pemisah: NIK adalah deret digit, bukan angka hitung.
       return String(nilai);

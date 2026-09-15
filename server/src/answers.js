@@ -12,6 +12,7 @@
  *   rtrw                                      : { rt, rw } - dua string 3 digit
  *   nik / npwp / nop                          : string digit (16 / 15-17 / 18 digit)
  *   niknpwp                                   : { nik, npwp } - wajib = minimal salah satu
+ *   telepon                                   : array { keterangan, nomor } - nomor 8-15 digit
  */
 
 const { normalWilayah } = require("./wilayah");
@@ -34,6 +35,7 @@ const TIPE = [
   "npwp",
   "nop",
   "niknpwp",
+  "telepon",
 ];
 
 /** Tipe yang menyimpan daftar opsi di tabel pertanyaan_opsi. */
@@ -85,6 +87,18 @@ const PANJANG_NPWP_MAKS = 17;
 const PANJANG_NOP = 18;
 const PANJANG_RTRW = 3;
 
+/** Nomor telepon: 8-15 digit (tanpa tanda +), maksimal 10 nomor per pertanyaan. */
+const PANJANG_TELEPON_MIN = 8;
+const PANJANG_TELEPON_MAKS = 15;
+const TELEPON_MAKS_BARIS = 10;
+
+/** Angka saja, tanda + di depan dipertahankan: "+62 812-3456" -> "+628123456". */
+function nomorTelepon(raw) {
+  const s = toTrimmedString(raw);
+  const d = s.replace(/\D/g, "").slice(0, PANJANG_SIMPAN_MAKS);
+  return s.startsWith("+") && d ? `+${d}` : d;
+}
+
 /**
  * Batas aman penyimpanan digit identitas. Sengaja lebih longgar dari panjang
  * yang sah supaya nilai kepanjangan tetap utuh saat diperiksa pesanFormat()
@@ -102,7 +116,7 @@ const LOKASI_KOSONG = { lat: null, lon: null, akurasi: null, ketinggian: null, w
 
 /** Bentuk nilai kosong per tipe, dipakai sebagai fallback. */
 function nilaiKosong(tipe) {
-  if (tipe === "checkbox" || tipe === "linetariff" || tipe === "foto") return [];
+  if (tipe === "checkbox" || tipe === "linetariff" || tipe === "foto" || tipe === "telepon") return [];
   if (tipe === "range") return { min: null, max: null };
   if (tipe === "lokasi") return { ...LOKASI_KOSONG };
   if (tipe === "wilayah") return normalWilayah("", "");
@@ -195,6 +209,17 @@ function normalizeNilai(tipe, raw) {
     case "nop":
       return hanyaDigit(raw, PANJANG_SIMPAN_MAKS);
 
+    case "telepon": {
+      if (!Array.isArray(raw)) return [];
+      return raw
+        .map((row) => {
+          const r = row && typeof row === "object" ? row : {};
+          return { keterangan: toTrimmedString(r.keterangan).slice(0, 100), nomor: nomorTelepon(r.nomor) };
+        })
+        .filter((r) => r.keterangan !== "" || r.nomor !== "")
+        .slice(0, TELEPON_MAKS_BARIS);
+    }
+
     case "niknpwp": {
       const obj = raw && typeof raw === "object" ? raw : {};
       return { nik: hanyaDigit(obj.nik, PANJANG_SIMPAN_MAKS), npwp: hanyaDigit(obj.npwp, PANJANG_SIMPAN_MAKS) };
@@ -246,6 +271,8 @@ function nilaiTerisi(tipe, nilai) {
       return Array.isArray(nilai) && nilai.some((r) => toTrimmedString(r.layanan) !== "");
     case "rtrw":
       return !!nilai && typeof nilai === "object" && !!nilai.rt && !!nilai.rw;
+    case "telepon":
+      return Array.isArray(nilai) && nilai.some((r) => toTrimmedString(r?.nomor) !== "");
     case "niknpwp":
       // Badan usaha tidak punya NIK, perorangan belum tentu punya NPWP: cukup salah satu.
       return !!nilai && typeof nilai === "object" && (!!nilai.nik || !!nilai.npwp);
@@ -285,6 +312,19 @@ function pesanFormat(tipe, nilai) {
     case "niknpwp": {
       const o = nilai && typeof nilai === "object" ? nilai : {};
       return [pesanFormat("nik", o.nik), pesanFormat("npwp", o.npwp)].filter(Boolean).join(" ");
+    }
+
+    case "telepon": {
+      for (const r of Array.isArray(nilai) ? nilai : []) {
+        const nomor = toTrimmedString(r?.nomor);
+        const ket = toTrimmedString(r?.keterangan);
+        const digit = nomor.replace(/\D/g, "").length;
+        if (digit === 0 && ket) return `Nomor telepon "${ket}" belum diisi.`;
+        if (digit > 0 && (digit < PANJANG_TELEPON_MIN || digit > PANJANG_TELEPON_MAKS)) {
+          return `Nomor telepon ${nomor} harus ${PANJANG_TELEPON_MIN}-${PANJANG_TELEPON_MAKS} digit.`;
+        }
+      }
+      return "";
     }
 
     case "rtrw": {

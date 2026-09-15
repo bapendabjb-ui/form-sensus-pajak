@@ -18,6 +18,9 @@ import {
   PANJANG_NPWP_MAKS,
   PANJANG_NOP,
   PANJANG_RTRW,
+  PANJANG_TELEPON_MIN,
+  PANJANG_TELEPON_MAKS,
+  nomorTelepon,
 } from "./format.js";
 
 const asString = (v) => (v === null || v === undefined ? "" : String(v));
@@ -39,6 +42,7 @@ export function emptyValue(tipe) {
     case "checkbox":
     case "linetariff":
     case "foto":
+    case "telepon":
       return [];
     case "range":
       return { min: "", max: "" };
@@ -97,6 +101,12 @@ const nikNpwpDari = (v) => {
   return { nik: hanyaDigit(o.nik, PANJANG_NIK), npwp: hanyaDigit(o.npwp, PANJANG_NPWP_MAKS) };
 };
 
+/** Baris telepon yang rapi; baris yang keterangan & nomornya kosong dibuang bila `buangKosong`. */
+const teleponDari = (v, buangKosong = false) =>
+  (Array.isArray(v) ? v : [])
+    .map((r) => ({ keterangan: asString(r?.keterangan), nomor: nomorTelepon(r?.nomor) }))
+    .filter((r) => !buangKosong || r.keterangan.trim() !== "" || r.nomor !== "");
+
 /** JSON dari server -> nilai untuk state UI. */
 export function fromApi(tipe, nilai) {
   if (nilai === null || nilai === undefined) return emptyValue(tipe);
@@ -133,6 +143,9 @@ export function fromApi(tipe, nilai) {
       const o = typeof nilai === "object" ? nilai : {};
       return { min: numToInput(o.min), max: numToInput(o.max) };
     }
+
+    case "telepon":
+      return teleponDari(nilai);
 
     case "linetariff":
       return (Array.isArray(nilai) ? nilai : []).map((r) => ({
@@ -189,6 +202,9 @@ export function toApi(tipe, v) {
       return { min: toNumberOrNull(o.min), max: toNumberOrNull(o.max) };
     }
 
+    case "telepon":
+      return teleponDari(v, true).map((r) => ({ keterangan: r.keterangan.trim(), nomor: r.nomor }));
+
     case "linetariff":
       return (Array.isArray(v) ? v : []).map((r) => ({
         layanan: asString(r?.layanan).trim(),
@@ -229,6 +245,8 @@ export function isFilled(tipe, v) {
     }
     case "range":
       return !!v && asString(v.min).trim() !== "" && asString(v.max).trim() !== "";
+    case "telepon":
+      return teleponDari(v).some((r) => r.nomor !== "");
     case "linetariff":
       return Array.isArray(v) && v.some((r) => asString(r?.layanan).trim() !== "");
     default:
@@ -277,6 +295,19 @@ export function pesanFormat(tipe, v) {
     case "niknpwp": {
       const o = nikNpwpDari(v);
       return [pesanFormat("nik", o.nik), pesanFormat("npwp", o.npwp)].filter(Boolean).join(" ");
+    }
+
+    case "telepon": {
+      // Disamakan dengan pesanFormat() di server/src/answers.js.
+      for (const r of teleponDari(v, true)) {
+        const ket = r.keterangan.trim();
+        const digit = r.nomor.replace(/\D/g, "").length;
+        if (digit === 0 && ket) return `Nomor telepon "${ket}" belum diisi.`;
+        if (digit > 0 && (digit < PANJANG_TELEPON_MIN || digit > PANJANG_TELEPON_MAKS)) {
+          return `Nomor telepon ${r.nomor} harus ${PANJANG_TELEPON_MIN}-${PANJANG_TELEPON_MAKS} digit.`;
+        }
+      }
+      return "";
     }
 
     case "rtrw": {

@@ -130,6 +130,14 @@ function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove }) {
           </p>
         )}
 
+        {q.tipe === "telepon" && (
+          <p className="fk-hint">
+            Petugas mengisi satu atau lebih baris “Keterangan – Nomor”, mis. Pemilik – 081234567890, dan
+            menambah baris lewat <b>+ Tambah nomor</b> (maks. 10). Nomor 8–15 digit, boleh diawali +.
+            Di ekspor ditulis dalam satu kolom: Pemilik - 081234567890; Kantor - 05114777123.
+          </p>
+        )}
+
         {q.tipe === "nop" && (
           <p className="fk-hint">
             Nomor Objek Pajak PBB, tepat 18 digit. Dikelompokkan otomatis sambil diketik mengikuti
