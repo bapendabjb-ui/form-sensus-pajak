@@ -14,7 +14,7 @@ import { AdminContext } from "./lib/admin.js";
 import { useLokasi, navigate, kembali, cocokkanRute } from "./lib/router.js";
 
 const NAV = [
-  { tab: "dashboard", path: "/", label: "Dashboard", pendek: "Beranda", Icon: IconGrid },
+  { tab: "dashboard", path: "/", label: "Dashboard", pendek: "Dashboard", Icon: IconGrid },
   { tab: "kk", path: "/kertas-kerja", label: "Kertas Kerja", pendek: "Kertas Kerja", Icon: IconDoc },
   { tab: "petugas", path: "/petugas", label: "Petugas", pendek: "Petugas", Icon: IconUser },
   { tab: "formulir", path: "/formulir", label: "Formulir", pendek: "Formulir", Icon: IconList, admin: true },

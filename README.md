@@ -60,7 +60,7 @@ Aplikasi terutama dipakai petugas di lapangan lewat smartphone, jadi tampilannya
 untuk HP lebih dulu (desktop tetap memakai sidebar).
 
 - **Navigasi seperti aplikasi** — bilah judul di atas dengan tombol kembali, bilah tab di bawah
-  (Beranda, Kertas Kerja, Petugas, Formulir). Layar pengisian menyembunyikan bilah tab supaya
+  (Dashboard, Kertas Kerja, Petugas, Formulir). Layar pengisian menyembunyikan bilah tab supaya
   lega, dan bilah tab juga tersembunyi saat papan ketik terbuka.
 - **Tombol Kembali HP berfungsi** — tombol/gestur kembali berpindah antar-layar, bukan menutup
   aplikasi. Setiap layar punya alamat sendiri (mis. `/kertas-kerja/12/isi/3`), jadi bisa dimuat

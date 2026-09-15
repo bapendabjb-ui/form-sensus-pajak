@@ -513,8 +513,7 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 
   /* ---- bilah atas ---- */
   .fk-appbar{display:flex; align-items:center; gap:6px; position:sticky; top:0; z-index:40; min-height:56px; padding:env(safe-area-inset-top) 10px 0 12px; background:rgba(255,255,255,.95); -webkit-backdrop-filter:saturate(1.4) blur(10px); backdrop-filter:saturate(1.4) blur(10px); border-bottom:1px solid var(--line);}
-  .fk-appbar-logo{width:32px; height:32px; margin-right:4px;}
-  .fk-appbar .fk-lambang{height:30px; margin-right:4px;}
+  .fk-appbar .fk-lambang{height:30px; width:auto; margin-right:4px; object-fit:contain;}
   .fk-appbar-btn{width:44px; height:44px; margin-left:-8px; border:0; background:transparent; color:var(--ink); display:grid; place-items:center; border-radius:12px;}
   .fk-appbar-btn:active{background:#EEF1F4;}
   .fk-appbar-judul{flex:1; min-width:0; margin:0; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
