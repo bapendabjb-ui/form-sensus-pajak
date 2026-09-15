@@ -165,6 +165,45 @@ function NopInput({ value, onChange, invalid }) {
   );
 }
 
+/* ---------- NIK & NPWP ---------- */
+
+/**
+ * NIK dan NPWP bersanding dalam satu pertanyaan; bertumpuk di layar sempit.
+ * Wajib diisi berarti minimal salah satunya terisi.
+ *
+ * value : { nik, npwp }
+ */
+function NikNpwpInput({ value, onChange, invalid, wajib }) {
+  const v = value && typeof value === "object" ? value : { nik: "", npwp: "" };
+  const kosongSemua = !v.nik && !v.npwp;
+  // Merah bila keduanya kosong, atau bila kolom itu sendiri belum lengkap digitnya.
+  const merah = (k, sah) => invalid && (kosongSemua || (!!v[k] && !sah(v[k].length)));
+
+  return (
+    <div className="fk-niknpwp-wadah">
+      {wajib && <span className="fk-hint-kecil">Isi Keduanya atau Isi Salah Satu.</span>}
+      <div className="fk-niknpwp">
+        <div className="fk-wilayah-kolom">
+          <span className="fk-wilayah-cap">NIK</span>
+          <NikInput
+            value={v.nik}
+            onChange={(nik) => onChange({ ...v, nik })}
+            invalid={merah("nik", (n) => n === PANJANG_NIK)}
+          />
+        </div>
+        <div className="fk-wilayah-kolom">
+          <span className="fk-wilayah-cap">NPWP</span>
+          <NpwpInput
+            value={v.npwp}
+            onChange={(npwp) => onChange({ ...v, npwp })}
+            invalid={merah("npwp", (n) => n >= PANJANG_NPWP_MIN && n <= PANJANG_NPWP_MAKS)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- RT & RW ---------- */
 
 /**
@@ -387,6 +426,9 @@ export default function FieldInput({ q, value, invalid, onChange }) {
     case "npwp":
       return <NpwpInput value={value} onChange={onChange} invalid={invalid} />;
 
+    case "niknpwp":
+      return <NikNpwpInput value={value} onChange={onChange} invalid={invalid} wajib={q.wajib} />;
+
     case "nop":
       return <NopInput value={value} onChange={onChange} invalid={invalid} />;
 
@@ -406,5 +448,6 @@ export {
   NikInput,
   NpwpInput,
   NopInput,
+  NikNpwpInput,
   RtRwInput,
 };

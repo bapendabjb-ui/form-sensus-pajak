@@ -9,6 +9,7 @@ import {
   formatNpwp,
   formatNop,
   formatRtRw,
+  formatNikNpwp,
 } from "./format.js";
 
 const TIPE_JUDUL = ["text", "dropdown", "radio", "paragraph"];
@@ -42,6 +43,8 @@ export function formatNilai(q, nilai) {
       return formatNik(nilai);
     case "npwp":
       return formatNpwp(nilai);
+    case "niknpwp":
+      return formatNikNpwp(nilai);
     case "nop":
       return formatNop(nilai);
     default:

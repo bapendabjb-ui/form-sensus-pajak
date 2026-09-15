@@ -46,6 +46,8 @@ export function emptyValue(tipe) {
       return { kecamatan: "", kelurahan: "" };
     case "rtrw":
       return { rt: "", rw: "" };
+    case "niknpwp":
+      return { nik: "", npwp: "" };
     case "lokasi":
       return { lat: null, lon: null, akurasi: null, ketinggian: null, waktu: "" };
     default:
@@ -88,6 +90,12 @@ const rtRwLengkap = (v) => {
   return { rt: isi(o.rt), rw: isi(o.rw) };
 };
 
+/** { nik, npwp } dengan angka saja, dipotong pada panjang maksimalnya. */
+const nikNpwpDari = (v) => {
+  const o = v && typeof v === "object" ? v : {};
+  return { nik: hanyaDigit(o.nik, PANJANG_NIK), npwp: hanyaDigit(o.npwp, PANJANG_NPWP_MAKS) };
+};
+
 /** JSON dari server -> nilai untuk state UI. */
 export function fromApi(tipe, nilai) {
   if (nilai === null || nilai === undefined) return emptyValue(tipe);
@@ -104,6 +112,9 @@ export function fromApi(tipe, nilai) {
 
     case "rtrw":
       return rtRwDari(nilai);
+
+    case "niknpwp":
+      return nikNpwpDari(nilai);
 
     case "nik":
       return hanyaDigit(nilai, PANJANG_NIK);
@@ -151,6 +162,9 @@ export function toApi(tipe, v) {
 
     case "rtrw":
       return rtRwLengkap(v);
+
+    case "niknpwp":
+      return nikNpwpDari(v);
 
     case "nik":
       return hanyaDigit(v, PANJANG_NIK);
@@ -207,6 +221,11 @@ export function isFilled(tipe, v) {
       const r = rtRwDari(v);
       return r.rt !== "" && r.rw !== "";
     }
+    case "niknpwp": {
+      // Badan usaha tidak punya NIK, perorangan belum tentu punya NPWP: cukup salah satu.
+      const o = nikNpwpDari(v);
+      return o.nik !== "" || o.npwp !== "";
+    }
     case "range":
       return !!v && asString(v.min).trim() !== "" && asString(v.max).trim() !== "";
     case "linetariff":
@@ -254,6 +273,11 @@ export function pesanFormat(tipe, v) {
       return `NOP PBB harus ${PANJANG_NOP} digit (baru ${d.length} digit).`;
     }
 
+    case "niknpwp": {
+      const o = nikNpwpDari(v);
+      return [pesanFormat("nik", o.nik), pesanFormat("npwp", o.npwp)].filter(Boolean).join(" ");
+    }
+
     case "rtrw": {
       const r = rtRwDari(v);
       // Salah satu terisi berarti keduanya harus lengkap.
@@ -274,38 +298,24 @@ export function pesanFormat(tipe, v) {
  */
 export function validateRequired(pertanyaan, answers) {
   const errors = {};
-  const salahSatu = idSalahSatuWajib(pertanyaan);
-  let salahSatuTerisi = false;
   for (const q of pertanyaan) {
     const v = answers[q.id] !== undefined ? answers[q.id] : emptyValue(q.tipe);
-    if (salahSatu.has(q.id) && isFilled(q.tipe, v)) salahSatuTerisi = true;
-    if (q.wajib && !salahSatu.has(q.id) && !isFilled(q.tipe, v)) {
-      errors[q.id] = q.tipe === "foto" ? "Tambahkan minimal satu foto." : "Kolom ini wajib diisi.";
+    if (q.wajib && !isFilled(q.tipe, v)) {
+      errors[q.id] = pesanWajib(q.tipe);
       continue;
     }
     const galat = pesanFormat(q.tipe, v);
     if (galat) errors[q.id] = galat;
   }
-  if (salahSatu.size && !salahSatuTerisi) {
-    for (const id of salahSatu) errors[id] = PESAN_SALAH_SATU;
-  }
   return errors;
 }
 
-/**
- * NIK & NPWP yang sama-sama ditandai wajib cukup diisi salah satunya:
- * badan usaha tidak punya NIK, perorangan belum tentu punya NPWP.
- * Aturannya disamakan dengan idSalahSatuWajib() di server/src/entri.js.
- *
- * @returns {Set<number>} id pertanyaan "salah satu wajib" (kosong bila tidak berlaku)
- */
-export function idSalahSatuWajib(pertanyaan) {
-  const q = pertanyaan.filter((x) => x.wajib && (x.tipe === "nik" || x.tipe === "npwp"));
-  const berlaku = q.some((x) => x.tipe === "nik") && q.some((x) => x.tipe === "npwp");
-  return new Set(berlaku ? q.map((x) => x.id) : []);
+/** Pesan untuk kolom wajib yang masih kosong - sama dengan server/src/entri.js. */
+function pesanWajib(tipe) {
+  if (tipe === "foto") return "Tambahkan minimal satu foto.";
+  if (tipe === "niknpwp") return "Isi NIK atau NPWP, minimal salah satu.";
+  return "Kolom ini wajib diisi.";
 }
-
-export const PESAN_SALAH_SATU = "Isi NIK atau NPWP, cukup salah satu.";
 
 /** Hitung foto yang masih diunggah / gagal diunggah di seluruh jawaban. */
 export function statusFoto(pertanyaan, answers) {

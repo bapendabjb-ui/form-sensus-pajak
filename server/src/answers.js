@@ -11,6 +11,7 @@
  *                                               (harga_max null = harga tunggal)
  *   rtrw                                      : { rt, rw } - dua string 3 digit
  *   nik / npwp / nop                          : string digit (16 / 15-17 / 18 digit)
+ *   niknpwp                                   : { nik, npwp } - wajib = minimal salah satu
  */
 
 const { normalWilayah } = require("./wilayah");
@@ -32,6 +33,7 @@ const TIPE = [
   "nik",
   "npwp",
   "nop",
+  "niknpwp",
 ];
 
 /** Tipe yang menyimpan daftar opsi di tabel pertanyaan_opsi. */
@@ -105,6 +107,7 @@ function nilaiKosong(tipe) {
   if (tipe === "lokasi") return { ...LOKASI_KOSONG };
   if (tipe === "wilayah") return normalWilayah("", "");
   if (tipe === "rtrw") return { rt: "", rw: "" };
+  if (tipe === "niknpwp") return { nik: "", npwp: "" };
   return "";
 }
 
@@ -191,6 +194,11 @@ function normalizeNilai(tipe, raw) {
     case "nop":
       return hanyaDigit(raw, PANJANG_SIMPAN_MAKS);
 
+    case "niknpwp": {
+      const obj = raw && typeof raw === "object" ? raw : {};
+      return { nik: hanyaDigit(obj.nik, PANJANG_SIMPAN_MAKS), npwp: hanyaDigit(obj.npwp, PANJANG_SIMPAN_MAKS) };
+    }
+
     case "rtrw": {
       // { rt, rw } - dilengkapi nol di depan supaya selalu 3 digit ("7" -> "007").
       const obj = raw && typeof raw === "object" ? raw : {};
@@ -237,6 +245,9 @@ function nilaiTerisi(tipe, nilai) {
       return Array.isArray(nilai) && nilai.some((r) => toTrimmedString(r.layanan) !== "");
     case "rtrw":
       return !!nilai && typeof nilai === "object" && !!nilai.rt && !!nilai.rw;
+    case "niknpwp":
+      // Badan usaha tidak punya NIK, perorangan belum tentu punya NPWP: cukup salah satu.
+      return !!nilai && typeof nilai === "object" && (!!nilai.nik || !!nilai.npwp);
     default:
       return toTrimmedString(nilai) !== "";
   }
@@ -268,6 +279,11 @@ function pesanFormat(tipe, nilai) {
       const s = toTrimmedString(nilai);
       if (s === "" || s.length === PANJANG_NOP) return "";
       return `NOP PBB harus ${PANJANG_NOP} digit (baru ${s.length} digit).`;
+    }
+
+    case "niknpwp": {
+      const o = nilai && typeof nilai === "object" ? nilai : {};
+      return [pesanFormat("nik", o.nik), pesanFormat("npwp", o.npwp)].filter(Boolean).join(" ");
     }
 
     case "rtrw": {

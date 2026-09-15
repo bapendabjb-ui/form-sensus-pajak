@@ -5,7 +5,7 @@ import { useDialog } from "../components/Dialog.jsx";
 import { PageHead, Panel, Loading, ErrorBox, Empty, StatusPill, KunciAdmin } from "../components/Ui.jsx";
 import FieldInput from "../components/Fields.jsx";
 import PetugasTim from "../components/PetugasTim.jsx";
-import { fromApi, emptyValue, buildPayload, validateRequired, statusFoto, idSalahSatuWajib, PESAN_SALAH_SATU } from "../lib/answers.js";
+import { fromApi, emptyValue, buildPayload, validateRequired, statusFoto } from "../lib/answers.js";
 import { judulEntri, ringkasEntri, fotoEntri } from "../lib/ringkas.js";
 import { formatTimestamp } from "../lib/format.js";
 import { useAdmin } from "../lib/admin.js";
@@ -110,6 +110,9 @@ export function DaftarKertasKerja() {
               <StatusPill status={k.status} />
               {/* Aksi tambahan hanya di desktop; di HP semuanya ada di halaman kertas kerja. */}
               <div className="fk-kk-card-actions" onClick={(e) => e.stopPropagation()}>
+                <button type="button" className="fk-mini" onClick={() => api.unduhExcel(k.id)}>
+                  Excel
+                </button>
                 <button type="button" className="fk-mini" onClick={() => api.unduhCsv(k.id)}>
                   CSV
                 </button>
@@ -432,6 +435,9 @@ export function DetailKertasKerja({ id }) {
                   Ubah petugas
                 </button>
               )}
+              <button type="button" className="fk-btn-ghost" onClick={() => api.unduhExcel(kk.id)}>
+                Ekspor Excel
+              </button>
               <button type="button" className="fk-btn-ghost" onClick={() => api.unduhCsv(kk.id)}>
                 Ekspor CSV
               </button>
@@ -657,19 +663,14 @@ export function IsiData({ kkId, formulirId, entriId }) {
     setDraf(null);
   };
 
-  // NIK & NPWP yang sama-sama wajib: cukup salah satu, ditampilkan bersanding dalam satu kotak.
-  const salahSatu = formulir ? idSalahSatuWajib(formulir.pertanyaan) : new Set();
-
   // Mendukung nilai langsung maupun fungsi updater (dipakai unggahan foto).
   const setAnswer = (qid, v) => {
     berubah.current = true;
     setAnswers((a) => ({ ...a, [qid]: typeof v === "function" ? v(a[qid]) : v }));
     setErrors((e) => {
-      // Mengisi NIK atau NPWP sekaligus menghapus pesan "salah satu" di pasangannya.
-      const hapus = [qid, ...[...salahSatu].filter((id) => salahSatu.has(qid) && e[id] === PESAN_SALAH_SATU)];
-      if (!hapus.some((id) => e[id])) return e;
+      if (!e[qid]) return e;
       const next = { ...e };
-      for (const id of hapus) delete next[id];
+      delete next[qid];
       return next;
     });
   };
@@ -800,55 +801,21 @@ export function IsiData({ kkId, formulirId, entriId }) {
 
       <section className="fk-section">
         {formulir.pertanyaan.length === 0 && <div className="fk-lt-empty">Formulir ini belum punya pertanyaan.</div>}
-        {formulir.pertanyaan.map((q) => {
-          if (salahSatu.has(q.id)) {
-            // Pasangan NIK & NPWP dirender sekali, di posisi pertanyaan pertamanya.
-            const pasangan = formulir.pertanyaan.filter((x) => salahSatu.has(x.id));
-            if (pasangan[0].id !== q.id) return null;
-            const pesan = [...new Set(pasangan.map((x) => errors[x.id]).filter(Boolean))];
-            return (
-              <div className="fk-field fk-field-identitas" key={q.id} data-qid={q.id}>
-                <label className="fk-q-name">
-                  NIK / NPWP<span className="fk-star">*</span>
-                </label>
-                <span className="fk-hint-kecil">Cukup isi salah satu.</span>
-                <div className="fk-identitas">
-                  {pasangan.map((x) => (
-                    <div className="fk-identitas-kolom" key={x.id} data-qid={x.id}>
-                      <span className="fk-wilayah-cap">{x.label || x.tipe.toUpperCase()}</span>
-                      <FieldInput
-                        q={x}
-                        value={answers[x.id]}
-                        invalid={Boolean(errors[x.id])}
-                        onChange={(v) => setAnswer(x.id, v)}
-                      />
-                    </div>
-                  ))}
-                </div>
-                {pesan.map((m) => (
-                  <span className="fk-err" key={m}>
-                    {m}
-                  </span>
-                ))}
-              </div>
-            );
-          }
-          return (
-            <div className="fk-field" key={q.id} data-qid={q.id}>
-              <label className="fk-q-name">
-                {q.label || "(pertanyaan tanpa judul)"}
-                {q.wajib && <span className="fk-star">*</span>}
-              </label>
-              <FieldInput
-                q={q}
-                value={answers[q.id]}
-                invalid={Boolean(errors[q.id])}
-                onChange={(v) => setAnswer(q.id, v)}
-              />
-              {errors[q.id] && <span className="fk-err">{errors[q.id]}</span>}
-            </div>
-          );
-        })}
+        {formulir.pertanyaan.map((q) => (
+          <div className="fk-field" key={q.id} data-qid={q.id}>
+            <label className="fk-q-name">
+              {q.label || "(Pertanyaan Tanpa Judul)"}
+              {q.wajib && <span className="fk-star">*</span>}
+            </label>
+            <FieldInput
+              q={q}
+              value={answers[q.id]}
+              invalid={Boolean(errors[q.id])}
+              onChange={(v) => setAnswer(q.id, v)}
+            />
+            {errors[q.id] && <span className="fk-err">{errors[q.id]}</span>}
+          </div>
+        ))}
       </section>
 
       {entriId &&

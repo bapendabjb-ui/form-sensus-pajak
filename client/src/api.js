@@ -170,6 +170,11 @@ export function unduhCsv(id) {
   window.location.href = `${BASE}/kertas-kerja/${id}/export`;
 }
 
+/** Unduh Excel (.xlsx) dengan cara yang sama. */
+export function unduhExcel(id) {
+  window.location.href = `${BASE}/kertas-kerja/${id}/export/xlsx`;
+}
+
 /* ---------- dashboard ---------- */
 
 export const getStats = () => request("/dashboard/stats");

@@ -9,7 +9,7 @@ const { ambilNomorBerikutnya, previewNomorBerikutnya } = require("../nomor");
 const { siapkanJawaban, tulisJawaban, muatEntri } = require("../entri");
 const { hapusBerkas } = require("../foto");
 const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require("../bentuk");
-const { csvNilai, buildCsv, formatWaktuID } = require("../format");
+const { susunEkspor, keCsv, keXlsx } = require("../ekspor");
 
 const router = express.Router();
 
@@ -248,6 +248,13 @@ router.delete(
 
 /* ---------- ekspor ---------- */
 
+/** Muat kertas kerja lalu susun baris & kolom ekspornya (dipakai CSV maupun Excel). */
+async function dataEkspor(req) {
+  const { kk, formulir } = await muatDetail(parseId(req.params.id));
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  return { kk, tabel: susunEkspor(kk, formulir, { baseUrl, timezone: config.timezone }) };
+}
+
 /**
  * GET /api/kertas-kerja/:id/export -> CSV (BOM UTF-8).
  * Satu baris per data. Kolom pertanyaan dikelompokkan per formulir; sel milik
@@ -256,60 +263,22 @@ router.delete(
 router.get(
   "/:id/export",
   wrap(async (req, res) => {
-    const { kk, formulir } = await muatDetail(parseId(req.params.id));
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const tim = bentukTim(kk.petugas);
-    const namaTim = tim.map((p) => p.nama).join("; ");
-    const nipTim = tim.map((p) => p.nip || "-").join("; ");
-    const status = kk.status === "selesai" ? "Selesai" : "Draft";
-
-    const kolom = formulir.flatMap((f) => f.pertanyaan.map((q) => ({ f, q })));
-    const header = [
-      "Nomor",
-      "Status",
-      "Petugas",
-      "NIP",
-      "Formulir",
-      "No. data",
-      "Waktu input",
-      ...kolom.map(({ f, q }) => `${f.judul} - ${q.label || "(tanpa judul)"}`),
-    ];
-
-    const urutForm = new Map(formulir.map((f, i) => [f.id, i]));
-    const entri = kk.entri
-      .slice()
-      .sort(
-        (a, b) =>
-          urutForm.get(a.formulirId) - urutForm.get(b.formulirId) ||
-          a.createdAt - b.createdAt ||
-          a.id - b.id
-      );
-
-    const nomorPerForm = new Map();
-    const baris = entri.map((e) => {
-      const ke = (nomorPerForm.get(e.formulirId) || 0) + 1;
-      nomorPerForm.set(e.formulirId, ke);
-      const jawaban = petaJawaban(e.jawaban);
-      const f = formulir[urutForm.get(e.formulirId)];
-      return [
-        kk.nomor,
-        status,
-        namaTim,
-        nipTim,
-        f.judul,
-        ke,
-        formatWaktuID(e.createdAt, config.timezone),
-        ...kolom.map(({ f: kf, q }) =>
-          kf.id === e.formulirId ? csvNilai(q.tipe, jawaban[q.id], { baseUrl }) : ""
-        ),
-      ];
-    });
-
-    if (baris.length === 0) baris.push([kk.nomor, status, namaTim, nipTim, "", "", ""]);
-
+    const { kk, tabel } = await dataEkspor(req);
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="kertas-kerja-${kk.nomor}.csv"`);
-    res.send(buildCsv([header, ...baris]));
+    res.send(keCsv(tabel));
+  })
+);
+
+/** GET /api/kertas-kerja/:id/export/xlsx -> Excel, isi sama dengan CSV. */
+router.get(
+  "/:id/export/xlsx",
+  wrap(async (req, res) => {
+    const { kk, tabel } = await dataEkspor(req);
+    const buffer = await keXlsx(tabel, `Kertas kerja ${kk.nomor}`);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="kertas-kerja-${kk.nomor}.xlsx"`);
+    res.send(Buffer.from(buffer));
   })
 );
 

@@ -101,8 +101,7 @@ function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove }) {
         {q.tipe === "nik" && (
           <p className="fk-hint">
             Nomor Induk Kependudukan, tepat 16 digit sesuai KTP-el. Hanya angka yang bisa diketik,
-            dan jumlah digitnya diperiksa saat data disimpan. Bila NIK dan NPWP sama-sama ditandai
-            wajib, petugas cukup mengisi salah satunya.
+            dan jumlah digitnya diperiksa saat data disimpan.
           </p>
         )}
 
@@ -110,7 +109,15 @@ function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove }) {
           <p className="fk-hint">
             Nomor Pokok Wajib Pajak, 15 sampai 17 digit — 15 digit untuk format lama (ditampilkan
             00.000.000.0-000.000), 16 digit untuk NPWP baru yang memakai NIK, dan 17 digit untuk NITKU.
-            Bila NIK dan NPWP sama-sama ditandai wajib, petugas cukup mengisi salah satunya.
+          </p>
+        )}
+
+        {q.tipe === "niknpwp" && (
+          <p className="fk-hint">
+            Kolom NIK (16 digit) dan NPWP (15–17 digit) bersanding dalam satu pertanyaan, bertumpuk di
+            HP. Bila ditandai wajib, petugas cukup mengisi salah satunya — badan usaha tanpa NIK atau
+            perorangan yang belum punya NPWP. Tersimpan sebagai satu jawaban berisi NIK dan NPWP, dan
+            di ekspor menjadi dua kolom terpisah.
           </p>
         )}
 

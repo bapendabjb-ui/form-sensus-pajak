@@ -43,8 +43,6 @@ async function siapkanJawaban(formulir, masuk, entriId) {
     }
   }
   const sudahDipakai = new Set();
-  const salahSatu = idSalahSatuWajib(formulir.pertanyaan);
-  let salahSatuTerisi = false;
 
   for (const { q, nilai: nilaiAwal } of normal) {
     let nilai = nilaiAwal;
@@ -60,9 +58,8 @@ async function siapkanJawaban(formulir, masuk, entriId) {
       siap.foto.push({ pertanyaanId: q.id, ids: nilai.map((f) => f.id) });
     }
 
-    if (salahSatu.has(q.id) && nilaiTerisi(q.tipe, nilai)) salahSatuTerisi = true;
-    if (q.wajib && !salahSatu.has(q.id) && !nilaiTerisi(q.tipe, nilai)) {
-      siap.errors[q.id] = q.tipe === "foto" ? "Tambahkan minimal satu foto." : "Kolom ini wajib diisi.";
+    if (q.wajib && !nilaiTerisi(q.tipe, nilai)) {
+      siap.errors[q.id] = pesanWajib(q.tipe);
     } else {
       const galat = pesanFormat(q.tipe, nilai);
       if (galat) siap.errors[q.id] = galat;
@@ -75,22 +72,14 @@ async function siapkanJawaban(formulir, masuk, entriId) {
     }
   }
 
-  if (salahSatu.size && !salahSatuTerisi) {
-    for (const id of salahSatu) siap.errors[id] = "Isi NIK atau NPWP, cukup salah satu.";
-  }
-
   return siap;
 }
 
-/**
- * NIK & NPWP yang sama-sama ditandai wajib cukup diisi salah satunya:
- * badan usaha tidak punya NIK, perorangan belum tentu punya NPWP.
- * Aturannya disamakan dengan idSalahSatuWajib() di client/src/lib/answers.js.
- */
-function idSalahSatuWajib(pertanyaan) {
-  const q = pertanyaan.filter((x) => x.wajib && (x.tipe === "nik" || x.tipe === "npwp"));
-  const berlaku = q.some((x) => x.tipe === "nik") && q.some((x) => x.tipe === "npwp");
-  return new Set(berlaku ? q.map((x) => x.id) : []);
+/** Pesan untuk kolom wajib yang masih kosong - sama dengan client/src/lib/answers.js. */
+function pesanWajib(tipe) {
+  if (tipe === "foto") return "Tambahkan minimal satu foto.";
+  if (tipe === "niknpwp") return "Isi NIK atau NPWP, minimal salah satu.";
+  return "Kolom ini wajib diisi.";
 }
 
 /**

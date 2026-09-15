@@ -23,6 +23,7 @@ export const TYPES = [
   { key: "lokasi", label: "Lokasi (GPS)" },
   { key: "nik", label: "NIK" },
   { key: "npwp", label: "NPWP" },
+  { key: "niknpwp", label: "NIK / NPWP" },
   { key: "nop", label: "NOP PBB" },
 ];
 
@@ -82,6 +83,12 @@ export function formatNop(digit) {
     hasil += d[i];
   }
   return hasil;
+}
+
+/** { nik, npwp } -> "NIK 3172 0101 0101 0001 / NPWP 09.123.456.7-890.123". */
+export function formatNikNpwp(v) {
+  if (!v || typeof v !== "object") return "";
+  return [v.nik && `NIK ${formatNik(v.nik)}`, v.npwp && `NPWP ${formatNpwp(v.npwp)}`].filter(Boolean).join(" / ");
 }
 
 /** { rt, rw } -> "RT 003 / RW 005". */

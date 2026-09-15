@@ -298,7 +298,7 @@ Misalnya, agar petugas boleh menghapus datanya sendiri, hapus `requireAdmin` dar
 | `admin`                 | `username` unik + `password_hash`                                           |
 | `petugas`               | Nama & NIP — sumber dropdown tim petugas                                    |
 | `formulir`              | Bank formulir + `urutan` (susunan tampil, diatur admin lewat seret)         |
-| `pertanyaan`            | `tipe` (16 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `nik`, `npwp` & `nop`), `label`, `wajib`, `range_harga`, `urutan` |
+| `pertanyaan`            | `tipe` (17 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `nik`, `npwp`, `niknpwp` & `nop`), `label`, `wajib`, `range_harga`, `urutan` |
 | `pertanyaan_opsi`       | Opsi dropdown/radio/checkbox & daftar "Jenis tarif"                         |
 | `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status` (kolom `judul` tidak dipakai lagi)     |
 | `kertas_kerja_petugas`  | Tim petugas (1–8), `urutan` 0 = penanggung jawab                            |
@@ -318,6 +318,9 @@ Perilaku relasi:
   yang sudah tersimpan tidak hilang saat admin menambah atau mengurutkan ulang pertanyaan.
 
 ### Migrasi dari versi sebelumnya
+
+Migrasi `20260915090000_tipe_niknpwp` menambah satu nilai enum tipe pertanyaan: `niknpwp`
+(NIK dan NPWP dalam satu pertanyaan).
 
 Migrasi `20260914130000_tipe_nop` menambah satu nilai enum tipe pertanyaan: `nop`
 (Nomor Objek Pajak PBB, 18 digit).
@@ -351,6 +354,7 @@ Kolom `kertas_kerja.nama_objek` dihapus — nama objek kini diisi lewat pertanya
 | `lokasi`                                                  | `{ lat, lon, akurasi, ketinggian, waktu }`        |
 | `rtrw`                                                    | `{ rt, rw }` — dua string tepat 3 digit (`"007"`) |
 | `nik`, `npwp`, `nop`                                      | string digit (`"3172010101010001"`)               |
+| `niknpwp`                                                 | `{ nik, npwp }` — dua string digit, boleh salah satu kosong |
 
 `harga_max` **null** = harga tunggal; **terisi** = rentang (diatur per baris, hanya bila admin
 menyalakan **"Izinkan harga rentang"**). Server selalu menormalkan nilai masuk: string di-`trim`,
@@ -446,7 +450,7 @@ Untuk menambah atau mengubah wilayah, sunting `server/src/wilayah.js` lalu deplo
 
 ## NIK, NPWP, NOP PBB, RT & RW
 
-Empat tipe pertanyaan khusus identitas. Semuanya hanya menerima angka — huruf dan tanda baca
+Lima tipe pertanyaan khusus identitas. Semuanya hanya menerima angka — huruf dan tanda baca
 dibuang saat diketik — dan panjang digitnya diperiksa **dua kali**: di browser sebelum kirim
 (`client/src/lib/answers.js`) dan lagi di server sebelum simpan (`server/src/answers.js`),
 supaya nilai yang salah panjang tidak pernah masuk database.
@@ -455,6 +459,7 @@ supaya nilai yang salah panjang tidak pernah masuk database.
 | --------------- | ------------------ | ------------------------------------------------------------------ |
 | **NIK**         | tepat **16** digit | Sesuai KTP-el. Ditampilkan berkelompok empat: `3172 0101 0101 0001` |
 | **NPWP**        | **15–17** digit    | 15 = format lama, 16 = NPWP baru (memakai NIK), 17 = NITKU          |
+| **NIK / NPWP**  | seperti di atas    | Dua kolom bersanding, disimpan sebagai `{ nik, npwp }`. Wajib = minimal salah satu |
 | **NOP PBB**     | tepat **18** digit | Nomor Objek Pajak. Ditampilkan `63.72.010.001.002-0123.0`            |
 | **RT & RW**     | masing-masing **3** digit | Dua kolom terpisah, disimpan sebagai `{ rt, rw }`            |
 
@@ -462,6 +467,9 @@ supaya nilai yang salah panjang tidak pernah masuk database.
 - RT/RW yang diketik pendek dilengkapi nol di depan saat kursor pindah kolom — `7` menjadi `007`.
 - Mengisi salah satu dari RT atau RW saja ditolak; keduanya harus lengkap. Pertanyaan yang tidak
   ditandai **wajib** boleh dikosongkan sepenuhnya.
+- **NIK / NPWP** untuk wajib pajak yang bisa berupa badan usaha (tanpa NIK) atau perorangan (belum
+  tentu punya NPWP): bila wajib, cukup salah satu terisi. Kolom yang diisi tetap harus benar
+  panjang digitnya. Di ekspor dipecah menjadi dua kolom, `… (NIK)` dan `… (NPWP)`.
 - NPWP 15 digit ditampilkan bertanda titik (`09.123.456.7-890.123`) di isian, ringkasan data, dan
   CSV. Titik itu hanya hiasan — yang tersimpan tetap deret digitnya saja.
 - NOP dikelompokkan sambil diketik mengikuti susunan resminya — provinsi 2, kabupaten/kota 2,
@@ -561,6 +569,7 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | `POST`   | `/kertas-kerja/:id/entri`         | `{ formulirId, jawaban }` — tambah satu data              |
 | `DELETE` | `/kertas-kerja/:id`               | 🔒 Hapus beserta seluruh data & foto                      |
 | `GET`    | `/kertas-kerja/:id/export`        | Unduh CSV                                                 |
+| `GET`    | `/kertas-kerja/:id/export/xlsx`   | Unduh Excel (.xlsx), isi sama dengan CSV                  |
 
 ### Data (entri)
 
@@ -596,12 +605,17 @@ Semua error berupa JSON `{ "error": "pesan" }` plus detail bila ada (`errors` pa
 `terpakai` pada 409). Status: `400` input tidak valid · `401` perlu login admin · `404` tidak
 ditemukan · `409` data masih dipakai · `422` validasi gagal.
 
-### Ekspor CSV
+### Ekspor CSV & Excel
 
-Diawali **BOM UTF-8** agar rapi di Excel. **Satu baris per data.** Kolom: `Nomor`, `Status`,
-`Petugas` (nama tim digabung `; `), `NIP`, `Formulir`, `No. data`, `Waktu input`, lalu satu kolom
-per pertanyaan berjudul `Judul formulir - Label`. Sel milik formulir lain dibiarkan kosong;
-pertanyaan foto berisi tautan lengkap ke fotonya.
+Keduanya disusun di `server/src/ekspor.js` dengan isi yang sama. **Satu baris per data.** Kolom:
+`Nomor`, `Status`, `Petugas` (nama tim digabung `; `), `NIP`, `Formulir`, `No. data`, `Waktu input`,
+lalu satu kolom per pertanyaan berjudul `Judul formulir - Label` (pertanyaan NIK / NPWP menjadi dua
+kolom). Sel milik formulir lain dibiarkan kosong; pertanyaan foto berisi tautan lengkap ke fotonya.
+
+- **CSV** diawali **BOM UTF-8** agar rapi saat dibuka di Excel.
+- **Excel (.xlsx)** memakai `exceljs`: baris judul tebal dan dibekukan, filter otomatis, lebar kolom
+  menyesuaikan isi. Jawaban angka tersimpan sebagai angka (bisa dijumlah); NIK, NPWP, dan NOP tetap
+  teks supaya tidak berubah menjadi `3,17E+15`.
 
 ---
 
