@@ -4,6 +4,7 @@ import CustomSelect from "./CustomSelect.jsx";
 import { useToast } from "./Toast.jsx";
 import { useAdmin } from "../lib/admin.js";
 import { useKonfigurasi } from "../lib/konfigurasi.js";
+import { kapitalTiapKata, ubahDengan } from "../lib/kapital.js";
 
 const labelPetugas = (p) => (p.nip ? `${p.nama} — ${p.nip}` : p.nama);
 
@@ -109,8 +110,9 @@ export default function PetugasTim({ petugas, value, onChange, onPetugasBaru, ga
             <input
               className="fk-input"
               placeholder="Nama petugas"
+              autoCapitalize="words"
               value={formBaru.nama}
-              onChange={(e) => setFormBaru((s) => ({ ...s, nama: e.target.value }))}
+              onChange={ubahDengan(kapitalTiapKata, (nama) => setFormBaru((s) => ({ ...s, nama })))}
               autoFocus
             />
             <input

@@ -18,27 +18,11 @@ import {
   PANJANG_NOP,
   PANJANG_RTRW,
 } from "../lib/format.js";
+import { kapitalAwalKalimat, ubahDengan } from "../lib/kapital.js";
 
 /* ---------- teks bebas ---------- */
 
-/** Huruf pertama tiap kalimat (awal teks, setelah . ! ? atau baris baru) dijadikan kapital. */
-const kapitalAwalKalimat = (s) => s.replace(/(^\s*|[.!?]\s+|\n\s*)(\p{Ll})/gu, (_, awal, huruf) => awal + huruf.toUpperCase());
-
-/**
- * onChange untuk input teks yang mengkapitalkan awal kalimat.
- * Nilai DOM diganti langsung dan posisi kursor dikembalikan, supaya kursor
- * tidak melompat ke akhir saat petugas menyunting di tengah teks.
- */
-const ubahKapital = (onChange) => (e) => {
-  const el = e.target;
-  const baru = kapitalAwalKalimat(el.value);
-  if (baru !== el.value) {
-    const { selectionStart, selectionEnd } = el;
-    el.value = baru;
-    el.setSelectionRange(selectionStart, selectionEnd);
-  }
-  onChange(baru);
-};
+const ubahKapital = (onChange) => ubahDengan(kapitalAwalKalimat, onChange);
 
 /* ---------- pilihan (radio / checkbox) ---------- */
 

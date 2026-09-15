@@ -4,6 +4,7 @@ import { useToast } from "../components/Toast.jsx";
 import { useDialog } from "../components/Dialog.jsx";
 import { Panel, PageHead, Loading, ErrorBox, KunciAdmin } from "../components/Ui.jsx";
 import { useAdmin } from "../lib/admin.js";
+import { kapitalTiapKata, ubahDengan } from "../lib/kapital.js";
 
 export default function PetugasPage() {
   const toast = useToast();
@@ -95,8 +96,9 @@ export default function PetugasPage() {
             <input
               className="fk-input"
               placeholder="Nama Petugas"
+              autoCapitalize="words"
               value={form.nama}
-              onChange={(e) => setForm((f) => ({ ...f, nama: e.target.value }))}
+              onChange={ubahDengan(kapitalTiapKata, (nama) => setForm((f) => ({ ...f, nama })))}
               onKeyDown={(e) => e.key === "Enter" && tambah()}
             />
             <input
@@ -130,8 +132,9 @@ export default function PetugasPage() {
                   <div className="fk-newpet fk-newpet-inline">
                     <input
                       className="fk-input"
+                      autoCapitalize="words"
                       value={edit.nama}
-                      onChange={(e) => setEdit((s) => ({ ...s, nama: e.target.value }))}
+                      onChange={ubahDengan(kapitalTiapKata, (nama) => setEdit((s) => ({ ...s, nama })))}
                       placeholder="Nama petugas"
                     />
                     <input
