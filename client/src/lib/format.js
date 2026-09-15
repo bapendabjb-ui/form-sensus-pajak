@@ -56,17 +56,55 @@ export const PANJANG_TELEPON_MIN = 8;
 export const PANJANG_TELEPON_MAKS = 15;
 export const TELEPON_MAKS_BARIS = 10;
 
-/** Angka saja, tanda + di depan dipertahankan: "+62 812-3456" -> "+628123456". */
+/**
+ * Angka saja, tanda + di depan dipertahankan: "+62 812-3456" -> "+628123456".
+ * "+" tanpa angka tetap "+" supaya petugas bisa mulai mengetik dari tanda plus.
+ */
 export function nomorTelepon(raw) {
   const s = String(raw ?? "").trim();
   const d = s.replace(/\D/g, "").slice(0, PANJANG_TELEPON_MAKS);
-  return s.startsWith("+") && d ? `+${d}` : d;
+  return s.startsWith("+") ? `+${d}` : d;
 }
 
-/** [{ keterangan, nomor }] -> "Pemilik - 081234567890" (+ jumlah nomor lain bila ringkas). */
+/**
+ * Nomor tersimpan -> tampilan berkelompok, juga dipakai sambil diketik.
+ *   "+6281234567890" -> "+62 812-3456-7890"
+ *   "081234567890"   -> "0812-3456-7890"
+ * Sisa digit di ujung (<= 5) digabung ke kelompok terakhir: "05114777123" -> "0511-4777-123".
+ * Samakan dengan server/src/format.js.
+ */
+export function formatNomorTelepon(nomor) {
+  const s = String(nomor ?? "");
+  const plus = s.startsWith("+");
+  const d = s.replace(/\D/g, "");
+  if (!d) return plus ? "+" : "";
+
+  const kelompok = (x, pertama) => {
+    const bagian = [];
+    while (x.length) {
+      let n = bagian.length === 0 ? pertama : 4;
+      if (bagian.length >= 2 && x.length <= 5) n = x.length;
+      bagian.push(x.slice(0, n));
+      x = x.slice(n);
+    }
+    return bagian.join("-");
+  };
+
+  if (plus && d.startsWith("62")) {
+    const sisa = d.slice(2);
+    return sisa ? `+62 ${kelompok(sisa, 3)}` : "+62";
+  }
+  if (plus) return `+${d}`;
+  return kelompok(d, 4);
+}
+
+/** [{ keterangan, nomor }] -> "Pemilik - 0812-3456-7890" (+ jumlah nomor lain bila ringkas). */
 export function formatTelepon(v, { ringkas = false } = {}) {
   const baris = (Array.isArray(v) ? v : []).filter((r) => r && r.nomor);
-  const teks = baris.map((r) => (r.keterangan ? `${r.keterangan} - ${r.nomor}` : r.nomor));
+  const teks = baris.map((r) => {
+    const nomor = formatNomorTelepon(r.nomor);
+    return r.keterangan ? `${r.keterangan} - ${nomor}` : nomor;
+  });
   if (ringkas && teks.length > 1) return `${teks[0]} +${teks.length - 1}`;
   return teks.join(", ");
 }

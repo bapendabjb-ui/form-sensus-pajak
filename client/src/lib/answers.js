@@ -105,6 +105,8 @@ const nikNpwpDari = (v) => {
 const teleponDari = (v, buangKosong = false) =>
   (Array.isArray(v) ? v : [])
     .map((r) => ({ keterangan: asString(r?.keterangan), nomor: nomorTelepon(r?.nomor) }))
+    // "+" tanpa angka hanya sisa ketikan: dianggap kosong saat dikirim.
+    .map((r) => (buangKosong && !/\d/.test(r.nomor) ? { ...r, nomor: "" } : r))
     .filter((r) => !buangKosong || r.keterangan.trim() !== "" || r.nomor !== "");
 
 /** JSON dari server -> nilai untuk state UI. */
@@ -246,7 +248,7 @@ export function isFilled(tipe, v) {
     case "range":
       return !!v && asString(v.min).trim() !== "" && asString(v.max).trim() !== "";
     case "telepon":
-      return teleponDari(v).some((r) => r.nomor !== "");
+      return teleponDari(v).some((r) => /\d/.test(r.nomor));
     case "linetariff":
       return Array.isArray(v) && v.some((r) => asString(r?.layanan).trim() !== "");
     default:

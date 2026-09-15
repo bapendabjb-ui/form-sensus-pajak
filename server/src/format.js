@@ -64,6 +64,35 @@ function formatNop(digit) {
   return `${d.slice(0, 2)}.${d.slice(2, 4)}.${d.slice(4, 7)}.${d.slice(7, 10)}.${d.slice(10, 13)}-${d.slice(13, 17)}.${d.slice(17)}`;
 }
 
+/**
+ * Nomor telepon tersimpan -> "+62 812-3456-7890" / "0812-3456-7890".
+ * Samakan dengan formatNomorTelepon() di client/src/lib/format.js.
+ */
+function formatNomorTelepon(nomor) {
+  const s = String(nomor === null || nomor === undefined ? "" : nomor);
+  const plus = s.startsWith("+");
+  const d = s.replace(/\D/g, "");
+  if (!d) return plus ? "+" : "";
+
+  const kelompok = (x, pertama) => {
+    const bagian = [];
+    while (x.length) {
+      let n = bagian.length === 0 ? pertama : 4;
+      if (bagian.length >= 2 && x.length <= 5) n = x.length;
+      bagian.push(x.slice(0, n));
+      x = x.slice(n);
+    }
+    return bagian.join("-");
+  };
+
+  if (plus && d.startsWith("62")) {
+    const sisa = d.slice(2);
+    return sisa ? `+62 ${kelompok(sisa, 3)}` : "+62";
+  }
+  if (plus) return `+${d}`;
+  return kelompok(d, 4);
+}
+
 /** { rt, rw } -> "RT 003 / RW 005". */
 function formatRtRw(v) {
   if (!v || typeof v !== "object") return "";
@@ -113,11 +142,11 @@ function csvNilai(tipe, nilai, opsi = {}) {
     case "rtrw":
       return formatRtRw(nilai);
     case "telepon":
-      // "Pemilik - 081234567890; Kantor - 05114777123"
+      // "Pemilik - 0812-3456-7890; Kantor - 0511-4777-123"
       if (!Array.isArray(nilai)) return "";
       return nilai
         .filter((r) => r && r.nomor)
-        .map((r) => (r.keterangan ? `${r.keterangan} - ${r.nomor}` : r.nomor))
+        .map((r) => (r.keterangan ? `${r.keterangan} - ${formatNomorTelepon(r.nomor)}` : formatNomorTelepon(r.nomor)))
         .join("; ");
     case "nik":
       // Sengaja tanpa pemisah: NIK adalah deret digit, bukan angka hitung.
@@ -170,6 +199,7 @@ module.exports = {
   formatNpwp,
   formatNop,
   formatRtRw,
+  formatNomorTelepon,
   csvNilai,
   buildCsv,
 };

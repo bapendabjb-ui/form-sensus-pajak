@@ -21,6 +21,7 @@ import {
   PANJANG_TELEPON_MAKS,
   TELEPON_MAKS_BARIS,
   nomorTelepon,
+  formatNomorTelepon,
 } from "../lib/format.js";
 import { kapitalAwalKalimat, ubahDengan } from "../lib/kapital.js";
 
@@ -213,6 +214,18 @@ function NikNpwpInput({ value, onChange, invalid, wajib }) {
 const barisTeleponBaru = () => ({ keterangan: "", nomor: "" });
 
 /**
+ * Nomor dari isian berformat ("0812-3456-7890"). Menghapus tanda "-" atau spasi
+ * tidak mengubah digit, jadi dalam kasus itu digit di depan kursor yang dihapus
+ * supaya Backspace tidak terasa macet.
+ */
+function nomorDariKetikan(el, lama) {
+  const baru = nomorTelepon(el.value);
+  if (baru !== lama || el.value.length >= formatNomorTelepon(lama).length) return baru;
+  const posisi = nomorTelepon(el.value.slice(0, el.selectionStart ?? el.value.length)).length;
+  return posisi > 0 ? baru.slice(0, posisi - 1) + baru.slice(posisi) : baru;
+}
+
+/**
  * Satu atau lebih nomor telepon, tiap baris "Keterangan – Nomor".
  * Selalu tampil minimal satu baris kosong supaya petugas langsung bisa mengetik.
  *
@@ -220,7 +233,7 @@ const barisTeleponBaru = () => ({ keterangan: "", nomor: "" });
  */
 function TeleponInput({ value, onChange, invalid }) {
   const rows = Array.isArray(value) && value.length ? value : [barisTeleponBaru()];
-  const adaNomor = rows.some((r) => r.nomor);
+  const adaNomor = rows.some((r) => /\d/.test(r.nomor || ""));
 
   const patch = (i, obj) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...obj } : r)));
   const tambah = () => onChange([...rows, barisTeleponBaru()]);
@@ -254,9 +267,9 @@ function TeleponInput({ value, onChange, invalid }) {
               inputMode="tel"
               autoComplete="off"
               className={"fk-input fk-telepon-nomor" + (salah ? " is-invalid" : "")}
-              value={r.nomor || ""}
-              placeholder="08xxxxxxxxxx"
-              onChange={(e) => patch(i, { nomor: nomorTelepon(e.target.value) })}
+              value={formatNomorTelepon(r.nomor)}
+              placeholder="0812-3456-7890"
+              onChange={(e) => patch(i, { nomor: nomorDariKetikan(e.target, r.nomor || "") })}
               aria-label={`Nomor telepon ${i + 1}`}
             />
             <button type="button" className="fk-telepon-hapus" onClick={() => hapus(i)} aria-label={`Hapus nomor ${i + 1}`}>
