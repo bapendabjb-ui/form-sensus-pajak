@@ -157,7 +157,7 @@ function NopInput({ value, onChange, invalid }) {
       onChange={onChange}
       maks={PANJANG_NOP}
       tampil={formatNop}
-      placeholder="18 digit, mis. 63.72.010.001.002-0123.0"
+      placeholder="63.72.010.001.002-0123.0"
       ariaLabel="NOP PBB"
       invalid={invalid}
       petunjuk={(n) => (n === PANJANG_NOP ? "" : `Kurang ${PANJANG_NOP - n} digit lagi.`)}
