@@ -19,6 +19,27 @@ import {
   PANJANG_RTRW,
 } from "../lib/format.js";
 
+/* ---------- teks bebas ---------- */
+
+/** Huruf pertama tiap kalimat (awal teks, setelah . ! ? atau baris baru) dijadikan kapital. */
+const kapitalAwalKalimat = (s) => s.replace(/(^\s*|[.!?]\s+|\n\s*)(\p{Ll})/gu, (_, awal, huruf) => awal + huruf.toUpperCase());
+
+/**
+ * onChange untuk input teks yang mengkapitalkan awal kalimat.
+ * Nilai DOM diganti langsung dan posisi kursor dikembalikan, supaya kursor
+ * tidak melompat ke akhir saat petugas menyunting di tengah teks.
+ */
+const ubahKapital = (onChange) => (e) => {
+  const el = e.target;
+  const baru = kapitalAwalKalimat(el.value);
+  if (baru !== el.value) {
+    const { selectionStart, selectionEnd } = el;
+    el.value = baru;
+    el.setSelectionRange(selectionStart, selectionEnd);
+  }
+  onChange(baru);
+};
+
 /* ---------- pilihan (radio / checkbox) ---------- */
 
 function ChoiceGroup({ tipe, options = [], value, onChange }) {
@@ -243,8 +264,9 @@ function LineTariff({ value, jenisOptions = [], rangePrice, onChange, invalid })
           <input
             className="fk-input"
             placeholder="mis. Refleksi kaki"
+            autoCapitalize="sentences"
             value={r.layanan || ""}
-            onChange={(e) => patch(i, { layanan: e.target.value })}
+            onChange={ubahKapital((v) => patch(i, { layanan: v }))}
             aria-label={`Layanan baris ${i + 1}`}
           />
 
@@ -314,8 +336,9 @@ export default function FieldInput({ q, value, invalid, onChange }) {
       return (
         <input
           className={"fk-input" + (invalid ? " is-invalid" : "")}
+          autoCapitalize="sentences"
           value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={ubahKapital(onChange)}
         />
       );
 
@@ -324,8 +347,9 @@ export default function FieldInput({ q, value, invalid, onChange }) {
         <textarea
           className={"fk-input fk-textarea" + (invalid ? " is-invalid" : "")}
           rows={3}
+          autoCapitalize="sentences"
           value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={ubahKapital(onChange)}
         />
       );
 
