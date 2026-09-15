@@ -5,7 +5,7 @@ import { useDialog } from "../components/Dialog.jsx";
 import { PageHead, Panel, Loading, ErrorBox, Empty, StatusPill, KunciAdmin } from "../components/Ui.jsx";
 import FieldInput from "../components/Fields.jsx";
 import PetugasTim from "../components/PetugasTim.jsx";
-import { fromApi, emptyValue, buildPayload, validateRequired, statusFoto } from "../lib/answers.js";
+import { fromApi, emptyValue, buildPayload, validateRequired, statusFoto, idSalahSatuWajib } from "../lib/answers.js";
 import { judulEntri, ringkasEntri, fotoEntri } from "../lib/ringkas.js";
 import { formatTimestamp } from "../lib/format.js";
 import { useAdmin } from "../lib/admin.js";
@@ -801,6 +801,9 @@ export function IsiData({ kkId, formulirId, entriId }) {
               {q.label || "(pertanyaan tanpa judul)"}
               {q.wajib && <span className="fk-star">*</span>}
             </label>
+            {idSalahSatuWajib(formulir.pertanyaan).has(q.id) && (
+              <span className="fk-hint-kecil">Cukup isi salah satu: NIK atau NPWP.</span>
+            )}
             <FieldInput
               q={q}
               value={answers[q.id]}

@@ -274,17 +274,38 @@ export function pesanFormat(tipe, v) {
  */
 export function validateRequired(pertanyaan, answers) {
   const errors = {};
+  const salahSatu = idSalahSatuWajib(pertanyaan);
+  let salahSatuTerisi = false;
   for (const q of pertanyaan) {
     const v = answers[q.id] !== undefined ? answers[q.id] : emptyValue(q.tipe);
-    if (q.wajib && !isFilled(q.tipe, v)) {
+    if (salahSatu.has(q.id) && isFilled(q.tipe, v)) salahSatuTerisi = true;
+    if (q.wajib && !salahSatu.has(q.id) && !isFilled(q.tipe, v)) {
       errors[q.id] = q.tipe === "foto" ? "Tambahkan minimal satu foto." : "Kolom ini wajib diisi.";
       continue;
     }
     const galat = pesanFormat(q.tipe, v);
     if (galat) errors[q.id] = galat;
   }
+  if (salahSatu.size && !salahSatuTerisi) {
+    for (const id of salahSatu) errors[id] = PESAN_SALAH_SATU;
+  }
   return errors;
 }
+
+/**
+ * NIK & NPWP yang sama-sama ditandai wajib cukup diisi salah satunya:
+ * badan usaha tidak punya NIK, perorangan belum tentu punya NPWP.
+ * Aturannya disamakan dengan idSalahSatuWajib() di server/src/entri.js.
+ *
+ * @returns {Set<number>} id pertanyaan "salah satu wajib" (kosong bila tidak berlaku)
+ */
+export function idSalahSatuWajib(pertanyaan) {
+  const q = pertanyaan.filter((x) => x.wajib && (x.tipe === "nik" || x.tipe === "npwp"));
+  const berlaku = q.some((x) => x.tipe === "nik") && q.some((x) => x.tipe === "npwp");
+  return new Set(berlaku ? q.map((x) => x.id) : []);
+}
+
+export const PESAN_SALAH_SATU = "Isi NIK atau NPWP, cukup salah satu.";
 
 /** Hitung foto yang masih diunggah / gagal diunggah di seluruh jawaban. */
 export function statusFoto(pertanyaan, answers) {
