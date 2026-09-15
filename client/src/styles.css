@@ -103,6 +103,7 @@ body {
 .fk-newpet{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;}
 .fk-newpet .fk-input{flex:1; min-width:120px;}
 .fk-newpet-inline{margin-top:0; width:100%;}
+.fk-petugas-cari{margin-bottom:12px;}
 .fk-picklist{display:flex; flex-direction:column; gap:8px;}
 .fk-pickrow{display:flex; align-items:center; gap:12px; border:1px solid var(--line); background:var(--surface); border-radius:11px; padding:12px 14px; text-align:left; color:var(--ink); transition:.1s;}
 .fk-pickrow:hover{border-color:var(--brand);}

@@ -16,6 +16,7 @@ export default function PetugasPage() {
   const [form, setForm] = useState({ nama: "", nip: "" });
   const [menyimpan, setMenyimpan] = useState(false);
   const [edit, setEdit] = useState(null); // { id, nama, nip }
+  const [cari, setCari] = useState("");
 
   const muat = useCallback(async () => {
     setLoading(true);
@@ -83,6 +84,15 @@ export default function PetugasPage() {
     }
   };
 
+  // Cocok bila nama memuat kata kunci, atau NIP memuat angkanya (spasi diabaikan).
+  const kata = cari.trim().toLowerCase();
+  const angka = kata.replace(/\s/g, "");
+  const tersaring = kata
+    ? list.filter(
+        (p) => p.nama.toLowerCase().includes(kata) || (angka && (p.nip || "").replace(/\s/g, "").includes(angka))
+      )
+    : list;
+
   return (
     <>
       <PageHead
@@ -118,15 +128,31 @@ export default function PetugasPage() {
         <KunciAdmin>Menambah, mengubah, dan menghapus petugas hanya bisa dilakukan admin.</KunciAdmin>
       )}
 
-      <Panel title="Daftar petugas" sub={`${list.length} orang`}>
+      <Panel
+        title="Daftar petugas"
+        sub={kata ? `${tersaring.length} dari ${list.length} orang` : `${list.length} orang`}
+      >
         {error && <ErrorBox onRetry={muat}>{error}</ErrorBox>}
+        {list.length > 0 && (
+          <input
+            type="search"
+            className="fk-input fk-petugas-cari"
+            placeholder="Cari nama atau NIP..."
+            value={cari}
+            onChange={(e) => setCari(e.target.value)}
+            enterKeyHint="search"
+            aria-label="Cari petugas"
+          />
+        )}
         {loading ? (
           <Loading />
         ) : list.length === 0 ? (
           <div className="fk-lt-empty">Belum Ada Petugas.</div>
+        ) : tersaring.length === 0 ? (
+          <div className="fk-lt-empty">Tidak ada petugas yang cocok dengan “{cari.trim()}”.</div>
         ) : (
           <div className="fk-lib-list">
-            {list.map((p) =>
+            {tersaring.map((p) =>
               edit && edit.id === p.id ? (
                 <div className="fk-lib-row is-editing" key={p.id}>
                   <div className="fk-newpet fk-newpet-inline">
