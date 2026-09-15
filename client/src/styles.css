@@ -389,6 +389,12 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-wilayah{display:grid; grid-template-columns:1fr 1fr; gap:10px 12px;}
 .fk-wilayah-kolom{display:flex; flex-direction:column; gap:5px; min-width:0;}
 .fk-wilayah-cap{font-size:12px; font-weight:600; color:var(--muted);}
+/* NIK & NPWP bersanding (cukup salah satu); bertumpuk di layar sempit */
+.fk-field-identitas > .fk-hint-kecil{display:block; margin:-4px 0 10px;}
+.fk-identitas{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+.fk-identitas-kolom{display:flex; flex-direction:column; gap:6px; min-width:0;}
+.fk-field-identitas .fk-err{display:block;}
+@media (max-width:560px){ .fk-identitas{grid-template-columns:1fr; gap:12px;} }
 .fk-wilayah-hint{grid-column:1 / -1;}
 
 /* RT & RW: dua kolom sempit, masing-masing 3 digit. */
