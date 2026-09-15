@@ -641,6 +641,10 @@ Keduanya disusun di `server/src/ekspor.js` dengan isi yang sama. Tersedia tiga c
 | Satu kertas kerja, satu formulir | **Excel / CSV** di judul grup formulir pada *Data terkumpul* | `kertas-kerja-00012-identitas-wajib-pajak.xlsx` |
 | Satu formulir, semua kertas kerja | **Excel / CSV** di baris formulir pada Bank Formulir (bila sudah ada data) | `formulir-identitas-wajib-pajak.xlsx` |
 
+Ketiga cakupan juga tersedia di halaman **Ekspor** (`/ekspor`, `EksporPage.jsx`, menu tersendiri
+di sidebar & bilah tab HP): pilih kertas kerja lalu *Semua formulir* atau satu formulir, atau pilih
+formulir untuk seluruh kertas kerja, kemudian **Unduh Excel** / **Unduh CSV**.
+
 Ekspor per formulir diurutkan menurut nomor kertas kerja; kolom `Nomor`, `Status`, `Petugas`, dan
 `NIP` mengikuti kertas kerja masing-masing baris. **Satu baris per data.** Kolom:
 `Nomor`, `Status`, `Petugas` (nama tim digabung `; `), `NIP`, `Formulir`, `No. data`, `Waktu input`,

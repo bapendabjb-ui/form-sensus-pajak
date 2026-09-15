@@ -379,6 +379,12 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-grup-aksi{display:flex; align-items:center; gap:5px; flex:none;}
 .fk-lib-aksi{display:flex; align-items:center; gap:5px; flex:none;}
 
+/* Halaman ekspor */
+.fk-ekspor-isian{display:flex; flex-direction:column; gap:6px;}
+.fk-ekspor-isian .fk-q-name{margin:6px 0 0;}
+.fk-ekspor-isian .fk-q-name:first-child{margin-top:0;}
+.fk-ekspor-aksi{display:flex; gap:8px; flex-wrap:wrap; margin-top:16px;}
+
 /* ================= foto ================= */
 .fk-foto{display:flex; flex-direction:column; gap:10px;}
 .fk-foto.is-invalid .fk-foto-btn{border-color:var(--danger);}
@@ -572,7 +578,7 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-appbar-aksi{border:1px solid var(--line); background:var(--surface); color:var(--muted); font-size:13px; font-weight:500; min-height:36px; padding:0 12px; border-radius:10px;}
 
   /* ---- bilah tab bawah ---- */
-  .fk-tabbar{display:grid; grid-template-columns:repeat(4,1fr); position:fixed; left:0; right:0; bottom:0; z-index:40; background:rgba(255,255,255,.97); -webkit-backdrop-filter:saturate(1.4) blur(10px); backdrop-filter:saturate(1.4) blur(10px); border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom);}
+  .fk-tabbar{display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); position:fixed; left:0; right:0; bottom:0; z-index:40; background:rgba(255,255,255,.97); -webkit-backdrop-filter:saturate(1.4) blur(10px); backdrop-filter:saturate(1.4) blur(10px); border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom);}
   html.fk-ketik .fk-tabbar{display:none;}
   .fk-tab{position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; height:64px; color:var(--muted); font-size:11.5px; font-weight:500;}
   .fk-tab.is-active{color:var(--brand-dark); font-weight:600;}
