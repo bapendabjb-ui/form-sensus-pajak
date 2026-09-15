@@ -38,6 +38,8 @@ model Formulir {
   id        Int      @id @default(autoincrement())
   judul     String   @db.VarChar(200)
   deskripsi String?  @db.Text
+  /// Nama ikon (mis. "store") yang tampil di kartu formulir; kosong = nomor urut.
+  ikon      String   @default("") @db.VarChar(40)
   /// Urutan tampil di bank formulir - diatur admin lewat seret (drag & drop).
   urutan    Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")

@@ -32,6 +32,10 @@ function bacaPayload(body) {
 
   const deskripsi = String(body?.deskripsi ?? "").trim();
 
+  // Nama ikon dipilih dari daftar di klien; server hanya memastikan bentuknya aman.
+  const ikonMasuk = String(body?.ikon ?? "").trim();
+  const ikon = /^[a-z0-9-]{1,40}$/.test(ikonMasuk) ? ikonMasuk : "";
+
   const masuk = Array.isArray(body?.pertanyaan) ? body.pertanyaan : [];
   const pertanyaan = masuk.map((q, i) => {
     const tipe = String(q?.tipe || "");
@@ -70,7 +74,7 @@ function bacaPayload(body) {
     };
   });
 
-  return { judul, deskripsi, pertanyaan };
+  return { judul, deskripsi, ikon, pertanyaan };
 }
 
 /**
@@ -146,6 +150,7 @@ router.get(
         id: f.id,
         judul: f.judul,
         deskripsi: f.deskripsi || "",
+        ikon: f.ikon || "",
         urutan: f.urutan,
         createdAt: f.createdAt,
         jumlahPertanyaan: f._count.pertanyaan,
@@ -173,11 +178,11 @@ router.post(
   "/",
   requireAdmin,
   wrap(async (req, res) => {
-    const { judul, deskripsi, pertanyaan } = bacaPayload(req.body);
+    const { judul, deskripsi, ikon, pertanyaan } = bacaPayload(req.body);
 
     const hasil = await prisma.$transaction(async (tx) => {
       const f = await tx.formulir.create({
-        data: { judul, deskripsi, urutan: await urutanBerikutnya(tx) },
+        data: { judul, deskripsi, ikon, urutan: await urutanBerikutnya(tx) },
       });
       await tulisPertanyaan(tx, f.id, pertanyaan);
       return tx.formulir.findUnique({ where: { id: f.id }, include: includePertanyaan });
@@ -233,14 +238,14 @@ router.put(
   requireAdmin,
   wrap(async (req, res) => {
     const id = parseId(req.params.id);
-    const { judul, deskripsi, pertanyaan } = bacaPayload(req.body);
+    const { judul, deskripsi, ikon, pertanyaan } = bacaPayload(req.body);
 
     const ada = await prisma.formulir.findUnique({ where: { id } });
     if (!ada) throw notFound("Formulir tidak ditemukan.");
 
     let dihapus = 0;
     const hasil = await prisma.$transaction(async (tx) => {
-      await tx.formulir.update({ where: { id }, data: { judul, deskripsi } });
+      await tx.formulir.update({ where: { id }, data: { judul, deskripsi, ikon } });
       dihapus = await tulisPertanyaan(tx, id, pertanyaan);
       return tx.formulir.findUnique({ where: { id }, include: includePertanyaan });
     });

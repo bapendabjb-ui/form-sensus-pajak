@@ -8,6 +8,7 @@ import PetugasTim from "../components/PetugasTim.jsx";
 import { fromApi, emptyValue, buildPayload, validateRequired, statusFoto } from "../lib/answers.js";
 import { judulEntri, ringkasEntri, fotoEntri } from "../lib/ringkas.js";
 import { formatTimestamp } from "../lib/format.js";
+import { IkonFormulir } from "../components/Icons.jsx";
 import { useAdmin } from "../lib/admin.js";
 import { navigate, kembali, pasangPenjaga } from "../lib/router.js";
 
@@ -462,7 +463,9 @@ export function DetailKertasKerja({ id }) {
                 onClick={() => navigate(`${urlKk(id)}/isi/${f.id}`)}
                 disabled={kosong}
               >
-                <span className="fk-baris-ikon">{i + 1}</span>
+                <span className="fk-baris-ikon">
+                  <IkonFormulir ikon={f.ikon} cadangan={i + 1} />
+                </span>
                 <span className="fk-baris-teks">
                   <span className="fk-baris-judul">{f.judul}</span>
                   <span className="fk-baris-ket">
@@ -835,7 +838,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
       <div className="fk-form-actions fk-sticky-actions">
         {!entriId && (
           <button type="button" className="fk-btn-ghost" onClick={() => simpan(true)} disabled={sibuk || unggah > 0}>
-            {menyimpan === "lagi" ? "Menyimpan..." : "Simpan & + Lagi"}
+            {menyimpan === "lagi" ? "Menyimpan..." : "Simpan & Tambah Lagi"}
           </button>
         )}
         <button type="button" className="fk-btn" onClick={() => simpan(false)} disabled={sibuk || unggah > 0}>

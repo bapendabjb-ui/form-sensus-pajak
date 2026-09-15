@@ -297,7 +297,7 @@ Misalnya, agar petugas boleh menghapus datanya sendiri, hapus `requireAdmin` dar
 | ----------------------- | --------------------------------------------------------------------------- |
 | `admin`                 | `username` unik + `password_hash`                                           |
 | `petugas`               | Nama & NIP — sumber dropdown tim petugas                                    |
-| `formulir`              | Bank formulir + `urutan` (susunan tampil, diatur admin lewat seret)         |
+| `formulir`              | Bank formulir + `ikon` (nama ikon kartu, kosong = nomor) + `urutan` (susunan tampil, diatur admin lewat seret) |
 | `pertanyaan`            | `tipe` (17 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `nik`, `npwp`, `niknpwp` & `nop`), `label`, `keterangan`, `wajib`, `range_harga`, `urutan` |
 | `pertanyaan_opsi`       | Opsi dropdown/radio/checkbox & daftar "Jenis tarif"                         |
 | `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status` (kolom `judul` tidak dipakai lagi)     |
@@ -318,6 +318,10 @@ Perilaku relasi:
   yang sudah tersimpan tidak hilang saat admin menambah atau mengurutkan ulang pertanyaan.
 
 ### Migrasi dari versi sebelumnya
+
+Migrasi `20260915110000_ikon_formulir` menambah kolom `formulir.ikon` (nama ikon Lucide, mis.
+`store`; bawaan kosong). Formulir lama tetap menampilkan nomor urut sampai admin memilih ikon.
+Daftar ikon yang bisa dipilih ada di `DAFTAR_IKON_FORMULIR` (`client/src/components/Icons.jsx`).
 
 Migrasi `20260915100000_keterangan_pertanyaan` menambah kolom `pertanyaan.keterangan`
 (maks. 500 karakter, bawaan kosong) — petunjuk pengisian yang tampil di bawah judul pertanyaan.

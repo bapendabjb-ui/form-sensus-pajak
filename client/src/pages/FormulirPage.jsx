@@ -5,7 +5,7 @@ import { useToast } from "../components/Toast.jsx";
 import { useDialog } from "../components/Dialog.jsx";
 import { PageHead, Panel, Loading, ErrorBox, Empty } from "../components/Ui.jsx";
 import LoginAdmin from "../components/LoginAdmin.jsx";
-import { IkonSeret } from "../components/Icons.jsx";
+import { IkonSeret, IkonFormulir, DAFTAR_IKON_FORMULIR, labelIkonFormulir } from "../components/Icons.jsx";
 import useDragUrut, { pindahkan } from "../lib/useDragUrut.js";
 import { TYPES, TYPE_LABEL, HAS_OPTIONS, defaultOptions } from "../lib/format.js";
 
@@ -354,6 +354,7 @@ export default function FormulirPage({ admin, onAuthChanged }) {
       const payload = {
         judul: draft.judul.trim(),
         deskripsi: draft.deskripsi.trim(),
+        ikon: draft.ikon || "",
         pertanyaan: draft.pertanyaan.map((q) => ({
           id: q.id ?? undefined,
           tipe: q.tipe,
@@ -471,6 +472,9 @@ export default function FormulirPage({ admin, onAuthChanged }) {
                         <IkonSeret />
                       </button>
                     )}
+                    <span className="fk-baris-ikon fk-lib-ikon">
+                      <IkonFormulir ikon={f.ikon} cadangan={i + 1} size={16} />
+                    </span>
                     <div className="fk-lib-main">
                       <div className="fk-lib-title">{f.judul || "Tanpa judul"}</div>
                       <div className="fk-lib-sub">
@@ -529,6 +533,36 @@ export default function FormulirPage({ admin, onAuthChanged }) {
               placeholder="Deskripsi singkat"
               onChange={(e) => patchDraft({ deskripsi: e.target.value })}
             />
+
+            <span className="fk-ikon-pilih-cap">
+              Ikon di kartu formulir: <strong>{labelIkonFormulir(draft.ikon) || "Nomor urut"}</strong>
+            </span>
+            <div className="fk-ikon-pilih" role="radiogroup" aria-label="Ikon formulir">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!draft.ikon}
+                className={"fk-ikon-opsi" + (!draft.ikon ? " is-on" : "")}
+                onClick={() => patchDraft({ ikon: "" })}
+                title="Nomor urut"
+              >
+                1
+              </button>
+              {DAFTAR_IKON_FORMULIR.map((ik) => (
+                <button
+                  type="button"
+                  key={ik.key}
+                  role="radio"
+                  aria-checked={draft.ikon === ik.key}
+                  aria-label={ik.label}
+                  className={"fk-ikon-opsi" + (draft.ikon === ik.key ? " is-on" : "")}
+                  onClick={() => patchDraft({ ikon: ik.key })}
+                  title={ik.label}
+                >
+                  <ik.Ikon size={20} strokeWidth={1.8} aria-hidden="true" />
+                </button>
+              ))}
+            </div>
           </Panel>
 
           <div className="fk-toolbar">

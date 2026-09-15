@@ -10,20 +10,50 @@
  */
 
 import {
+  BedDouble,
+  Bird,
+  Briefcase,
+  Building2,
+  Calculator,
   Calendar,
   Camera,
   Check,
   ChevronDown,
   ChevronLeft,
+  Clapperboard,
   ClipboardList,
+  Coffee,
+  Coins,
+  Droplets,
   Eye,
   EyeOff,
+  Factory,
   FileText,
+  Fuel,
   GripVertical,
+  Hotel,
+  House,
+  IdCard,
   Images,
+  Landmark,
   LayoutGrid,
   Lock,
+  MapPin,
+  Megaphone,
+  Mountain,
+  Music,
+  Receipt,
+  ShieldCheck,
+  ShoppingBag,
+  SquareParking,
+  Store,
+  Tag,
+  Ticket,
+  User,
   Users,
+  UtensilsCrossed,
+  Wallet,
+  Zap,
 } from "lucide-react";
 
 const GARIS = 1.8;
@@ -67,6 +97,59 @@ export const IkonSeret = () => <GripVertical size={18} strokeWidth={GARIS} aria-
 
 export const IkonKamera = () => <Camera size={20} strokeWidth={GARIS} aria-hidden="true" />;
 export const IkonGaleri = () => <Images size={20} strokeWidth={GARIS} aria-hidden="true" />;
+
+/* ---------- ikon formulir ---------- */
+
+/**
+ * Ikon yang bisa dipilih admin untuk tiap formulir. `key` disimpan di
+ * kolom formulir.ikon, jadi JANGAN diganti setelah dipakai; menambah baru boleh.
+ */
+export const DAFTAR_IKON_FORMULIR = [
+  { key: "store", label: "Toko / usaha", Ikon: Store },
+  { key: "utensils-crossed", label: "Makan & minum", Ikon: UtensilsCrossed },
+  { key: "coffee", label: "Kafe", Ikon: Coffee },
+  { key: "hotel", label: "Hotel", Ikon: Hotel },
+  { key: "bed-double", label: "Penginapan", Ikon: BedDouble },
+  { key: "square-parking", label: "Parkir", Ikon: SquareParking },
+  { key: "music", label: "Hiburan", Ikon: Music },
+  { key: "clapperboard", label: "Pertunjukan / bioskop", Ikon: Clapperboard },
+  { key: "ticket", label: "Tiket", Ikon: Ticket },
+  { key: "zap", label: "Tenaga listrik", Ikon: Zap },
+  { key: "droplets", label: "Air tanah", Ikon: Droplets },
+  { key: "megaphone", label: "Reklame", Ikon: Megaphone },
+  { key: "bird", label: "Sarang burung walet", Ikon: Bird },
+  { key: "mountain", label: "Mineral bukan logam", Ikon: Mountain },
+  { key: "fuel", label: "Bahan bakar", Ikon: Fuel },
+  { key: "shopping-bag", label: "Perdagangan", Ikon: ShoppingBag },
+  { key: "factory", label: "Industri", Ikon: Factory },
+  { key: "briefcase", label: "Badan usaha", Ikon: Briefcase },
+  { key: "building-2", label: "Gedung", Ikon: Building2 },
+  { key: "house", label: "Rumah / bangunan", Ikon: House },
+  { key: "landmark", label: "Instansi", Ikon: Landmark },
+  { key: "user", label: "Perorangan", Ikon: User },
+  { key: "id-card", label: "Identitas", Ikon: IdCard },
+  { key: "map-pin", label: "Lokasi", Ikon: MapPin },
+  { key: "camera", label: "Foto", Ikon: Camera },
+  { key: "file-text", label: "Dokumen", Ikon: FileText },
+  { key: "clipboard-list", label: "Daftar isian", Ikon: ClipboardList },
+  { key: "receipt", label: "Tagihan", Ikon: Receipt },
+  { key: "coins", label: "Omzet", Ikon: Coins },
+  { key: "wallet", label: "Pembayaran", Ikon: Wallet },
+  { key: "calculator", label: "Perhitungan", Ikon: Calculator },
+  { key: "tag", label: "Tarif", Ikon: Tag },
+  { key: "shield-check", label: "Verifikasi", Ikon: ShieldCheck },
+];
+
+const PETA_IKON_FORMULIR = Object.fromEntries(DAFTAR_IKON_FORMULIR.map((i) => [i.key, i]));
+
+/** Label ikon formulir, "" bila tidak dikenal. */
+export const labelIkonFormulir = (ikon) => PETA_IKON_FORMULIR[ikon]?.label || "";
+
+/** Ikon sebuah formulir; `cadangan` (mis. nomor urut) dipakai bila ikon kosong / tidak dikenal. */
+export function IkonFormulir({ ikon, cadangan = null, size = 18 }) {
+  const Ikon = PETA_IKON_FORMULIR[ikon]?.Ikon;
+  return Ikon ? <Ikon size={size} strokeWidth={GARIS} aria-hidden="true" /> : cadangan;
+}
 
 /* ---------- lambang ---------- */
 
