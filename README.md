@@ -579,6 +579,8 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | `PUT`    | `/formulir/:id` | 🔒 Idem, mempertahankan id pertanyaan yang dikirim ulang     |
 | `PUT`    | `/formulir/urutan` | 🔒 `{ ids: [...] }` — susun ulang urutan tampil bank formulir |
 | `DELETE` | `/formulir/:id` | 🔒 **409** bila sudah diisi; `?force=true` tetap menghapus   |
+| `GET`    | `/formulir/:id/export`      | Unduh CSV seluruh data formulir ini dari semua kertas kerja |
+| `GET`    | `/formulir/:id/export/xlsx` | Idem, format Excel (.xlsx)                                  |
 
 ### Kertas kerja
 
@@ -592,8 +594,8 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | `PUT`    | `/kertas-kerja/:id/status`        | `{ status }` — `selesai` butuh minimal 1 data (**422**)   |
 | `POST`   | `/kertas-kerja/:id/entri`         | `{ formulirId, jawaban }` — tambah satu data              |
 | `DELETE` | `/kertas-kerja/:id`               | 🔒 Hapus beserta seluruh data & foto                      |
-| `GET`    | `/kertas-kerja/:id/export`        | Unduh CSV                                                 |
-| `GET`    | `/kertas-kerja/:id/export/xlsx`   | Unduh Excel (.xlsx), isi sama dengan CSV                  |
+| `GET`    | `/kertas-kerja/:id/export`        | Unduh CSV; `?formulir=<id>` = hanya satu formulir         |
+| `GET`    | `/kertas-kerja/:id/export/xlsx`   | Unduh Excel (.xlsx), isi sama dengan CSV; `?formulir=<id>` idem |
 
 ### Data (entri)
 
@@ -631,7 +633,16 @@ ditemukan · `409` data masih dipakai · `422` validasi gagal.
 
 ### Ekspor CSV & Excel
 
-Keduanya disusun di `server/src/ekspor.js` dengan isi yang sama. **Satu baris per data.** Kolom:
+Keduanya disusun di `server/src/ekspor.js` dengan isi yang sama. Tersedia tiga cakupan:
+
+| Cakupan | Tombol | Nama berkas |
+| --- | --- | --- |
+| Satu kertas kerja, semua formulir | **Ekspor Excel / CSV** di halaman kertas kerja (atau daftar kertas kerja) | `kertas-kerja-00012.xlsx` |
+| Satu kertas kerja, satu formulir | **Excel / CSV** di judul grup formulir pada *Data terkumpul* | `kertas-kerja-00012-identitas-wajib-pajak.xlsx` |
+| Satu formulir, semua kertas kerja | **Excel / CSV** di baris formulir pada Bank Formulir (bila sudah ada data) | `formulir-identitas-wajib-pajak.xlsx` |
+
+Ekspor per formulir diurutkan menurut nomor kertas kerja; kolom `Nomor`, `Status`, `Petugas`, dan
+`NIP` mengikuti kertas kerja masing-masing baris. **Satu baris per data.** Kolom:
 `Nomor`, `Status`, `Petugas` (nama tim digabung `; `), `NIP`, `Formulir`, `No. data`, `Waktu input`,
 lalu satu kolom per pertanyaan berjudul `Judul formulir - Label` (pertanyaan NIK / NPWP menjadi dua
 kolom). Sel milik formulir lain dibiarkan kosong; pertanyaan foto berisi tautan lengkap ke fotonya.

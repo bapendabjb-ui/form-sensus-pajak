@@ -1,9 +1,10 @@
 "use strict";
 
 /**
- * Ekspor satu kertas kerja ke CSV dan Excel (.xlsx).
+ * Ekspor data ke CSV dan Excel (.xlsx) - per kertas kerja (semua formulir atau
+ * satu formulir) maupun per formulir (seluruh kertas kerja).
  *
- * Kedua format memakai susunan yang sama: satu baris per data, kolom pertanyaan
+ * Semua memakai susunan yang sama: satu baris per data, kolom pertanyaan
  * dikelompokkan per formulir, sel milik formulir lain dibiarkan kosong.
  * Tiap sel berbentuk { teks, angka? }: CSV memakai teks, Excel memakai angka
  * bila ada supaya bisa dijumlah dan difilter.
@@ -14,6 +15,7 @@ const { csvNilai, buildCsv, formatNpwp, formatWaktuID } = require("./format");
 const { bentukTim, petaJawaban } = require("./bentuk");
 
 const FORMAT_RIBUAN = "#,##0.##";
+const KOLOM_NO_DATA = 5;
 
 const teks = (s) => ({ teks: s === null || s === undefined ? "" : String(s) });
 
@@ -44,49 +46,64 @@ function kolomPertanyaan(formulir, baseUrl) {
   );
 }
 
+/** Kolom identitas kertas kerja: nomor, status, tim petugas. */
+function kolomKertasKerja(kk) {
+  const tim = bentukTim(kk.petugas);
+  return [
+    teks(kk.nomor),
+    teks(kk.status === "selesai" ? "Selesai" : "Draft"),
+    teks(tim.map((p) => p.nama).join("; ")),
+    teks(tim.map((p) => p.nip || "-").join("; ")),
+  ];
+}
+
 /**
- * @param {object} kk        kertas kerja Prisma dengan petugas & entri (+ jawaban)
- * @param {object[]} formulir formulir terbentuk (bentukFormulir) yang dipakai kertas kerja
+ * Susun tabel ekspor.
+ *
+ * @param {{ kk: object, e: object }[]} data  entri (+ jawaban) beserta kertas kerjanya
+ *        (+ petugas), SUDAH terurut sesuai keinginan pemanggil
+ * @param {object[]} formulir  formulir (+ pertanyaan) yang kolomnya ditampilkan, urut
  * @returns {{ header: string[], baris: object[][] }}
  */
-function susunEkspor(kk, formulir, { baseUrl, timezone }) {
-  const tim = bentukTim(kk.petugas);
-  const namaTim = tim.map((p) => p.nama).join("; ");
-  const nipTim = tim.map((p) => p.nip || "-").join("; ");
-  const status = kk.status === "selesai" ? "Selesai" : "Draft";
-
+function susunEkspor(data, formulir, { baseUrl, timezone }) {
   const kolom = kolomPertanyaan(formulir, baseUrl);
   const header = ["Nomor", "Status", "Petugas", "NIP", "Formulir", "No. data", "Waktu input", ...kolom.map((k) => k.judul)];
+  const judulForm = new Map(formulir.map((f) => [f.id, f.judul]));
 
-  const urutForm = new Map(formulir.map((f, i) => [f.id, i]));
-  const entri = kk.entri
-    .slice()
-    .sort(
-      (a, b) =>
-        urutForm.get(a.formulirId) - urutForm.get(b.formulirId) || a.createdAt - b.createdAt || a.id - b.id
-    );
+  // "No. data" dihitung per kertas kerja per formulir.
+  const nomorKe = new Map();
+  const identitasKk = new Map();
+  const baris = data.map(({ kk, e }) => {
+    const kunci = `${kk.id}:${e.formulirId}`;
+    const ke = (nomorKe.get(kunci) || 0) + 1;
+    nomorKe.set(kunci, ke);
+    if (!identitasKk.has(kk.id)) identitasKk.set(kk.id, kolomKertasKerja(kk));
 
-  const nomorPerForm = new Map();
-  const baris = entri.map((e) => {
-    const ke = (nomorPerForm.get(e.formulirId) || 0) + 1;
-    nomorPerForm.set(e.formulirId, ke);
     const jawaban = petaJawaban(e.jawaban);
-    const f = formulir[urutForm.get(e.formulirId)];
     return [
-      teks(kk.nomor),
-      teks(status),
-      teks(namaTim),
-      teks(nipTim),
-      teks(f.judul),
+      ...identitasKk.get(kk.id),
+      teks(judulForm.get(e.formulirId)),
       { teks: String(ke), angka: ke },
       teks(formatWaktuID(e.createdAt, timezone)),
       ...kolom.map((k) => (k.f.id === e.formulirId ? k.sel(jawaban) : teks(""))),
     ];
   });
 
-  if (baris.length === 0) baris.push([kk.nomor, status, namaTim, nipTim].map(teks));
-
   return { header, baris };
+}
+
+/** Baris pengganti untuk kertas kerja yang belum punya data. */
+const barisTanpaData = (kk) => kolomKertasKerja(kk);
+
+/** Judul -> potongan nama berkas yang aman: "Identitas Wajib Pajak" -> "identitas-wajib-pajak". */
+function namaBerkas(s, cadangan = "data") {
+  const bersih = String(s || "")
+    .normalize("NFKD")
+    .replace(/[^\w]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase()
+    .slice(0, 50);
+  return bersih || cadangan;
 }
 
 /** CSV dengan BOM UTF-8. */
@@ -100,7 +117,9 @@ async function keXlsx({ header, baris }, namaSheet) {
   wb.creator = "Sensus Pajak";
   wb.created = new Date();
 
-  const ws = wb.addWorksheet(namaSheet, { views: [{ state: "frozen", ySplit: 1 }] });
+  // Nama sheet Excel: maks. 31 karakter, tanpa \ / ? * [ ] :
+  const sheet = String(namaSheet || "Data").replace(/[\\/?*[\]:]/g, " ").slice(0, 31).trim() || "Data";
+  const ws = wb.addWorksheet(sheet, { views: [{ state: "frozen", ySplit: 1 }] });
 
   const kepala = ws.addRow(header);
   kepala.font = { bold: true };
@@ -114,7 +133,7 @@ async function keXlsx({ header, baris }, namaSheet) {
     const row = ws.addRow(r.map((c) => (c.angka !== undefined ? c.angka : c.teks)));
     r.forEach((c, i) => {
       // NIK, NPWP, NOP tetap teks sehingga Excel tidak mengubahnya jadi 3,17E+15.
-      if (c.angka !== undefined && i !== 5) row.getCell(i + 1).numFmt = FORMAT_RIBUAN;
+      if (c.angka !== undefined && i !== KOLOM_NO_DATA) row.getCell(i + 1).numFmt = FORMAT_RIBUAN;
     });
   }
 
@@ -128,4 +147,19 @@ async function keXlsx({ header, baris }, namaSheet) {
   return wb.xlsx.writeBuffer();
 }
 
-module.exports = { susunEkspor, keCsv, keXlsx };
+/** Kirim tabel sebagai unduhan CSV. */
+function kirimCsv(res, { nama, tabel }) {
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${nama}.csv"`);
+  res.send(keCsv(tabel));
+}
+
+/** Kirim tabel sebagai unduhan Excel. */
+async function kirimXlsx(res, { nama, sheet, tabel }) {
+  const buffer = await keXlsx(tabel, sheet);
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="${nama}.xlsx"`);
+  res.send(Buffer.from(buffer));
+}
+
+module.exports = { susunEkspor, barisTanpaData, namaBerkas, keCsv, keXlsx, kirimCsv, kirimXlsx };

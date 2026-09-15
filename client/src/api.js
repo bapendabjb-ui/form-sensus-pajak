@@ -166,13 +166,18 @@ export async function uploadFoto(file) {
 }
 
 /** Unduh CSV lewat navigasi browser (server mengirim header Content-Disposition). */
-export function unduhCsv(id) {
-  window.location.href = `${BASE}/kertas-kerja/${id}/export`;
+export function unduhCsv(id, formulirId) {
+  window.location.href = `${BASE}/kertas-kerja/${id}/export${formulirId ? `?formulir=${formulirId}` : ""}`;
 }
 
-/** Unduh Excel (.xlsx) dengan cara yang sama. */
-export function unduhExcel(id) {
-  window.location.href = `${BASE}/kertas-kerja/${id}/export/xlsx`;
+/** Unduh Excel (.xlsx) dengan cara yang sama. `formulirId` membatasi ke satu formulir. */
+export function unduhExcel(id, formulirId) {
+  window.location.href = `${BASE}/kertas-kerja/${id}/export/xlsx${formulirId ? `?formulir=${formulirId}` : ""}`;
+}
+
+/** Unduh seluruh data satu formulir dari semua kertas kerja. jenis: "xlsx" | "csv". */
+export function unduhFormulir(id, jenis = "xlsx") {
+  window.location.href = `${BASE}/formulir/${id}/export${jenis === "xlsx" ? "/xlsx" : ""}`;
 }
 
 /* ---------- dashboard ---------- */

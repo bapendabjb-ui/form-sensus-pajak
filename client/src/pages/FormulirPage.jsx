@@ -492,6 +492,27 @@ export default function FormulirPage({ admin, onAuthChanged }) {
                         {f.jumlahData > 0 && ` · ${f.jumlahData} data terisi`}
                       </div>
                     </div>
+                    {f.jumlahData > 0 && (
+                      // Seluruh data formulir ini dari semua kertas kerja.
+                      <span className="fk-lib-aksi" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="fk-mini"
+                          onClick={() => api.unduhFormulir(f.id, "xlsx")}
+                          title={`Ekspor semua data ${f.judul} ke Excel`}
+                        >
+                          Excel
+                        </button>
+                        <button
+                          type="button"
+                          className="fk-mini"
+                          onClick={() => api.unduhFormulir(f.id, "csv")}
+                          title={`Ekspor semua data ${f.judul} ke CSV`}
+                        >
+                          CSV
+                        </button>
+                      </span>
+                    )}
                     <button
                       type="button"
                       className="fk-iconbtn"

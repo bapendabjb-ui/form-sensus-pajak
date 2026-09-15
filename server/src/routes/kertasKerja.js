@@ -9,7 +9,7 @@ const { ambilNomorBerikutnya, previewNomorBerikutnya } = require("../nomor");
 const { siapkanJawaban, tulisJawaban, muatEntri } = require("../entri");
 const { hapusBerkas } = require("../foto");
 const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require("../bentuk");
-const { susunEkspor, keCsv, keXlsx } = require("../ekspor");
+const { susunEkspor, barisTanpaData, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
 
 const router = express.Router();
 
@@ -248,38 +248,50 @@ router.delete(
 
 /* ---------- ekspor ---------- */
 
-/** Muat kertas kerja lalu susun baris & kolom ekspornya (dipakai CSV maupun Excel). */
+/**
+ * Muat kertas kerja lalu susun tabel ekspornya (dipakai CSV maupun Excel).
+ * `?formulir=<id>` membatasi ekspor ke satu formulir di kertas kerja itu.
+ */
 async function dataEkspor(req) {
-  const { kk, formulir } = await muatDetail(parseId(req.params.id));
+  const { kk, formulir: semua } = await muatDetail(parseId(req.params.id));
+  const pilih = req.query.formulir ? parseId(req.query.formulir) : null;
+  const formulir = pilih ? semua.filter((f) => f.id === pilih) : semua;
+
+  const urutForm = new Map(formulir.map((f, i) => [f.id, i]));
+  const data = kk.entri
+    .filter((e) => urutForm.has(e.formulirId))
+    .sort(
+      (a, b) =>
+        urutForm.get(a.formulirId) - urutForm.get(b.formulirId) || a.createdAt - b.createdAt || a.id - b.id
+    )
+    .map((e) => ({ kk, e }));
+
   const baseUrl = `${req.protocol}://${req.get("host")}`;
-  return { kk, tabel: susunEkspor(kk, formulir, { baseUrl, timezone: config.timezone }) };
+  const tabel = susunEkspor(data, formulir, { baseUrl, timezone: config.timezone });
+  if (data.length === 0) tabel.baris.push(barisTanpaData(kk));
+
+  const satu = pilih && formulir[0];
+  return {
+    nama: satu ? `kertas-kerja-${kk.nomor}-${namaBerkas(satu.judul, "formulir")}` : `kertas-kerja-${kk.nomor}`,
+    sheet: satu ? `${kk.nomor} ${satu.judul}` : `Kertas kerja ${kk.nomor}`,
+    tabel,
+  };
 }
 
 /**
- * GET /api/kertas-kerja/:id/export -> CSV (BOM UTF-8).
+ * GET /api/kertas-kerja/:id/export[?formulir=<id>] -> CSV (BOM UTF-8).
  * Satu baris per data. Kolom pertanyaan dikelompokkan per formulir; sel milik
  * formulir lain dibiarkan kosong.
  */
 router.get(
   "/:id/export",
-  wrap(async (req, res) => {
-    const { kk, tabel } = await dataEkspor(req);
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="kertas-kerja-${kk.nomor}.csv"`);
-    res.send(keCsv(tabel));
-  })
+  wrap(async (req, res) => kirimCsv(res, await dataEkspor(req)))
 );
 
-/** GET /api/kertas-kerja/:id/export/xlsx -> Excel, isi sama dengan CSV. */
+/** GET /api/kertas-kerja/:id/export/xlsx[?formulir=<id>] -> Excel, isi sama dengan CSV. */
 router.get(
   "/:id/export/xlsx",
-  wrap(async (req, res) => {
-    const { kk, tabel } = await dataEkspor(req);
-    const buffer = await keXlsx(tabel, `Kertas kerja ${kk.nomor}`);
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.setHeader("Content-Disposition", `attachment; filename="kertas-kerja-${kk.nomor}.xlsx"`);
-    res.send(Buffer.from(buffer));
-  })
+  wrap(async (req, res) => kirimXlsx(res, await dataEkspor(req)))
 );
 
 module.exports = router;

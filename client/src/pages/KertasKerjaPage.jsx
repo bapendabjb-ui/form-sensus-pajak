@@ -436,10 +436,20 @@ export function DetailKertasKerja({ id }) {
                   Ubah petugas
                 </button>
               )}
-              <button type="button" className="fk-btn-ghost" onClick={() => api.unduhExcel(kk.id)}>
+              <button
+                type="button"
+                className="fk-btn-ghost"
+                onClick={() => api.unduhExcel(kk.id)}
+                title="Seluruh formulir di kertas kerja ini"
+              >
                 Ekspor Excel
               </button>
-              <button type="button" className="fk-btn-ghost" onClick={() => api.unduhCsv(kk.id)}>
+              <button
+                type="button"
+                className="fk-btn-ghost"
+                onClick={() => api.unduhCsv(kk.id)}
+                title="Seluruh formulir di kertas kerja ini"
+              >
                 Ekspor CSV
               </button>
             </div>
@@ -487,8 +497,26 @@ export function DetailKertasKerja({ id }) {
         kelompok.map(({ formulir, entri }) => (
           <div className="fk-baris-list" key={formulir.id}>
             <div className="fk-grup-judul">
-              {formulir.judul}
-              <span className="fk-baris-jumlah">{entri.length}</span>
+              <span className="fk-grup-nama">{formulir.judul}</span>
+              <span className="fk-grup-aksi">
+                <button
+                  type="button"
+                  className="fk-mini"
+                  onClick={() => api.unduhExcel(kk.id, formulir.id)}
+                  title={`Ekspor data ${formulir.judul} ke Excel`}
+                >
+                  Excel
+                </button>
+                <button
+                  type="button"
+                  className="fk-mini"
+                  onClick={() => api.unduhCsv(kk.id, formulir.id)}
+                  title={`Ekspor data ${formulir.judul} ke CSV`}
+                >
+                  CSV
+                </button>
+                <span className="fk-baris-jumlah">{entri.length}</span>
+              </span>
             </div>
             {entri.map((e) => {
               const ringkas = ringkasEntri(formulir.pertanyaan, e.jawaban);

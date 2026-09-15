@@ -375,6 +375,9 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-baris-foto img{width:40px; height:40px; object-fit:cover; border-radius:7px; border:1px solid var(--line-soft); background:#E6EAEF;}
 .fk-baris-lebih{font-size:12px; font-weight:600; color:var(--muted); padding-left:4px;}
 .fk-grup-judul{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:11px 16px; background:#F6F8FA; border-bottom:1px solid var(--line-soft); font-size:13.5px; font-weight:600;}
+.fk-grup-nama{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.fk-grup-aksi{display:flex; align-items:center; gap:5px; flex:none;}
+.fk-lib-aksi{display:flex; align-items:center; gap:5px; flex:none;}
 
 /* ================= foto ================= */
 .fk-foto{display:flex; flex-direction:column; gap:10px;}

@@ -2,11 +2,13 @@
 
 const express = require("express");
 const prisma = require("../prisma");
+const config = require("../config");
 const { requireAdmin } = require("../auth");
 const { wrap, badRequest, notFound, conflict, parseId } = require("../http");
 const { TIPE, BERTIPE_OPSI } = require("../answers");
 const { includePertanyaan, bentukFormulir } = require("../bentuk");
 const { hapusBerkas, sapuFotoYatim } = require("../foto");
+const { susunEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
 
 const router = express.Router();
 
@@ -169,6 +171,43 @@ router.get(
     if (!f) throw notFound("Formulir tidak ditemukan.");
     res.json(bentukFormulir(f));
   })
+);
+
+/**
+ * Seluruh data satu formulir dari semua kertas kerja, urut nomor kertas kerja
+ * lalu waktu input. Kolom nomor, status, dan tim mengikuti kertas kerja tiap baris.
+ */
+async function dataEksporFormulir(req) {
+  const id = parseId(req.params.id);
+  const f = await prisma.formulir.findUnique({ where: { id }, include: includePertanyaan });
+  if (!f) throw notFound("Formulir tidak ditemukan.");
+
+  const entri = await prisma.entri.findMany({
+    where: { formulirId: id },
+    include: { jawaban: true, kertasKerja: { include: { petugas: { include: { petugas: true } } } } },
+  });
+  const data = entri
+    .map((e) => ({ kk: e.kertasKerja, e }))
+    .sort((a, b) => a.kk.nomor.localeCompare(b.kk.nomor) || a.e.createdAt - b.e.createdAt || a.e.id - b.e.id);
+
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  return {
+    nama: `formulir-${namaBerkas(f.judul, "formulir")}`,
+    sheet: f.judul,
+    tabel: susunEkspor(data, [f], { baseUrl, timezone: config.timezone }),
+  };
+}
+
+/** GET /api/formulir/:id/export -> CSV seluruh data formulir ini dari semua kertas kerja. */
+router.get(
+  "/:id/export",
+  wrap(async (req, res) => kirimCsv(res, await dataEksporFormulir(req)))
+);
+
+/** GET /api/formulir/:id/export/xlsx -> Excel, isi sama dengan CSV. */
+router.get(
+  "/:id/export/xlsx",
+  wrap(async (req, res) => kirimXlsx(res, await dataEksporFormulir(req)))
 );
 
 /* ---------- route admin (penyusunan formulir) ---------- */
