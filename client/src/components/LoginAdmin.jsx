@@ -2,6 +2,7 @@ import { useState } from "react";
 import * as api from "../api.js";
 import { useToast } from "./Toast.jsx";
 import { IconLock } from "./Icons.jsx";
+import PasswordInput from "./PasswordInput.jsx";
 
 /**
  * Kartu login admin. Dipakai di halaman Formulir dan di layar /masuk,
@@ -53,9 +54,7 @@ export default function LoginAdmin({
             setErr("");
           }}
         />
-        <input
-          className="fk-input"
-          type="password"
+        <PasswordInput
           placeholder="Password"
           autoComplete="current-password"
           value={form.pass}

@@ -125,6 +125,20 @@ body {
 .fk-login-card .fk-input{text-align:left;}
 .fk-login-btn{margin-top:4px;}
 
+/* kolom password + tombol mata */
+.fk-pass{position:relative;}
+.fk-pass .fk-input{padding-right:46px;}
+.fk-pass-mata{position:absolute; top:0; right:0; bottom:0; width:44px; display:grid; place-items:center; border:0; background:transparent; color:var(--muted); border-radius:0 9px 9px 0;}
+.fk-pass-mata:hover{color:var(--ink);}
+.fk-pass-mata:focus-visible{outline:2px solid var(--brand); outline-offset:-2px;}
+
+/* akun admin */
+.fk-akun-form{display:flex; flex-direction:column; gap:14px; max-width:420px;}
+.fk-akun-form .fk-q-name{display:block; margin-bottom:6px;}
+.fk-side-aksi{display:flex; gap:6px;}
+.fk-side-akun{border:1px solid var(--line); background:var(--surface); color:var(--muted); font-size:12px; padding:5px 10px; border-radius:8px;}
+.fk-side-akun:hover{border-color:var(--brand); color:var(--brand-dark);}
+
 /* ================= seret untuk menyusun ulang (drag & drop) ================= */
 /* Dipakai bank formulir & daftar pertanyaan, lihat lib/useDragUrut.js. */
 .fk-seret-item{transition:transform .16s ease;}

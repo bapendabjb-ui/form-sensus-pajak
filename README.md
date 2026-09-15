@@ -526,6 +526,7 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | ------ | ------------- | ------------------------------------------------------ |
 | `POST` | `/auth/login` | `{ username, password }` → `{ token, username }`       |
 | `GET`  | `/auth/me`    | 🔒 Verifikasi token                                    |
+| `PUT`  | `/auth/password` | 🔒 `{ passwordLama, passwordBaru }` — ganti password (min. 8 karakter); password lama salah → **400** |
 
 ### Petugas
 
@@ -643,8 +644,18 @@ folder foto dibuat, dan pembersih foto yatim berjalan. Buat URL publik lewat
 **Settings → Networking → Generate Domain**. HTTPS dari Railway juga membuat tombol
 **Ambil foto** membuka kamera dengan lancar di HP.
 
-Untuk mengganti password admin: ubah `ADMIN_PASSWORD` **lalu hapus baris admin lama** di tabel
-`admin` (seed hanya berjalan bila username tersebut belum ada).
+`ADMIN_PASSWORD` hanya dipakai saat akun admin **belum ada**. Setelah itu:
+
+- **Ganti password** — login admin → tombol **Akun** (kaki sidebar, atau bilah atas di HP) →
+  isi password lama & baru. Kolom password punya tombol mata untuk menampilkan isian.
+- **Lupa password** — reset langsung di container aplikasi (password acak dicetak sekali):
+
+  ```
+  railway ssh --service <nama-service-aplikasi> node server/scripts/reset-admin.js
+  ```
+
+  Tambahkan `[username] [passwordBaru]` untuk menentukan sendiri. Secara lokal:
+  `node server/scripts/reset-admin.js`.
 
 ### Backup
 

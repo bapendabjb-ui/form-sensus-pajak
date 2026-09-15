@@ -16,6 +16,8 @@ import {
   ChevronDown,
   ChevronLeft,
   ClipboardList,
+  Eye,
+  EyeOff,
   FileText,
   GripVertical,
   Images,
@@ -42,7 +44,11 @@ export const IconLock = () => <Lock size={13} strokeWidth={GARIS} aria-hidden="t
 
 export const CheckIcon = () => <Check size={15} strokeWidth={2} aria-hidden="true" />;
 
-export const CalIcon = () => <Calendar size={16} strokeWidth={1.5} aria-hidden="true" />;
+/** Tombol mata pada kolom password: tampilkan / sembunyikan isian. */
+export const IkonMata = () => <Eye size={18} strokeWidth={GARIS} aria-hidden="true" />;
+export const IkonMataTutup = () => <EyeOff size={18} strokeWidth={GARIS} aria-hidden="true" />;
+
+export const CalIcon =() => <Calendar size={16} strokeWidth={1.5} aria-hidden="true" />;
 
 /** Panah dropdown; CSS memutarnya lewat kelas is-open. */
 export const Chevron = ({ open }) => (

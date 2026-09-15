@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import { DaftarKertasKerja, BuatKertasKerja, DetailKertasKerja, IsiData } from "./pages/KertasKerjaPage.jsx";
 import PetugasPage from "./pages/PetugasPage.jsx";
 import FormulirPage from "./pages/FormulirPage.jsx";
+import AkunPage from "./pages/AkunPage.jsx";
 import { AdminContext } from "./lib/admin.js";
 import { useLokasi, navigate, kembali, cocokkanRute } from "./lib/router.js";
 
@@ -110,6 +111,10 @@ function Shell() {
       // Setelah berhasil masuk, kembali ke layar yang tadi ditinggalkan.
       halaman = <LoginAdmin onLoggedIn={() => kembali("/")} />;
       break;
+    case "akun":
+      // Belum login: tampilkan login di tempat; status admin berubah lewat onAuthChange.
+      halaman = admin ? <AkunPage onKeluar={keluar} /> : <LoginAdmin onLoggedIn={() => {}} />;
+      break;
     default:
       halaman = (
         <Empty
@@ -159,9 +164,14 @@ function Shell() {
           {admin ? (
             <div className="fk-admin-row">
               <span className="fk-admin-badge">● Admin</span>
-              <button type="button" className="fk-logout" onClick={keluar}>
-                Keluar
-              </button>
+              <span className="fk-side-aksi">
+                <button type="button" className="fk-side-akun" onClick={() => navigate("/akun")}>
+                  Akun
+                </button>
+                <button type="button" className="fk-logout" onClick={keluar}>
+                  Keluar
+                </button>
+              </span>
             </div>
           ) : (
             <button type="button" className="fk-side-masuk" onClick={masuk}>
@@ -183,9 +193,12 @@ function Shell() {
         )}
         <h1 className="fk-appbar-judul">{rute.nama === "dashboard" ? "Sensus Pajak" : rute.judul}</h1>
         {admin ? (
-          <button type="button" className="fk-appbar-aksi" onClick={keluar}>
-            Keluar
-          </button>
+          // Di HP, Keluar ada di halaman Akun supaya tidak tertekan tanpa sengaja.
+          rute.nama !== "akun" && (
+            <button type="button" className="fk-appbar-aksi" onClick={() => navigate("/akun")}>
+              Akun
+            </button>
+          )
         ) : (
           rute.nama !== "masuk" && (
             <button type="button" className="fk-appbar-aksi" onClick={masuk}>

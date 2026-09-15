@@ -88,6 +88,9 @@ export async function login(username, password) {
   return data;
 }
 
+export const gantiPassword = (passwordLama, passwordBaru) =>
+  request("/auth/password", { method: "PUT", body: { passwordLama, passwordBaru }, auth: true });
+
 /** Verifikasi token yang tersimpan; token kedaluwarsa otomatis dibuang. */
 export async function cekSesi() {
   if (!token) return false;
