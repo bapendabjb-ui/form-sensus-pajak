@@ -4,6 +4,7 @@ const express = require("express");
 const prisma = require("../prisma");
 const { requireAdmin } = require("../auth");
 const { wrap, badRequest, notFound, conflict, parseId } = require("../http");
+const { kapitalTiapKata } = require("../nama");
 
 const router = express.Router();
 
@@ -26,7 +27,7 @@ router.post(
   "/",
   requireAdmin,
   wrap(async (req, res) => {
-    const nama = String(req.body?.nama || "").trim();
+    const nama = kapitalTiapKata(String(req.body?.nama || "").trim());
     const nip = String(req.body?.nip || "").trim();
     if (!nama) throw badRequest("Nama petugas wajib diisi.");
     if (nama.length > 150) throw badRequest("Nama petugas maksimal 150 karakter.");
@@ -43,7 +44,7 @@ router.put(
   requireAdmin,
   wrap(async (req, res) => {
     const id = parseId(req.params.id);
-    const nama = String(req.body?.nama || "").trim();
+    const nama = kapitalTiapKata(String(req.body?.nama || "").trim());
     const nip = String(req.body?.nip || "").trim();
     if (!nama) throw badRequest("Nama petugas wajib diisi.");
     if (nama.length > 150) throw badRequest("Nama petugas maksimal 150 karakter.");

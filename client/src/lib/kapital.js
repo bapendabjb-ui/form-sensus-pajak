@@ -3,11 +3,11 @@ export const kapitalAwalKalimat = (s) =>
   s.replace(/(^\s*|[.!?]\s+|\n\s*)(\p{Ll})/gu, (_, awal, huruf) => awal + huruf.toUpperCase());
 
 /**
- * Huruf pertama tiap kata dijadikan kapital: "budi s.kom" -> "Budi S.Kom".
- * Huruf lain dibiarkan apa adanya supaya singkatan & gelar tidak rusak.
+ * Huruf pertama tiap kata kapital, sisanya kecil: "RECKY AMIN s.kom" -> "Recky Amin S.Kom".
+ * Samakan dengan server/src/nama.js.
  */
 export const kapitalTiapKata = (s) =>
-  s.replace(/(^|[\s.\-])(\p{Ll})/gu, (_, awal, huruf) => awal + huruf.toUpperCase());
+  s.toLowerCase().replace(/(^|[\s.\-])(\p{Ll})/gu, (_, awal, huruf) => awal + huruf.toUpperCase());
 
 /**
  * onChange untuk input teks yang memformat nilai sambil diketik.
