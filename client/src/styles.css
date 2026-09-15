@@ -115,8 +115,6 @@ body {
 .fk-kk-detail-head{display:flex; align-items:center; gap:14px;}
 .fk-kk-detail-meta{flex:1; min-width:0;}
 .fk-kk-title-top{font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:600; margin:0 0 3px;}
-.fk-judul-edit{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 3px;}
-.fk-judul-edit .fk-input{flex:1; min-width:170px;}
 
 /* ================= login ================= */
 .fk-login{display:grid; place-items:center; padding:40px 0;}

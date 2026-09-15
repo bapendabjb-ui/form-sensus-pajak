@@ -38,8 +38,7 @@ berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengeksporny
 
 ## Alur pemakaian
 
-1. **Buat kertas kerja** — nomor 5 digit tampil otomatis; isi **judul** kertas kerja (identitasnya
-   di daftar, mis. "Survei hiburan Kec. Cempaka tahap 1"); pilih **tim petugas 1–8 orang** dari
+1. **Buat kertas kerja** — nomor 5 digit tampil otomatis; pilih **tim petugas 1–8 orang** dari
    data petugas (petugas nomor 1 = penanggung jawab). Petugas yang belum terdaftar bisa
    didaftarkan langsung dari layar ini. Tekan **Buat kertas kerja**.
 2. **Isi data per formulir** — halaman kertas kerja menampilkan seluruh bank formulir.
@@ -49,7 +48,7 @@ berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengeksporny
    **Dari galeri**. Foto diperkecil di browser lalu langsung diunggah.
 4. **Susun bank formulir** (admin) — tambah pertanyaan dari bilah **Tambah pertanyaan**, lalu
    seret pegangan ⠿ untuk mengatur urutan formulir maupun urutan pertanyaan di dalamnya.
-5. **Tandai selesai** (minimal satu data), **Ekspor CSV**, atau **Ubah judul** kapan saja.
+5. **Tandai selesai** (minimal satu data), atau **Ekspor CSV** kapan saja.
    **Ubah petugas** dan penghapusan memerlukan login admin. Data yang sudah tersimpan tetap
    bisa dibuka dan diubah.
 
@@ -261,7 +260,7 @@ Petugas tidak perlu akun — mereka membuka aplikasi dan langsung bekerja.
 | Aksi                                                                         | Perlu login admin |
 | ---------------------------------------------------------------------------- | :---------------: |
 | Melihat dashboard, kertas kerja, formulir, dan daftar petugas                 |        —          |
-| Membuat kertas kerja beserta judul & timnya, menandai selesai, mengubah judul |        —          |
+| Membuat kertas kerja beserta timnya, menandai selesai                         |        —          |
 | Mengisi data, mengubah data, mengunggah & melihat foto, ekspor CSV            |        —          |
 | **Mengubah tim petugas kertas kerja yang sudah dibuat**                       |       ✅          |
 | **Menambah / mengubah / menghapus petugas**                                   |       ✅          |
@@ -301,7 +300,7 @@ Misalnya, agar petugas boleh menghapus datanya sendiri, hapus `requireAdmin` dar
 | `formulir`              | Bank formulir + `urutan` (susunan tampil, diatur admin lewat seret)         |
 | `pertanyaan`            | `tipe` (16 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `nik`, `npwp` & `nop`), `label`, `wajib`, `range_harga`, `urutan` |
 | `pertanyaan_opsi`       | Opsi dropdown/radio/checkbox & daftar "Jenis tarif"                         |
-| `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `judul` (diketik petugas, wajib), `status`      |
+| `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status` (kolom `judul` tidak dipakai lagi)     |
 | `kertas_kerja_petugas`  | Tim petugas (1–8), `urutan` 0 = penanggung jawab                            |
 | `entri`                 | Satu data: `kertas_kerja_id` + `formulir_id` (boleh berulang)               |
 | `jawaban`               | `nilai` JSON, **UNIQUE(entri_id, pertanyaan_id)**                           |
@@ -554,9 +553,8 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | -------- | --------------------------------- | --------------------------------------------------------- |
 | `GET`    | `/kertas-kerja`                   | Daftar + tim petugas + `jumlahData`                       |
 | `GET`    | `/kertas-kerja/nomor-berikutnya`  | Pratinjau nomor + `petugasMaks` (8)                       |
-| `POST`   | `/kertas-kerja`                   | `{ judul, petugasIds: [1..8 id] }` → nomor otomatis       |
+| `POST`   | `/kertas-kerja`                   | `{ petugasIds: [1..8 id] }` → nomor otomatis              |
 | `GET`    | `/kertas-kerja/:id`               | Tim petugas, seluruh entri, definisi formulir yang diisi  |
-| `PUT`    | `/kertas-kerja/:id/judul`         | `{ judul }` — ganti judul (wajib terisi)                  |
 | `PUT`    | `/kertas-kerja/:id/petugas`       | 🔒 `{ petugasIds }` — ganti tim                           |
 | `PUT`    | `/kertas-kerja/:id/status`        | `{ status }` — `selesai` butuh minimal 1 data (**422**)   |
 | `POST`   | `/kertas-kerja/:id/entri`         | `{ formulirId, jawaban }` — tambah satu data              |
@@ -599,7 +597,7 @@ ditemukan · `409` data masih dipakai · `422` validasi gagal.
 
 ### Ekspor CSV
 
-Diawali **BOM UTF-8** agar rapi di Excel. **Satu baris per data.** Kolom: `Nomor`, `Judul`, `Status`,
+Diawali **BOM UTF-8** agar rapi di Excel. **Satu baris per data.** Kolom: `Nomor`, `Status`,
 `Petugas` (nama tim digabung `; `), `NIP`, `Formulir`, `No. data`, `Waktu input`, lalu satu kolom
 per pertanyaan berjudul `Judul formulir - Label`. Sel milik formulir lain dibiarkan kosong;
 pertanyaan foto berisi tautan lengkap ke fotonya.

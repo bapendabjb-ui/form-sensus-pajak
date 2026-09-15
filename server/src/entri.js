@@ -121,7 +121,6 @@ async function muatEntri(id) {
     kertasKerja: {
       id: e.kertasKerja.id,
       nomor: e.kertasKerja.nomor,
-      judul: e.kertasKerja.judul,
       status: e.kertasKerja.status,
     },
     formulir: bentukFormulir(e.formulir),

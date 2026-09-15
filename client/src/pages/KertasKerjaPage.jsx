@@ -102,9 +102,9 @@ export function DaftarKertasKerja() {
             >
               <span className="fk-nomor">{k.nomor}</span>
               <div className="fk-kk-card-body">
-                <div className="fk-lib-title fk-ellipsis">{k.judul}</div>
+                <div className="fk-lib-title fk-ellipsis">{ringkasTim(k.petugas)}</div>
                 <div className="fk-lib-sub fk-ellipsis">
-                  {ringkasTim(k.petugas)} · {k.jumlahData} data · {formatTimestamp(k.createdAt)}
+                  {k.jumlahData} data · {formatTimestamp(k.createdAt)}
                 </div>
               </div>
               <StatusPill status={k.status} />
@@ -132,8 +132,6 @@ export function DaftarKertasKerja() {
 export function BuatKertasKerja() {
   const toast = useToast();
   const [nomor, setNomor] = useState("—");
-  const [judul, setJudul] = useState("");
-  const [galatJudul, setGalatJudul] = useState("");
   const [petugas, setPetugas] = useState([]);
   const [tim, setTim] = useState([null]);
   const [galatTim, setGalatTim] = useState("");
@@ -157,16 +155,15 @@ export function BuatKertasKerja() {
   }, []);
 
   const buat = async () => {
-    // Tandai semua yang kurang sekaligus, bukan satu per satu.
-    const j = judul.trim();
     const ids = tim.filter(Boolean);
-    if (!j) setGalatJudul("Judul kertas kerja wajib diisi.");
-    if (!ids.length) setGalatTim("Pilih minimal satu petugas.");
-    if (!j || !ids.length) return;
+    if (!ids.length) {
+      setGalatTim("Pilih minimal satu petugas.");
+      return;
+    }
 
     setMembuat(true);
     try {
-      const kk = await api.createKertasKerja(j, ids);
+      const kk = await api.createKertasKerja(ids);
       toast(`Kertas kerja ${kk.nomor} dibuat. Silakan isi data per formulir.`);
       // replace: tombol Kembali dari kertas kerja tidak kembali ke layar "buat".
       navigate(urlKk(kk.id), { replace: true });
@@ -183,7 +180,7 @@ export function BuatKertasKerja() {
     <>
       <PageHead
         title="Buat Kertas Kerja"
-        sub="Beri judul dan tentukan tim petugas. Data diisi per formulir setelah kertas kerja dibuat."
+        sub="Tentukan tim petugas. Data diisi per formulir setelah kertas kerja dibuat."
       />
 
       <Panel>
@@ -191,26 +188,6 @@ export function BuatKertasKerja() {
           <div>
             <span className="fk-opts-cap"><strong>Nomor Kertas Kerja</strong></span>
             <div className="fk-nomor-big">{nomor}</div>
-          </div>
-
-          <div className="fk-divider" />
-
-          <div>
-            <label className="fk-q-name" htmlFor="fk-judul-kk">
-              Judul Kertas Kerja <span className="fk-star">*</span>
-            </label>
-            <input
-              id="fk-judul-kk"
-              className={"fk-input" + (galatJudul ? " is-invalid" : "")}
-              placeholder="mis. Survei hiburan Kec. Cempaka tahap 1"
-              maxLength={200}
-              value={judul}
-              onChange={(e) => {
-                setJudul(e.target.value);
-                setGalatJudul("");
-              }}
-            />
-            {galatJudul && <span className="fk-err">{galatJudul}</span>}
           </div>
 
           <div className="fk-divider" />
@@ -253,7 +230,6 @@ export function DetailKertasKerja({ id }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [timEdit, setTimEdit] = useState(null); // array id | null
-  const [judulEdit, setJudulEdit] = useState(null); // string | null
   const [petugas, setPetugas] = useState([]);
   const [galatTim, setGalatTim] = useState("");
   const [sibuk, setSibuk] = useState(false);
@@ -296,24 +272,6 @@ export function DetailKertasKerja({ id }) {
     for (const g of kelompok) m.set(g.formulir.id, g.entri.length);
     return m;
   }, [kelompok]);
-
-  const simpanJudul = async () => {
-    const j = (judulEdit || "").trim();
-    if (!j) {
-      toast("Judul kertas kerja wajib diisi.", true);
-      return;
-    }
-    setSibuk(true);
-    try {
-      setKk(await api.updateJudulKertasKerja(id, j));
-      setJudulEdit(null);
-      toast("Judul kertas kerja diperbarui.");
-    } catch (e) {
-      toast(e.message, true);
-    } finally {
-      setSibuk(false);
-    }
-  };
 
   const mulaiUbahTim = async () => {
     try {
@@ -408,27 +366,6 @@ export function DetailKertasKerja({ id }) {
         <div className="fk-kk-detail-head">
           <span className="fk-nomor is-big">{kk.nomor}</span>
           <div className="fk-kk-detail-meta">
-            {judulEdit === null ? (
-              <h1 className="fk-kk-title-top">{kk.judul}</h1>
-            ) : (
-              <div className="fk-judul-edit">
-                <input
-                  className="fk-input"
-                  value={judulEdit}
-                  maxLength={200}
-                  autoFocus
-                  aria-label="Judul kertas kerja"
-                  onChange={(e) => setJudulEdit(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && simpanJudul()}
-                />
-                <button type="button" className="fk-mini" onClick={simpanJudul} disabled={sibuk}>
-                  Simpan
-                </button>
-                <button type="button" className="fk-mini" onClick={() => setJudulEdit(null)}>
-                  Batal
-                </button>
-              </div>
-            )}
             <p className="fk-form-desc">
               Dibuat {formatTimestamp(kk.createdAt)} · {totalData} data
             </p>
@@ -489,9 +426,6 @@ export function DetailKertasKerja({ id }) {
                 title={!selesai && totalData === 0 ? "Tambahkan minimal satu data" : undefined}
               >
                 {selesai ? "Buka kembali (draft)" : "Tandai selesai"}
-              </button>
-              <button type="button" className="fk-btn-ghost" onClick={() => setJudulEdit(kk.judul)}>
-                Ubah judul
               </button>
               {admin && (
                 <button type="button" className="fk-btn-ghost" onClick={mulaiUbahTim}>
@@ -612,7 +546,6 @@ export function IsiData({ kkId, formulirId, entriId }) {
   const admin = useAdmin();
   const [formulir, setFormulir] = useState(null);
   const [nomor, setNomor] = useState("");
-  const [judulKk, setJudulKk] = useState("");
   const [answers, setAnswers] = useState({});
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
@@ -653,7 +586,6 @@ export function IsiData({ kkId, formulirId, entriId }) {
           if (batal) return;
           f = e.formulir;
           setNomor(e.kertasKerja.nomor);
-          setJudulKk(e.kertasKerja.judul);
           const awal = {};
           for (const q of f.pertanyaan) {
             awal[q.id] = e.jawaban[q.id] === undefined ? emptyValue(q.tipe) : fromApi(q.tipe, e.jawaban[q.id]);
@@ -664,7 +596,6 @@ export function IsiData({ kkId, formulirId, entriId }) {
           if (batal) return;
           f = form;
           setNomor(kk.nomor);
-          setJudulKk(kk.judul);
           kosongkan(form);
         }
         setFormulir(f);
@@ -854,8 +785,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
       <section className="fk-panel fk-form fk-form-kepala">
         <div className="fk-form-accent" />
         <span className="fk-opts-cap">
-          Kertas kerja {nomor}
-          {judulKk ? ` · ${judulKk}` : ""} · {entriId ? "ubah data" : "data baru"}
+          Kertas kerja {nomor} · {entriId ? "ubah data" : "data baru"}
         </span>
         <h2 className="fk-kk-title-top" style={{ marginTop: 6 }}>
           {formulir.judul}

@@ -83,10 +83,8 @@ export default function Dashboard() {
                   >
                     <span className="fk-nomor">{k.nomor}</span>
                     <div className="fk-kk-card-body">
-                      <div className="fk-lib-title fk-ellipsis">{k.judul}</div>
-                      <div className="fk-lib-sub">
-                        {ringkasTim(k.petugas)} · {k.jumlahData} data
-                      </div>
+                      <div className="fk-lib-title fk-ellipsis">{ringkasTim(k.petugas)}</div>
+                      <div className="fk-lib-sub">{k.jumlahData} data</div>
                     </div>
                     <StatusPill status={k.status} />
                   </button>

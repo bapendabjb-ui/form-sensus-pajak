@@ -126,10 +126,8 @@ export const deleteFormulir = (id, force = false) =>
 export const listKertasKerja = () => request("/kertas-kerja");
 export const nomorBerikutnya = () => request("/kertas-kerja/nomor-berikutnya");
 export const getKertasKerja = (id) => request(`/kertas-kerja/${id}`);
-export const createKertasKerja = (judul, petugasIds) =>
-  request("/kertas-kerja", { method: "POST", body: { judul, petugasIds } });
-export const updateJudulKertasKerja = (id, judul) =>
-  request(`/kertas-kerja/${id}/judul`, { method: "PUT", body: { judul } });
+export const createKertasKerja = (petugasIds) =>
+  request("/kertas-kerja", { method: "POST", body: { petugasIds } });
 export const updateTimKertasKerja = (id, petugasIds) =>
   request(`/kertas-kerja/${id}/petugas`, { method: "PUT", body: { petugasIds }, auth: true });
 export const setStatusKertasKerja = (id, status) =>
