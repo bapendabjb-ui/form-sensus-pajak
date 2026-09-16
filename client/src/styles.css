@@ -313,13 +313,19 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-lt.is-invalid{border-color:var(--danger);}
 .fk-lt-head{display:grid; grid-template-columns:1.4fr 1fr 1.1fr 28px; gap:9px; font-size:11px; font-weight:600; color:var(--faint); padding:0 2px;}
 .fk-lt-row{display:grid; grid-template-columns:1.4fr 1fr 1.1fr 28px; gap:9px; align-items:center;}
-.fk-lt.is-range .fk-lt-head,.fk-lt.is-range .fk-lt-row{grid-template-columns:1.3fr 0.8fr 2.2fr 28px;}
+.fk-lt.is-range .fk-lt-head,.fk-lt.is-range .fk-lt-row{grid-template-columns:1.1fr 0.75fr 2.6fr 28px;}
 .fk-lt-row .fk-input{padding:8px 10px;}
 .fk-lt-row .fk-money-in{padding-left:32px;}
 .fk-lt-row .fk-select-btn{padding:8px 10px;}
-.fk-lt-price{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
-.fk-lt-price .fk-money{flex:1; min-width:82px;}
+.fk-lt-price{display:flex; align-items:center; gap:6px; min-width:0;}
+.fk-lt-price-in{flex:1; min-width:0; display:flex; align-items:center; gap:6px;}
+.fk-lt-price .fk-money{flex:1; min-width:0;}
 .fk-lt-price .fk-money-in{padding-left:30px;}
+/* Saat rentang aktif, tombol turun ke barisnya sendiri supaya kedua kolom
+   nominal memakai lebar penuh — angka jutaan tetap terbaca. */
+.fk-lt-price.is-range{flex-wrap:wrap; align-items:stretch;}
+.fk-lt-price.is-range .fk-lt-price-in{flex-basis:100%;}
+.fk-lt-price.is-range .fk-lt-rangetog{margin-left:auto; padding:2px 0 0;}
 .fk-lt-rangetog{border:0; background:transparent; color:var(--brand); font-size:12px; font-weight:600; white-space:nowrap; padding:4px;}
 .fk-lt-rangetog:hover{text-decoration:underline;}
 .fk-lt-del{border:0; background:transparent; color:var(--faint); font-size:13px; padding:6px;}
@@ -620,6 +626,10 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-add-opt{min-height:44px; font-size:14.5px;}
   .fk-iconbtn,.fk-lt-del{min-width:40px; min-height:40px;}
   .fk-lt-rangetog{min-height:40px; font-size:13px;}
+  /* Layar sentuh: teks input 16px + awalan "Rp" lebih lebar, jadi kedua kolom
+     nominal ditumpuk agar nilai jutaan tidak terpotong. */
+  .fk-lt-price.is-range .fk-lt-price-in{flex-direction:column; align-items:stretch; gap:7px;}
+  .fk-lt-price.is-range .fk-range-sep{display:none;}
 
   /* ---- tombol aksi melekat di dasar layar / di atas bilah tab ---- */
   .fk-sticky-actions{position:sticky; bottom:var(--bawah); z-index:30; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:8px; margin:auto -14px 0; padding:10px 14px; background:rgba(237,240,243,.95); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); border-top:1px solid var(--line);}

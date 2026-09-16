@@ -385,24 +385,26 @@ function LineTariff({ value, jenisOptions = [], rangePrice, onChange, invalid })
           />
 
           {rangePrice ? (
-            <div className="fk-lt-price">
-              <MoneyInput
-                value={r.harga_min}
-                onChange={(x) => patch(i, { harga_min: x })}
-                placeholder={r.isRange ? "Dari" : "0"}
-                ariaLabel={`Harga baris ${i + 1}`}
-              />
-              {r.isRange && (
-                <>
-                  <span className="fk-range-sep">–</span>
-                  <MoneyInput
-                    value={r.harga_max}
-                    onChange={(x) => patch(i, { harga_max: x })}
-                    placeholder="Sampai"
-                    ariaLabel={`Harga sampai baris ${i + 1}`}
-                  />
-                </>
-              )}
+            <div className={"fk-lt-price" + (r.isRange ? " is-range" : "")}>
+              <div className="fk-lt-price-in">
+                <MoneyInput
+                  value={r.harga_min}
+                  onChange={(x) => patch(i, { harga_min: x })}
+                  placeholder={r.isRange ? "Dari" : "0"}
+                  ariaLabel={`Harga baris ${i + 1}`}
+                />
+                {r.isRange && (
+                  <>
+                    <span className="fk-range-sep">–</span>
+                    <MoneyInput
+                      value={r.harga_max}
+                      onChange={(x) => patch(i, { harga_max: x })}
+                      placeholder="Sampai"
+                      ariaLabel={`Harga sampai baris ${i + 1}`}
+                    />
+                  </>
+                )}
+              </div>
               <button
                 type="button"
                 className="fk-lt-rangetog"
