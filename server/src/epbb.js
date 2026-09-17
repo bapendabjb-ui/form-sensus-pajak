@@ -26,6 +26,42 @@ function susunAlamat(l = {}, penutup = []) {
 }
 
 /**
+ * Kode penyebab gagal fetch, mis. ENOTFOUND. Undici membungkusnya di e.cause (kadang dua lapis),
+ * dan saat semua alamat IPv4/IPv6 gagal, di AggregateError.errors.
+ */
+function kodeGalat(e) {
+  if (e && (e.name === "TimeoutError" || e.name === "AbortError")) return "TIMEOUT";
+  let c = e;
+  for (let i = 0; i < 4 && c; i += 1) {
+    if (c.code) return c.code;
+    c = c.cause || (Array.isArray(c.errors) ? c.errors[0] : null);
+  }
+  return (e && e.name) || "TIDAK_DIKETAHUI";
+}
+
+/** Pesan untuk petugas; kodenya ikut ditampilkan supaya admin tahu yang perlu diperbaiki. */
+function pesanGalat(kode) {
+  let pesan = "EPBB tidak dapat dihubungi.";
+  if (kode === "TIMEOUT" || kode === "ETIMEDOUT" || kode === "UND_ERR_CONNECT_TIMEOUT") {
+    pesan = "EPBB tidak merespons. Server EPBB mungkin tidak bisa diakses dari internet.";
+  } else if (kode === "ENOTFOUND" || kode === "EAI_AGAIN") {
+    pesan = "Alamat EPBB tidak ditemukan. Periksa EPBB_API_URL.";
+  } else if (kode === "ECONNREFUSED") {
+    pesan = "Server EPBB menolak koneksi. Port mungkin tertutup.";
+  } else if (kode === "ECONNRESET" || kode === "UND_ERR_SOCKET") {
+    pesan = "Koneksi ke EPBB terputus.";
+  } else if (kode === "ERR_INVALID_URL") {
+    pesan = "EPBB_API_URL tidak valid.";
+  } else if (/CERT|SELF_SIGNED|UNABLE_TO_VERIFY|ERR_TLS|SSL/i.test(kode)) {
+    pesan = "Sertifikat SSL EPBB tidak valid.";
+  }
+  return `${pesan} (${kode})`;
+}
+
+/** URL tanpa NOP untuk log. */
+const alamatAman = (url) => url.replace(/\/\d{18}$/, "/{nop}");
+
+/**
  * Cek satu NOP 18 digit.
  * @returns {Promise<{nop, namaWp, letakSp, letakOp, luasTanah, luasBangunan, belumBayar: string[]}>}
  */
@@ -40,9 +76,9 @@ async function cekNop(nop) {
       signal: AbortSignal.timeout(config.epbbTimeoutMs),
     });
   } catch (e) {
-    const habis = e && (e.name === "TimeoutError" || e.name === "AbortError");
-    console.error("[Sensus Pajak] EPBB tidak dapat dihubungi:", e.message);
-    throw new ApiError(502, habis ? "EPBB terlalu lama merespons. Coba lagi." : "EPBB tidak dapat dihubungi.");
+    const kode = kodeGalat(e);
+    console.error(`[Sensus Pajak] EPBB tidak dapat dihubungi (${kode}) - ${alamatAman(url)}:`, e.message);
+    throw new ApiError(502, pesanGalat(kode));
   }
 
   const body = await res.json().catch(() => null);
