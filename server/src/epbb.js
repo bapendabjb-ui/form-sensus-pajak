@@ -120,20 +120,32 @@ async function cekNop(nop) {
     body = null;
   }
 
+  // EPBB versi lama membalas NOP tak terdaftar dengan HTTP 404, tetapi server web EPBB
+  // mengganti setiap balasan 404 dari PHP dengan halaman login (bukan JSON). URL-nya sendiri
+  // sudah terbukti benar bila kunci API diterima, jadi 404 di sini dibaca sebagai NOP tidak ada.
+  if (!body && res.status === 404) {
+    console.warn(
+      `[Sensus Pajak] EPBB membalas 404 bukan JSON - ${alamatAman(url)}. Dianggap NOP tidak terdaftar; ` +
+        "bila semua NOP begini, periksa EPBB_API_URL atau unggah ulang api/Nop.php terbaru."
+    );
+    throw new ApiError(404, "NOP tidak terdaftar di EPBB.");
+  }
+
   // Balasan bukan JSON = bukan dari api/Nop.php: URL salah (halaman lain) atau PHP/Oracle error.
   if (!body) {
     const cuplikan = teks.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
     console.error(`[Sensus Pajak] EPBB membalas ${res.status} bukan JSON - ${alamatAman(url)}:`, cuplikan);
     throw new ApiError(
       502,
-      res.ok || res.status === 404
+      res.ok
         ? `Alamat EPBB_API_URL bukan API cek NOP. (HTTP ${res.status})`
         : `EPBB error saat memproses NOP. Periksa log PHP/Oracle EPBB. (HTTP ${res.status})`
     );
   }
 
-  if (res.status === 404) throw new ApiError(404, "NOP tidak terdaftar di EPBB.");
-  if (res.status === 400) throw new ApiError(400, "NOP harus 18 digit.");
+  // Api/Nop.php terbaru membalas keduanya dengan HTTP 200 + status; versi lama memakai 404/400.
+  if (body.status === "not_found" || res.status === 404) throw new ApiError(404, "NOP tidak terdaftar di EPBB.");
+  if (body.status === "invalid" || res.status === 400) throw new ApiError(400, "NOP harus 18 digit.");
   if (res.status === 401) {
     console.error("[Sensus Pajak] EPBB menolak kunci API (401).");
     throw new ApiError(502, "Kunci API ditolak EPBB. Samakan EPBB_API_KEY dengan api_nop_key. (HTTP 401)");
