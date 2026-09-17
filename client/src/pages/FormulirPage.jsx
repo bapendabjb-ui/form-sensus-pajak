@@ -8,10 +8,38 @@ import LoginAdmin from "../components/LoginAdmin.jsx";
 import { IkonSeret, IkonFormulir, DAFTAR_IKON_FORMULIR, labelIkonFormulir } from "../components/Icons.jsx";
 import useDragUrut, { pindahkan } from "../lib/useDragUrut.js";
 import { TYPES, TYPE_LABEL, HAS_OPTIONS, defaultOptions } from "../lib/format.js";
+import CustomSelect from "../components/CustomSelect.jsx";
+import { sumberUntukTipe, labelSumber } from "../lib/epbb.js";
 
 /* ================= editor satu formulir ================= */
 
-function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove }) {
+const TANPA_ISI_EPBB = "Tidak diisi otomatis";
+
+/**
+ * Pilihan "Isi otomatis dari EPBB". Hanya tampil bila formulir punya pertanyaan NOP
+ * dan tipe pertanyaan ini punya sumber data EPBB yang cocok.
+ */
+function PilihIsiEpbb({ q, onPatch }) {
+  const sumber = sumberUntukTipe(q.tipe);
+  if (sumber.length === 0) return null;
+  const pilih = (label) => {
+    const s = sumber.find((x) => x.label === label);
+    onPatch({ isiEpbb: s ? s.kunci : "" });
+  };
+  return (
+    <div className="fk-isi-epbb">
+      <span className="fk-opts-cap">Isi otomatis dari EPBB (hasil cek NOP)</span>
+      <CustomSelect
+        value={q.isiEpbb ? labelSumber(q.isiEpbb) : TANPA_ISI_EPBB}
+        options={[TANPA_ISI_EPBB, ...sumber.map((s) => s.label)]}
+        onChange={pilih}
+        title="Isi otomatis dari EPBB"
+      />
+    </div>
+  );
+}
+
+function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove, adaNop }) {
   const setOpsi = (i, val) => onPatch({ opsi: q.opsi.map((o, j) => (j === i ? val : o)) });
   const tambahOpsi = () => onPatch({ opsi: [...q.opsi, `Opsi ${q.opsi.length + 1}`] });
   const hapusOpsi = (i) => onPatch({ opsi: q.opsi.filter((_, j) => j !== i) });
@@ -50,6 +78,8 @@ function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove }) {
           onChange={(e) => onPatch({ keterangan: e.target.value })}
           aria-label="Keterangan pertanyaan"
         />
+
+        {adaNop && <PilihIsiEpbb q={q} onPatch={onPatch} />}
 
         {HAS_OPTIONS.includes(q.tipe) && (
           <div className="fk-opts">
@@ -260,7 +290,7 @@ export default function FormulirPage({ admin, onAuthChanged }) {
       ...d,
       pertanyaan: [
         ...d.pertanyaan,
-        { id: null, tipe, label: "", keterangan: "", wajib: false, rangeHarga: false, opsi: defaultOptions(tipe) },
+        { id: null, tipe, label: "", keterangan: "", wajib: false, rangeHarga: false, isiEpbb: "", opsi: defaultOptions(tipe) },
       ],
     }));
     setDirty(true);
@@ -372,6 +402,7 @@ export default function FormulirPage({ admin, onAuthChanged }) {
           keterangan: q.keterangan || "",
           wajib: q.wajib,
           rangeHarga: q.rangeHarga,
+          isiEpbb: q.isiEpbb || "",
           opsi: q.opsi,
         })),
       };
@@ -628,6 +659,7 @@ export default function FormulirPage({ admin, onAuthChanged }) {
                   onPatch={(p) => patchQ(i, p)}
                   onRemove={() => hapusQ(i)}
                   onMove={(arah) => pindahQ(i, i + arah)}
+                  adaNop={draft.pertanyaan.some((x) => x.tipe === "nop")}
                 />
               </div>
             ))}

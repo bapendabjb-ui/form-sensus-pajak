@@ -6,6 +6,7 @@ const config = require("../config");
 const { requireAdmin } = require("../auth");
 const { wrap, badRequest, notFound, conflict, parseId } = require("../http");
 const { TIPE, BERTIPE_OPSI } = require("../answers");
+const { sumberEpbbSah } = require("../epbb");
 const { includePertanyaan, bentukFormulir } = require("../bentuk");
 const { hapusBerkas, sapuFotoYatim } = require("../foto");
 const { susunEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
@@ -71,6 +72,7 @@ function bacaPayload(body) {
       keterangan,
       wajib: Boolean(q?.wajib),
       rangeHarga: tipe === "linetariff" ? Boolean(q?.rangeHarga) : false,
+      isiEpbb: sumberEpbbSah(tipe, q?.isiEpbb) ? String(q.isiEpbb) : "",
       urutan: i,
       opsi,
     };
@@ -102,6 +104,7 @@ async function tulisPertanyaan(tx, formulirId, pertanyaan) {
           keterangan: q.keterangan,
           wajib: q.wajib,
           rangeHarga: q.rangeHarga,
+          isiEpbb: q.isiEpbb,
           urutan: q.urutan,
         },
       });
@@ -121,6 +124,7 @@ async function tulisPertanyaan(tx, formulirId, pertanyaan) {
           keterangan: q.keterangan,
           wajib: q.wajib,
           rangeHarga: q.rangeHarga,
+          isiEpbb: q.isiEpbb,
           urutan: q.urutan,
           opsi: { create: q.opsi.map((nilai, i) => ({ nilai, urutan: i })) },
         },

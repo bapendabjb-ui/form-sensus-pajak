@@ -569,6 +569,11 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-nop-tunggak{display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px;}
 .fk-nop-tahun{font-weight:600; color:var(--amber); font-variant-numeric:tabular-nums;}
 .fk-nop-gagal{margin-top:12px;}
+.fk-nop-isi{margin-top:14px; padding:12px 14px; border-radius:12px; background:var(--brand-tint); display:flex; flex-direction:column; gap:6px;}
+.fk-nop-isi-judul{font-size:13px; font-weight:600; color:var(--brand-dark);}
+.fk-nop-isi-daftar{margin:0; padding-left:18px; font-size:13.5px; line-height:1.5; color:var(--ink);}
+.fk-nop-isi-ganti{color:var(--amber); font-weight:600;}
+.fk-isi-epbb{margin-top:10px; display:flex; flex-direction:column; gap:6px; max-width:360px;}
 .fk-nop-gagal .fk-dialog-pesan{margin-top:4px;}
 .fk-sheet-opsi svg{color:var(--brand); flex:none;}
 .fk-select-cari{margin-bottom:6px;}

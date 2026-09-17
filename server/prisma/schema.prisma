@@ -82,6 +82,8 @@ model Pertanyaan {
   wajib      Boolean        @default(false)
   /// Khusus tipe "linetariff": izinkan harga rentang per baris.
   rangeHarga Boolean        @default(false) @map("range_harga")
+  /// Isi otomatis dari data EPBB saat petugas mengonfirmasi hasil cek NOP (mis. "nama_wp"). Kosong = tidak.
+  isiEpbb    String         @default("") @map("isi_epbb") @db.VarChar(30)
   urutan     Int            @default(0)
 
   formulir     Formulir         @relation(fields: [formulirId], references: [id], onDelete: Cascade)

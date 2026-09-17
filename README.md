@@ -518,6 +518,23 @@ browser ──GET /api/nop/:nop──▶ server Sensus Pajak ──GET {EPBB_API
   `DAT_SUBJEK_PAJAK`, `REF_KECAMATAN`, `REF_KELURAHAN`, `SPPT`.
 - "Belum bayar" = `STATUS_PEMBAYARAN_SPPT = 0`, nilai SPPT > 0, mulai tahun `api_nop_tahun_awal`
   (default 2014, sama dengan aturan tunggakan pembayaran bank). SPPT batal (status 2) diabaikan.
+- **Isi otomatis ke formulir.** Di editor formulir, pertanyaan yang cocok mendapat pilihan
+  **Isi otomatis dari EPBB** (hanya tampil bila formulir punya pertanyaan NOP PBB). Setelah cek NOP,
+  modal menampilkan daftar kolom yang akan diisi; petugas menekan **Isi ke Formulir** untuk
+  mengonfirmasi. Kolom yang sudah terisi ditandai *(diganti)*. Data yang tidak ada di EPBB
+  (mis. RW kosong) tidak menghapus isian petugas.
+
+  | Sumber                          | Tipe pertanyaan     | Contoh isi                                  |
+  | ------------------------------- | ------------------- | ------------------------------------------- |
+  | Nama WP                         | Teks / Paragraf     | `HJ. SITI AMINAH`                           |
+  | Letak OP (alamat lengkap)       | Teks / Paragraf     | `JL. MAWAR NO. 5, RT 005/RW 002, KEL. …, KEC. …` |
+  | Jalan OP                        | Teks / Paragraf     | `JL. MAWAR NO. 5`                           |
+  | Letak SP (alamat wajib pajak)   | Teks / Paragraf     | `JL. A. YANI KM 33, RT 003/RW 001, …`       |
+  | Kecamatan & kelurahan OP        | Kecamatan & Kelurahan | dari kode kecamatan/kelurahan di NOP      |
+  | RT & RW OP                      | RT & RW             | `005` / `002`                               |
+  | Luas tanah / Luas bangunan      | Angka               | `250,5`                                     |
+  | Status bayar                    | Teks / Paragraf     | `Lunas` atau `Belum bayar: 2023, 2025`      |
+
 - Formulir diisi tanpa login, jadi `/api/nop` dibatasi **60 pengecekan per IP per 10 menit**.
 - Pemasangan di EPBB: salin `application/config/api_nop.sample.php` menjadi `api_nop.php`, isi
   `api_nop_key` dengan string acak panjang, set `api_nop_enabled = true`.

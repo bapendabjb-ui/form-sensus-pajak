@@ -13,6 +13,7 @@ const bentukPertanyaan = (q) => ({
   keterangan: q.keterangan || "",
   wajib: q.wajib,
   rangeHarga: q.rangeHarga,
+  isiEpbb: q.isiEpbb || "",
   urutan: q.urutan,
   opsi: (q.opsi || []).slice().sort((a, b) => a.urutan - b.urutan).map((o) => o.nilai),
 });

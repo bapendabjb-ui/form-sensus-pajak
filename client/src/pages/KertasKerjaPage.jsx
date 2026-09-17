@@ -5,7 +5,8 @@ import { useDialog } from "../components/Dialog.jsx";
 import { PageHead, Panel, Loading, ErrorBox, Empty, StatusPill, KunciAdmin } from "../components/Ui.jsx";
 import FieldInput from "../components/Fields.jsx";
 import PetugasTim from "../components/PetugasTim.jsx";
-import { fromApi, emptyValue, buildPayload, validateRequired, statusFoto } from "../lib/answers.js";
+import { fromApi, emptyValue, buildPayload, validateRequired, statusFoto, isFilled } from "../lib/answers.js";
+import { nilaiDariEpbb } from "../lib/epbb.js";
 import { judulEntri, ringkasEntri, fotoEntri } from "../lib/ringkas.js";
 import { formatTimestamp } from "../lib/format.js";
 import { IkonFormulir } from "../components/Icons.jsx";
@@ -706,6 +707,28 @@ export function IsiData({ kkId, formulirId, entriId }) {
     });
   };
 
+  // Pertanyaan yang diatur admin untuk diisi dari hasil cek NOP (EPBB).
+  const targetEpbb = (formulir?.pertanyaan || [])
+    .filter((q) => q.isiEpbb)
+    .map((q) => ({ id: q.id, label: q.label || "(Pertanyaan Tanpa Judul)", terisi: isFilled(q.tipe, answers[q.id]) }));
+
+  /** Isi pertanyaan bersumber EPBB dari data cek NOP. Mengembalikan jumlah kolom yang terisi. */
+  const terapkanEpbb = async (data) => {
+    const sumberWilayah = formulir.pertanyaan.some((q) => q.isiEpbb === "wilayah_op");
+    const wilayah = sumberWilayah ? await api.getWilayah().catch(() => []) : [];
+    let jumlah = 0;
+    for (const q of formulir.pertanyaan) {
+      if (!q.isiEpbb) continue;
+      const v = nilaiDariEpbb(q.isiEpbb, data, wilayah);
+      if (v === undefined) continue;
+      setAnswer(q.id, v);
+      jumlah += 1;
+    }
+    return jumlah;
+  };
+
+  const isiEpbb = targetEpbb.length ? { target: targetEpbb, terapkan: terapkanEpbb } : null;
+
   const fokusError = (errs) => {
     const qid = Object.keys(errs)[0];
     const el = qid && wadah.current?.querySelector(`[data-qid="${qid}"]`);
@@ -844,6 +867,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
               value={answers[q.id]}
               invalid={Boolean(errors[q.id])}
               onChange={(v) => setAnswer(q.id, v)}
+              isiEpbb={q.tipe === "nop" ? isiEpbb : null}
             />
             {errors[q.id] && <span className="fk-err">{errors[q.id]}</span>}
           </div>

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { cekNop } from "../api.js";
 import { formatNop } from "../lib/format.js";
 import { buangEntriSementara } from "../lib/router.js";
+import { useToast } from "./Toast.jsx";
 
 const formatLuas = (n) => `${Number(n || 0).toLocaleString("id-ID", { maximumFractionDigits: 2 })} m²`;
 
@@ -10,9 +11,15 @@ const formatLuas = (n) => `${Number(n || 0).toLocaleString("id-ID", { maximumFra
  * Modal informasi objek pajak dari EPBB untuk satu NOP 18 digit.
  * Tampil di tengah pada desktop dan menempel di dasar layar pada HP,
  * sama seperti dialog konfirmasi. Tombol Kembali HP menutup modal.
+ *
+ * isiEpbb (opsional): { target: [{ id, label, terisi }], terapkan(data) -> Promise<jumlah> }.
+ * Bila ada, modal menampilkan kolom formulir yang akan diisi dan tombol konfirmasi
+ * "Isi ke Formulir".
  */
-export default function ModalCekNop({ nop, onClose }) {
+export default function ModalCekNop({ nop, onClose, isiEpbb }) {
+  const toast = useToast();
   const [muat, setMuat] = useState({ status: "memuat" });
+  const [mengisi, setMengisi] = useState(false);
   const tutupRef = useRef(onClose);
   tutupRef.current = onClose;
 
@@ -49,6 +56,20 @@ export default function ModalCekNop({ nop, onClose }) {
   }, []);
 
   const d = muat.data;
+  const bisaIsi = muat.status === "ok" && isiEpbb && isiEpbb.target.length > 0;
+  const adaTimpa = bisaIsi && isiEpbb.target.some((t) => t.terisi);
+
+  const isiFormulir = async () => {
+    setMengisi(true);
+    try {
+      const jumlah = await isiEpbb.terapkan(d);
+      toast(jumlah ? `${jumlah} kolom diisi dari data EPBB.` : "Data EPBB tidak punya isian untuk kolom formulir ini.");
+      onClose();
+    } catch (e) {
+      toast(e.message || "Gagal mengisi formulir.", true);
+      setMengisi(false);
+    }
+  };
 
   return createPortal(
     <div className="fk-dialog-latar" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -110,15 +131,41 @@ export default function ModalCekNop({ nop, onClose }) {
           </dl>
         )}
 
+        {bisaIsi && (
+          <div className="fk-nop-isi">
+            <span className="fk-nop-isi-judul">Isi ke formulir:</span>
+            <ul className="fk-nop-isi-daftar">
+              {isiEpbb.target.map((t) => (
+                <li key={t.id}>
+                  {t.label}
+                  {t.terisi && <span className="fk-nop-isi-ganti"> (diganti)</span>}
+                </li>
+              ))}
+            </ul>
+            {adaTimpa && <span className="fk-hint-kecil">Kolom yang sudah terisi akan diganti dengan data EPBB.</span>}
+          </div>
+        )}
+
         <div className="fk-dialog-aksi">
           {muat.status === "gagal" && muat.ulang && (
             <button type="button" className="fk-btn-ghost" onClick={ambil}>
               Coba Lagi
             </button>
           )}
-          <button type="button" className="fk-btn" onClick={onClose} autoFocus>
-            Tutup
-          </button>
+          {bisaIsi ? (
+            <>
+              <button type="button" className="fk-btn-ghost" onClick={onClose} disabled={mengisi}>
+                Tutup
+              </button>
+              <button type="button" className="fk-btn" onClick={isiFormulir} disabled={mengisi} autoFocus>
+                {mengisi ? "Mengisi..." : "Isi ke Formulir"}
+              </button>
+            </>
+          ) : (
+            <button type="button" className="fk-btn" onClick={onClose} autoFocus>
+              Tutup
+            </button>
+          )}
         </div>
       </div>
     </div>,

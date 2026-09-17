@@ -13,6 +13,25 @@ const { ApiError } = require("./http");
 
 const aktif = () => Boolean(config.epbbApiUrl && config.epbbApiKey);
 
+/**
+ * Data EPBB yang bisa mengisi pertanyaan lain secara otomatis, beserta tipe
+ * pertanyaan yang cocok. Daftar yang sama (dengan label) ada di client/src/lib/epbb.js.
+ */
+const SUMBER_EPBB = {
+  nama_wp: ["text", "paragraph"],
+  letak_op: ["text", "paragraph"],
+  jalan_op: ["text", "paragraph"],
+  letak_sp: ["text", "paragraph"],
+  wilayah_op: ["wilayah"],
+  rtrw_op: ["rtrw"],
+  luas_tanah: ["number"],
+  luas_bangunan: ["number"],
+  status_bayar: ["text", "paragraph"],
+};
+
+const sumberEpbbSah = (tipe, sumber) =>
+  Object.prototype.hasOwnProperty.call(SUMBER_EPBB, sumber) && SUMBER_EPBB[sumber].includes(tipe);
+
 /** Gabungkan bagian alamat yang terisi, mis. "JL. MAWAR NO. 5, RT 001/RW 002, KEL. X". */
 function susunAlamat(l = {}, penutup = []) {
   const bersih = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
@@ -127,10 +146,19 @@ async function cekNop(nop) {
       ["KEL. ", d.letak_op?.kelurahan],
       ["KEC. ", d.letak_op?.kecamatan],
     ]),
+    // Bagian letak OP untuk pengisian otomatis kolom jalan, RT/RW, dan wilayah.
+    // Kode kecamatan & kelurahan diambil dari NOP (digit 5-7 dan 8-10).
+    rinciOp: {
+      jalan: [d.letak_op?.jalan, d.letak_op?.blok_kav_no].map((s) => String(s ?? "").trim()).filter(Boolean).join(" "),
+      rt: String(d.letak_op?.rt ?? "").trim(),
+      rw: String(d.letak_op?.rw ?? "").trim(),
+      kodeKecamatan: String(d.nop || nop).slice(4, 7),
+      kodeKelurahan: String(d.nop || nop).slice(7, 10),
+    },
     luasTanah: Number(d.luas_tanah) || 0,
     luasBangunan: Number(d.luas_bangunan) || 0,
     belumBayar: Array.isArray(d.belum_bayar) ? d.belum_bayar.map(String) : [],
   };
 }
 
-module.exports = { aktif, cekNop, susunAlamat };
+module.exports = { aktif, cekNop, susunAlamat, SUMBER_EPBB, sumberEpbbSah };

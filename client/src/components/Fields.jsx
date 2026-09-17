@@ -185,7 +185,7 @@ function useCekNopAktif() {
   return aktif;
 }
 
-function NopInput({ value, onChange, invalid }) {
+function NopInput({ value, onChange, invalid, isiEpbb }) {
   const cekAktif = useCekNopAktif();
   const [lihat, setLihat] = useState(false);
   const digit = hanyaDigit(value, PANJANG_NOP);
@@ -216,7 +216,7 @@ function NopInput({ value, onChange, invalid }) {
           )
         }
       />
-      {lihat && <ModalCekNop nop={digit} onClose={() => setLihat(false)} />}
+      {lihat && <ModalCekNop nop={digit} isiEpbb={isiEpbb} onClose={() => setLihat(false)} />}
     </>
   );
 }
@@ -490,7 +490,11 @@ function LineTariff({ value, jenisOptions = [], rangePrice, onChange, invalid })
 /* ---------- dispatcher ---------- */
 
 /** Render input yang sesuai untuk satu pertanyaan. */
-export default function FieldInput({ q, value, invalid, onChange }) {
+/**
+ * isiEpbb (opsional, khusus tipe nop): { target, terapkan } untuk mengisi pertanyaan lain
+ * dari hasil cek NOP. Lihat KertasKerjaPage.
+ */
+export default function FieldInput({ q, value, invalid, onChange, isiEpbb }) {
   switch (q.tipe) {
     case "text":
       return (
@@ -570,7 +574,7 @@ export default function FieldInput({ q, value, invalid, onChange }) {
       return <TeleponInput value={value} onChange={onChange} invalid={invalid} />;
 
     case "nop":
-      return <NopInput value={value} onChange={onChange} invalid={invalid} />;
+      return <NopInput value={value} onChange={onChange} invalid={invalid} isiEpbb={isiEpbb} />;
 
     case "lokasi":
       return <LokasiInput value={value} onChange={onChange} invalid={invalid} />;
