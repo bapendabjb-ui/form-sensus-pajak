@@ -81,13 +81,38 @@ async function cekNop(nop) {
     throw new ApiError(502, pesanGalat(kode));
   }
 
-  const body = await res.json().catch(() => null);
+  const teks = await res.text().catch(() => "");
+  let body = null;
+  try {
+    body = JSON.parse(teks);
+  } catch {
+    body = null;
+  }
+
+  // Balasan bukan JSON = bukan dari api/Nop.php: URL salah (halaman lain) atau PHP/Oracle error.
+  if (!body) {
+    const cuplikan = teks.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+    console.error(`[Sensus Pajak] EPBB membalas ${res.status} bukan JSON - ${alamatAman(url)}:`, cuplikan);
+    throw new ApiError(
+      502,
+      res.ok || res.status === 404
+        ? `Alamat EPBB_API_URL bukan API cek NOP. (HTTP ${res.status})`
+        : `EPBB error saat memproses NOP. Periksa log PHP/Oracle EPBB. (HTTP ${res.status})`
+    );
+  }
 
   if (res.status === 404) throw new ApiError(404, "NOP tidak terdaftar di EPBB.");
   if (res.status === 400) throw new ApiError(400, "NOP harus 18 digit.");
-  if (!res.ok || !body || body.status !== "ok" || !body.data) {
-    console.error(`[Sensus Pajak] EPBB membalas ${res.status}:`, body && body.message);
-    throw new ApiError(502, "EPBB sedang bermasalah. Coba lagi nanti.");
+  if (res.status === 401) {
+    console.error("[Sensus Pajak] EPBB menolak kunci API (401).");
+    throw new ApiError(502, "Kunci API ditolak EPBB. Samakan EPBB_API_KEY dengan api_nop_key. (HTTP 401)");
+  }
+  if (res.status === 503) {
+    throw new ApiError(502, "API cek NOP di EPBB belum aktif (api_nop_enabled). (HTTP 503)");
+  }
+  if (!res.ok || body.status !== "ok" || !body.data) {
+    console.error(`[Sensus Pajak] EPBB membalas ${res.status}:`, body.message);
+    throw new ApiError(502, `EPBB sedang bermasalah: ${body.message || "balasan tidak dikenal"} (HTTP ${res.status})`);
   }
 
   const d = body.data;
