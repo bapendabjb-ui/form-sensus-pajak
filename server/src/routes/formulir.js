@@ -27,6 +27,9 @@ async function urutanBerikutnya(db) {
 
 /* ---------- validasi payload ---------- */
 
+/** Posisi pertanyaan di halaman isi data. "" = lebar penuh. */
+const KOLOM = ["", "kiri", "kanan"];
+
 /** Validasi & normalisasi body {judul, deskripsi, pertanyaan[]} dari editor admin. */
 function bacaPayload(body) {
   const judul = String(body?.judul ?? "").trim();
@@ -38,6 +41,10 @@ function bacaPayload(body) {
   // Nama ikon dipilih dari daftar di klien; server hanya memastikan bentuknya aman.
   const ikonMasuk = String(body?.ikon ?? "").trim();
   const ikon = /^[a-z0-9-]{1,40}$/.test(ikonMasuk) ? ikonMasuk : "";
+
+  const judulKolom = (v) => String(v ?? "").trim().slice(0, 100);
+  const judulKolomKiri = judulKolom(body?.judulKolomKiri);
+  const judulKolomKanan = judulKolom(body?.judulKolomKanan);
 
   const masuk = Array.isArray(body?.pertanyaan) ? body.pertanyaan : [];
   const pertanyaan = masuk.map((q, i) => {
@@ -73,12 +80,13 @@ function bacaPayload(body) {
       wajib: Boolean(q?.wajib),
       rangeHarga: tipe === "linetariff" ? Boolean(q?.rangeHarga) : false,
       isiEpbb: sumberEpbbSah(tipe, q?.isiEpbb) ? String(q.isiEpbb) : "",
+      kolom: KOLOM.includes(q?.kolom) ? q.kolom : "",
       urutan: i,
       opsi,
     };
   });
 
-  return { judul, deskripsi, ikon, pertanyaan };
+  return { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan, pertanyaan };
 }
 
 /**
@@ -105,6 +113,7 @@ async function tulisPertanyaan(tx, formulirId, pertanyaan) {
           wajib: q.wajib,
           rangeHarga: q.rangeHarga,
           isiEpbb: q.isiEpbb,
+          kolom: q.kolom,
           urutan: q.urutan,
         },
       });
@@ -125,6 +134,7 @@ async function tulisPertanyaan(tx, formulirId, pertanyaan) {
           wajib: q.wajib,
           rangeHarga: q.rangeHarga,
           isiEpbb: q.isiEpbb,
+          kolom: q.kolom,
           urutan: q.urutan,
           opsi: { create: q.opsi.map((nilai, i) => ({ nilai, urutan: i })) },
         },
@@ -221,11 +231,11 @@ router.post(
   "/",
   requireAdmin,
   wrap(async (req, res) => {
-    const { judul, deskripsi, ikon, pertanyaan } = bacaPayload(req.body);
+    const { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan, pertanyaan } = bacaPayload(req.body);
 
     const hasil = await prisma.$transaction(async (tx) => {
       const f = await tx.formulir.create({
-        data: { judul, deskripsi, ikon, urutan: await urutanBerikutnya(tx) },
+        data: { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan, urutan: await urutanBerikutnya(tx) },
       });
       await tulisPertanyaan(tx, f.id, pertanyaan);
       return tx.formulir.findUnique({ where: { id: f.id }, include: includePertanyaan });
@@ -281,14 +291,14 @@ router.put(
   requireAdmin,
   wrap(async (req, res) => {
     const id = parseId(req.params.id);
-    const { judul, deskripsi, ikon, pertanyaan } = bacaPayload(req.body);
+    const { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan, pertanyaan } = bacaPayload(req.body);
 
     const ada = await prisma.formulir.findUnique({ where: { id } });
     if (!ada) throw notFound("Formulir tidak ditemukan.");
 
     let dihapus = 0;
     const hasil = await prisma.$transaction(async (tx) => {
-      await tx.formulir.update({ where: { id }, data: { judul, deskripsi, ikon } });
+      await tx.formulir.update({ where: { id }, data: { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan } });
       dihapus = await tulisPertanyaan(tx, id, pertanyaan);
       return tx.formulir.findUnique({ where: { id }, include: includePertanyaan });
     });

@@ -214,7 +214,14 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-iconbtn:disabled{opacity:.3; cursor:default;}
 .fk-add-opt{align-self:flex-start; border:0; background:transparent; color:var(--brand); font-size:13px; font-weight:500; padding:4px 0;}
 .fk-opts-cap{font-size:12px; color:var(--faint); font-weight:600;}
-.fk-q-foot{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line-soft);}
+.fk-q-foot{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:16px; padding-top:14px; border-top:1px solid var(--line-soft);}
+.fk-posisi{display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden;}
+.fk-posisi button{border:0; background:var(--surface); color:var(--muted); font-size:12.5px; font-weight:600; padding:6px 11px; min-height:32px; cursor:pointer; font-family:inherit;}
+.fk-posisi button + button{border-left:1px solid var(--line);}
+.fk-posisi button.is-on{background:var(--brand-tint); color:var(--brand-dark);}
+.fk-judul-kolom{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 14px; margin-top:10px;}
+.fk-judul-kolom label{display:flex; flex-direction:column; gap:6px;}
+@media (max-width:560px){ .fk-judul-kolom{grid-template-columns:minmax(0,1fr);} }
 .fk-switch{display:flex; align-items:center; gap:9px; border:0; background:transparent; font-size:13px; color:var(--muted); font-weight:500; text-align:left;}
 .fk-switch-knob{width:34px; height:20px; border-radius:11px; background:#CFD6DD; position:relative; transition:.15s; flex:none;}
 .fk-switch-knob::after{content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.2); transition:.15s;}
@@ -245,6 +252,17 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-section-desc{font-size:13px; color:var(--muted); margin:2px 0 0;}
 .fk-field{padding:18px 0; border-bottom:1px solid var(--line-soft);}
 .fk-field:last-of-type{border-bottom:0;}
+
+/* ---------- tata letak dua kolom (mis. Subjek Pajak | Objek Pajak) ---------- */
+/* Halaman isi data yang memakai dua kolom mendapat ruang lebih lebar di desktop. */
+.fk-main:has(.fk-fill.is-dua-kolom){max-width:1120px;}
+.fk-dua-kolom{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); border-bottom:1px solid var(--line-soft);}
+.fk-dua-kolom:last-child{border-bottom:0;}
+.fk-kolom{min-width:0; padding:4px 0 2px;}
+.fk-kolom-kiri{padding-right:24px;}
+.fk-kolom-kanan{padding-left:24px; border-left:1px solid var(--line-soft);}
+.fk-kolom .fk-field:last-child{border-bottom:0;}
+.fk-kolom-judul{margin:14px 0 0; padding:0 0 10px; border-bottom:2px solid var(--brand-tint); font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:600; color:var(--brand-dark);}
 .fk-q-name{display:block; font-size:14px; font-weight:600; margin-bottom:9px;}
 .fk-epbb-tag{display:inline-flex; align-items:center; gap:4px; margin-left:8px; padding:2px 8px; border-radius:20px; background:var(--brand-tint); color:var(--brand-dark); font-size:11.5px; font-weight:600; vertical-align:2px; white-space:nowrap;}
 /* Keterangan / petunjuk pengisian di bawah judul pertanyaan. */
@@ -645,6 +663,9 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-panel-head{margin-bottom:10px;}
   .fk-section{padding:2px 16px; border-radius:14px;}
   .fk-field{padding:16px 0;}
+  .fk-dua-kolom{grid-template-columns:minmax(0,1fr);}
+  .fk-kolom-kiri{padding-right:0;}
+  .fk-kolom-kanan{padding-left:0; border-left:0; border-top:1px solid var(--line-soft);}
   .fk-q-name{font-size:15px; margin-bottom:10px; line-height:1.35;}
   .fk-hint{font-size:13px;}
   .fk-err{font-size:13.5px;}

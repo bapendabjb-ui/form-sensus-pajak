@@ -39,6 +39,32 @@ function PilihIsiEpbb({ q, onPatch }) {
   );
 }
 
+/** Posisi pertanyaan di halaman isi data. */
+const POSISI = [
+  { kunci: "", label: "Penuh" },
+  { kunci: "kiri", label: "Kolom kiri" },
+  { kunci: "kanan", label: "Kolom kanan" },
+];
+
+function PilihPosisi({ q, onPatch }) {
+  return (
+    <div className="fk-posisi" role="radiogroup" aria-label="Posisi di halaman isi data">
+      {POSISI.map((p) => (
+        <button
+          type="button"
+          key={p.kunci || "penuh"}
+          role="radio"
+          aria-checked={(q.kolom || "") === p.kunci}
+          className={(q.kolom || "") === p.kunci ? "is-on" : ""}
+          onClick={() => onPatch({ kolom: p.kunci })}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove, adaNop }) {
   const setOpsi = (i, val) => onPatch({ opsi: q.opsi.map((o, j) => (j === i ? val : o)) });
   const tambahOpsi = () => onPatch({ opsi: [...q.opsi, `Opsi ${q.opsi.length + 1}`] });
@@ -203,6 +229,7 @@ function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove, ada
           >
             <span className="fk-switch-knob" /> Wajib diisi
           </button>
+          <PilihPosisi q={q} onPatch={onPatch} />
           <button type="button" className="fk-del" onClick={onRemove}>
             Hapus pertanyaan
           </button>
@@ -298,7 +325,7 @@ export default function FormulirPage({ admin, onAuthChanged }) {
       ...d,
       pertanyaan: [
         ...d.pertanyaan,
-        { id: null, tipe, label: "", keterangan: "", wajib: false, rangeHarga: false, isiEpbb: "", opsi: defaultOptions(tipe) },
+        { id: null, tipe, label: "", keterangan: "", wajib: false, rangeHarga: false, isiEpbb: "", kolom: "", opsi: defaultOptions(tipe) },
       ],
     }));
     setDirty(true);
@@ -403,6 +430,8 @@ export default function FormulirPage({ admin, onAuthChanged }) {
         judul: draft.judul.trim(),
         deskripsi: draft.deskripsi.trim(),
         ikon: draft.ikon || "",
+        judulKolomKiri: (draft.judulKolomKiri || "").trim(),
+        judulKolomKanan: (draft.judulKolomKanan || "").trim(),
         pertanyaan: draft.pertanyaan.map((q) => ({
           id: q.id ?? undefined,
           tipe: q.tipe,
@@ -411,6 +440,7 @@ export default function FormulirPage({ admin, onAuthChanged }) {
           wajib: q.wajib,
           rangeHarga: q.rangeHarga,
           isiEpbb: q.isiEpbb || "",
+          kolom: q.kolom || "",
           opsi: q.opsi,
         })),
       };
@@ -633,6 +663,36 @@ export default function FormulirPage({ admin, onAuthChanged }) {
                 </button>
               ))}
             </div>
+
+            <span className="fk-ikon-pilih-cap">
+              Tata letak halaman isi data: atur <strong>Kolom kiri / Kolom kanan</strong> di tiap pertanyaan
+              supaya bersanding (mis. Subjek Pajak di kiri, Objek Pajak di kanan). Di HP kolom kiri tampil
+              lebih dulu, lalu kolom kanan.
+            </span>
+            {draft.pertanyaan.some((q) => q.kolom) && (
+              <div className="fk-judul-kolom">
+                <label>
+                  <span className="fk-opts-cap">Judul kolom kiri</span>
+                  <input
+                    className="fk-input"
+                    value={draft.judulKolomKiri || ""}
+                    maxLength={100}
+                    placeholder="mis. Subjek Pajak (opsional)"
+                    onChange={(e) => patchDraft({ judulKolomKiri: e.target.value })}
+                  />
+                </label>
+                <label>
+                  <span className="fk-opts-cap">Judul kolom kanan</span>
+                  <input
+                    className="fk-input"
+                    value={draft.judulKolomKanan || ""}
+                    maxLength={100}
+                    placeholder="mis. Objek Pajak (opsional)"
+                    onChange={(e) => patchDraft({ judulKolomKanan: e.target.value })}
+                  />
+                </label>
+              </div>
+            )}
           </Panel>
 
           <div className="fk-toolbar">

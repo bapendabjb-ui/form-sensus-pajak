@@ -567,6 +567,28 @@ export function DetailKertasKerja({ id }) {
 const UMUR_FOTO_DRAF_MS = 20 * 3600 * 1000; // unggahan yang tak disimpan dibersihkan server setelah 24 jam
 
 /** Salin jawaban untuk disimpan sebagai draf: foto hanya yang sudah terunggah. */
+/**
+ * Susunan tampil halaman isi data. Pertanyaan berposisi kiri/kanan yang berurutan
+ * dikumpulkan menjadi satu blok dua kolom; pertanyaan lebar penuh memutus blok.
+ * @returns {Array<{ penuh: object } | { kiri: object[], kanan: object[] }>}
+ */
+function susunTataLetak(pertanyaan) {
+  const blok = [];
+  for (const q of pertanyaan) {
+    if (q.kolom !== "kiri" && q.kolom !== "kanan") {
+      blok.push({ penuh: q });
+      continue;
+    }
+    let akhir = blok[blok.length - 1];
+    if (!akhir || akhir.penuh) {
+      akhir = { kiri: [], kanan: [] };
+      blok.push(akhir);
+    }
+    akhir[q.kolom].push(q);
+  }
+  return blok;
+}
+
 function jawabanUntukDraf(pertanyaan, answers) {
   const hasil = {};
   for (const q of pertanyaan) {
@@ -836,9 +858,34 @@ export function IsiData({ kkId, formulirId, entriId }) {
 
   const { unggah } = statusFoto(formulir.pertanyaan, answers);
   const sibuk = menyimpan !== null;
+  const tataLetak = susunTataLetak(formulir.pertanyaan);
+  const adaKolom = tataLetak.some((b) => !b.penuh);
+
+  const kolomIsian = (q) => (
+    <div className="fk-field" key={q.id} data-qid={q.id}>
+      <label className="fk-q-name">
+        {q.label || "(Pertanyaan Tanpa Judul)"}
+        {q.wajib && <span className="fk-star">*</span>}
+        {dariEpbb[q.id] && (
+          <span className="fk-epbb-tag" title="Diisi otomatis dari data EPBB. Penanda hilang bila isinya diubah.">
+            <IkonEpbb /> Data EPBB
+          </span>
+        )}
+      </label>
+      {q.keterangan && <p className="fk-q-ket">{q.keterangan}</p>}
+      <FieldInput
+        q={q}
+        value={answers[q.id]}
+        invalid={Boolean(errors[q.id])}
+        onChange={(v) => setAnswer(q.id, v)}
+        isiEpbb={q.tipe === "nop" ? isiEpbb : null}
+      />
+      {errors[q.id] && <span className="fk-err">{errors[q.id]}</span>}
+    </div>
+  );
 
   return (
-    <div ref={wadah} className="fk-fill">
+    <div ref={wadah} className={"fk-fill" + (adaKolom ? " is-dua-kolom" : "")}>
       {tombolKembali}
 
       {draf && (
@@ -869,28 +916,23 @@ export function IsiData({ kkId, formulirId, entriId }) {
 
       <section className="fk-section">
         {formulir.pertanyaan.length === 0 && <div className="fk-lt-empty">Formulir ini belum punya pertanyaan.</div>}
-        {formulir.pertanyaan.map((q) => (
-          <div className="fk-field" key={q.id} data-qid={q.id}>
-            <label className="fk-q-name">
-              {q.label || "(Pertanyaan Tanpa Judul)"}
-              {q.wajib && <span className="fk-star">*</span>}
-              {dariEpbb[q.id] && (
-                <span className="fk-epbb-tag" title="Diisi otomatis dari data EPBB. Penanda hilang bila isinya diubah.">
-                  <IkonEpbb /> Data EPBB
-                </span>
-              )}
-            </label>
-            {q.keterangan && <p className="fk-q-ket">{q.keterangan}</p>}
-            <FieldInput
-              q={q}
-              value={answers[q.id]}
-              invalid={Boolean(errors[q.id])}
-              onChange={(v) => setAnswer(q.id, v)}
-              isiEpbb={q.tipe === "nop" ? isiEpbb : null}
-            />
-            {errors[q.id] && <span className="fk-err">{errors[q.id]}</span>}
-          </div>
-        ))}
+        {tataLetak.map((b, i) =>
+          b.penuh ? (
+            kolomIsian(b.penuh)
+          ) : (
+            <div className="fk-dua-kolom" key={`blok-${i}`}>
+              {[
+                ["kiri", formulir.judulKolomKiri],
+                ["kanan", formulir.judulKolomKanan],
+              ].map(([sisi, judul]) => (
+                <div className={`fk-kolom fk-kolom-${sisi}`} key={sisi}>
+                  {judul && <h3 className="fk-kolom-judul">{judul}</h3>}
+                  {b[sisi].map(kolomIsian)}
+                </div>
+              ))}
+            </div>
+          )
+        )}
       </section>
 
       {entriId &&

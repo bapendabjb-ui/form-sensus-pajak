@@ -40,6 +40,9 @@ model Formulir {
   deskripsi String?  @db.Text
   /// Nama ikon (mis. "store") yang tampil di kartu formulir; kosong = nomor urut.
   ikon      String   @default("") @db.VarChar(40)
+  /// Judul di atas kolom kiri / kanan halaman isi data (mis. "Subjek Pajak" / "Objek Pajak").
+  judulKolomKiri  String @default("") @map("judul_kolom_kiri") @db.VarChar(100)
+  judulKolomKanan String @default("") @map("judul_kolom_kanan") @db.VarChar(100)
   /// Urutan tampil di bank formulir - diatur admin lewat seret (drag & drop).
   urutan    Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
@@ -85,6 +88,8 @@ model Pertanyaan {
   rangeHarga Boolean        @default(false) @map("range_harga")
   /// Isi otomatis dari data EPBB saat petugas mengonfirmasi hasil cek NOP (mis. "nama_wp"). Kosong = tidak.
   isiEpbb    String         @default("") @map("isi_epbb") @db.VarChar(30)
+  /// Posisi di halaman isi data: "" = lebar penuh, "kiri" / "kanan" = dua kolom bersanding.
+  kolom      String         @default("") @db.VarChar(10)
   urutan     Int            @default(0)
 
   formulir     Formulir         @relation(fields: [formulirId], references: [id], onDelete: Cascade)

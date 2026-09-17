@@ -301,7 +301,7 @@ Misalnya, agar petugas boleh menghapus datanya sendiri, hapus `requireAdmin` dar
 | `admin`                 | `username` unik + `password_hash`                                           |
 | `petugas`               | Nama & NIP — sumber dropdown tim petugas                                    |
 | `formulir`              | Bank formulir + `ikon` (nama ikon kartu, kosong = nomor) + `urutan` (susunan tampil, diatur admin lewat seret) |
-| `pertanyaan`            | `tipe` (19 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `luas`, `nik`, `npwp`, `niknpwp`, `telepon` & `nop`), `label`, `keterangan`, `wajib`, `range_harga`, `isi_epbb`, `urutan` |
+| `pertanyaan`            | `tipe` (19 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `luas`, `nik`, `npwp`, `niknpwp`, `telepon` & `nop`), `label`, `keterangan`, `wajib`, `range_harga`, `isi_epbb`, `kolom` (`""`/`kiri`/`kanan`), `urutan` |
 | `pertanyaan_opsi`       | Opsi dropdown/radio/checkbox & daftar "Jenis tarif"                         |
 | `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status` (kolom `judul` tidak dipakai lagi)     |
 | `kertas_kerja_petugas`  | Tim petugas (1–8), `urutan` 0 = penanggung jawab                            |
@@ -557,6 +557,21 @@ browser ──GET /api/nop/:nop──▶ server Sensus Pajak ──GET {EPBB_API
 ---
 
 ## Menyusun urutan formulir & pertanyaan
+
+### Tata letak dua kolom
+
+Setiap pertanyaan punya pilihan posisi **Penuh / Kolom kiri / Kolom kanan** (di kaki kartu
+pertanyaan). Pertanyaan kiri dan kanan yang berurutan tampil **bersanding** di halaman isi data —
+mis. formulir PBB-P2 dengan *Subjek Pajak* di kiri dan *Objek Pajak* di kanan — sedangkan
+pertanyaan **Penuh** (NOP, lokasi, foto, catatan) memakai seluruh lebar dan memutus blok kolom.
+
+- **Judul kolom kiri / kanan** diatur per formulir (muncul setelah ada pertanyaan berkolom) dan
+  tampil di atas masing-masing kolom. Boleh dikosongkan.
+- Di desktop halaman isi data melebar supaya kedua kolom lega. Di HP kolom ditumpuk: kiri dulu,
+  lalu kanan.
+- Urutan tetap mengikuti susunan pertanyaan; posisi hanya mengatur tampilan, tidak mengubah data
+  maupun ekspor.
+
 
 Urutan diatur admin di halaman **Bank Formulir**, dengan menyeret pegangan ⠿ (`useDragUrut.js`).
 Karena memakai *Pointer Events*, bukan HTML5 drag-and-drop, cara ini jalan sama baiknya dengan

@@ -14,6 +14,7 @@ const bentukPertanyaan = (q) => ({
   wajib: q.wajib,
   rangeHarga: q.rangeHarga,
   isiEpbb: q.isiEpbb || "",
+  kolom: q.kolom || "",
   urutan: q.urutan,
   opsi: (q.opsi || []).slice().sort((a, b) => a.urutan - b.urutan).map((o) => o.nilai),
 });
@@ -23,6 +24,8 @@ const bentukFormulir = (f) => ({
   judul: f.judul,
   deskripsi: f.deskripsi || "",
   ikon: f.ikon || "",
+  judulKolomKiri: f.judulKolomKiri || "",
+  judulKolomKanan: f.judulKolomKanan || "",
   urutan: f.urutan ?? 0,
   createdAt: f.createdAt,
   pertanyaan: (f.pertanyaan || []).map(bentukPertanyaan),
