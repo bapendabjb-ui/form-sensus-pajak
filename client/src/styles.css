@@ -182,8 +182,10 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-tool-btns{display:flex; flex-wrap:wrap; gap:8px; margin-top:9px;}
 .fk-tool-btn{border:1px solid var(--line); background:var(--surface); color:var(--ink); padding:7px 12px; border-radius:9px; font-size:13px; font-weight:500; transition:.12s;}
 .fk-tool-btn:hover{border-color:var(--brand); color:var(--brand); background:var(--brand-tint);}
-.fk-q{background:var(--surface); border:1px solid var(--line); border-radius:14px; display:flex; overflow:hidden;}
-.fk-q-side{background:#F6F8FA; border-right:1px solid var(--line-soft); padding:16px 12px; display:flex; flex-direction:column; align-items:center; gap:12px;}
+/* Tanpa overflow:hidden supaya panel dropdown (mis. "Isi otomatis dari EPBB") tidak terpotong;
+   sudut panel sisi dibulatkan sendiri mengikuti kartu. */
+.fk-q{background:var(--surface); border:1px solid var(--line); border-radius:14px; display:flex;}
+.fk-q-side{background:#F6F8FA; border-right:1px solid var(--line-soft); border-radius:13px 0 0 13px; padding:16px 12px; display:flex; flex-direction:column; align-items:center; gap:12px;}
 .fk-q-num{width:26px; height:26px; border-radius:8px; background:var(--brand); color:#fff; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:13px; display:grid; place-items:center;}
 .fk-q-move{display:flex; flex-direction:column; gap:4px;}
 .fk-q-move button{border:0; background:transparent; color:var(--faint); font-size:9px; line-height:1; padding:2px;}
@@ -776,7 +778,7 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-kk-card-body{flex-basis:100%; order:2;}
   .fk-kk-card-actions{order:3; flex-basis:100%;}
   .fk-q{flex-direction:column;}
-  .fk-q-side{flex-direction:row; justify-content:space-between; border-right:0; border-bottom:1px solid var(--line-soft); padding:10px 14px;}
+  .fk-q-side{flex-direction:row; justify-content:space-between; border-right:0; border-bottom:1px solid var(--line-soft); border-radius:13px 13px 0 0; padding:10px 14px;}
   .fk-q-list{gap:14px;}
   .fk-page-title{font-size:21px;}
   .fk-nomor-big{font-size:36px;}
