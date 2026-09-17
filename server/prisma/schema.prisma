@@ -183,6 +183,8 @@ model Jawaban {
   entriId      Int  @map("entri_id")
   pertanyaanId Int  @map("pertanyaan_id")
   nilai        Json
+  /// Diisi otomatis dari data EPBB (hasil cek NOP) dan belum diubah petugas.
+  dariEpbb     Boolean @default(false) @map("dari_epbb")
 
   entri      Entri      @relation(fields: [entriId], references: [id], onDelete: Cascade)
   pertanyaan Pertanyaan @relation(fields: [pertanyaanId], references: [id], onDelete: Cascade)

@@ -525,6 +525,10 @@ browser ──GET /api/nop/:nop──▶ server Sensus Pajak ──GET {EPBB_API
   modal menampilkan daftar kolom yang akan diisi; petugas menekan **Isi ke Formulir** untuk
   mengonfirmasi. Kolom yang sudah terisi ditandai *(diganti)*. Data yang tidak ada di EPBB
   (mis. RW kosong) tidak menghapus isian petugas.
+- **Penanda "Data EPBB".** Kolom yang diisi dari EPBB mendapat label **Data EPBB** di samping
+  judul pertanyaan. Penanda ikut tersimpan (`jawaban.dari_epbb`) sehingga tetap tampil saat data
+  dibuka lagi, dan **dilepas otomatis begitu petugas mengubah isinya** — label itu berarti isinya
+  masih sama persis dengan EPBB.
 
   | Sumber                          | Tipe pertanyaan     | Contoh isi                                  |
   | ------------------------------- | ------------------- | ------------------------------------------- |
@@ -672,7 +676,7 @@ Body `jawaban` berbentuk `{ "<pertanyaanId>": nilai }` (lihat format di atas). K
 
 | Method | Endpoint     | Keterangan                                                                                          |
 | ------ | ------------ | --------------------------------------------------------------------------------------------------- |
-| `GET`  | `/nop/:nop`  | `{ nop, namaWp, letakSp, letakOp, luasTanah, luasBangunan, belumBayar: ["2023"] }` · `404` tidak terdaftar · `429` terlalu sering · `502` EPBB bermasalah · `503` belum dikonfigurasi |
+| `GET`  | `/nop/:nop`  | `{ nop, namaWp, letakSp, letakOp, rinciOp, luasTanah, luasBangunan, belumBayar: ["2023"] }` · `404` tidak terdaftar · `429` terlalu sering · `502` EPBB bermasalah · `503` belum dikonfigurasi |
 
 ### Bentuk error
 

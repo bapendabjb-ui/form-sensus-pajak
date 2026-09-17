@@ -189,7 +189,7 @@ router.put(
 );
 
 /**
- * POST /api/kertas-kerja/:id/entri  { formulirId, jawaban: { [pertanyaanId]: nilai } }
+ * POST /api/kertas-kerja/:id/entri  { formulirId, jawaban: { [pertanyaanId]: nilai }, dariEpbb?: [pertanyaanId] }
  * Tambah satu data lewat formulir. Kolom wajib divalidasi -> 422 { errors }.
  */
 router.post(
@@ -209,7 +209,7 @@ router.post(
     if (!formulir) throw badRequest("Formulir tidak ditemukan.");
     if (formulir.pertanyaan.length === 0) throw badRequest("Formulir ini belum punya pertanyaan.");
 
-    const siap = await siapkanJawaban(formulir, req.body?.jawaban, null);
+    const siap = await siapkanJawaban(formulir, req.body?.jawaban, null, req.body?.dariEpbb);
     if (Object.keys(siap.errors).length) {
       throw new ApiError(422, "Periksa kembali isian yang ditandai merah.", { errors: siap.errors });
     }

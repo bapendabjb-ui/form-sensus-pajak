@@ -26,6 +26,7 @@ import {
   ClipboardList,
   Coffee,
   Coins,
+  DatabaseZap,
   Download,
   Drama,
   Droplets,
@@ -105,6 +106,9 @@ export const Chevron = ({ open }) => (
 
 /** Pegangan seret (drag & drop) untuk menyusun ulang daftar. */
 export const IkonSeret = () => <GripVertical size={18} strokeWidth={GARIS} aria-hidden="true" />;
+
+/** Penanda jawaban yang diisi dari data EPBB. */
+export const IkonEpbb = () => <DatabaseZap size={13} strokeWidth={2} aria-hidden="true" />;
 
 export const IkonKamera = () => <Camera size={20} strokeWidth={GARIS} aria-hidden="true" />;
 export const IkonGaleri = () => <Images size={20} strokeWidth={GARIS} aria-hidden="true" />;

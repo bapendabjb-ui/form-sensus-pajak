@@ -140,9 +140,11 @@ export const deleteKertasKerja = (id) => request(`/kertas-kerja/${id}`, { method
 /* ---------- entri: satu data yang diisi lewat formulir ---------- */
 
 export const getEntri = (id) => request(`/entri/${id}`);
-export const createEntri = (kertasKerjaId, formulirId, jawaban) =>
-  request(`/kertas-kerja/${kertasKerjaId}/entri`, { method: "POST", body: { formulirId, jawaban } });
-export const updateEntri = (id, jawaban) => request(`/entri/${id}`, { method: "PUT", body: { jawaban } });
+/** `dariEpbb` = id pertanyaan yang isinya masih asli dari data EPBB (penanda "Data EPBB"). */
+export const createEntri = (kertasKerjaId, formulirId, jawaban, dariEpbb = []) =>
+  request(`/kertas-kerja/${kertasKerjaId}/entri`, { method: "POST", body: { formulirId, jawaban, dariEpbb } });
+export const updateEntri = (id, jawaban, dariEpbb = []) =>
+  request(`/entri/${id}`, { method: "PUT", body: { jawaban, dariEpbb } });
 export const deleteEntri = (id) => request(`/entri/${id}`, { method: "DELETE", auth: true });
 
 /* ---------- foto ---------- */

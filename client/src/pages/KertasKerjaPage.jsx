@@ -9,7 +9,7 @@ import { fromApi, emptyValue, buildPayload, validateRequired, statusFoto, isFill
 import { nilaiDariEpbb } from "../lib/epbb.js";
 import { judulEntri, ringkasEntri, fotoEntri } from "../lib/ringkas.js";
 import { formatTimestamp } from "../lib/format.js";
-import { IkonFormulir } from "../components/Icons.jsx";
+import { IkonFormulir, IkonEpbb } from "../components/Icons.jsx";
 import { useAdmin } from "../lib/admin.js";
 import { navigate, kembali, pasangPenjaga } from "../lib/router.js";
 
@@ -585,6 +585,8 @@ export function IsiData({ kkId, formulirId, entriId }) {
   const [formulir, setFormulir] = useState(null);
   const [nomor, setNomor] = useState("");
   const [answers, setAnswers] = useState({});
+  // { [pertanyaanId]: true } untuk isian yang masih asli dari EPBB; hilang begitu petugas mengubahnya.
+  const [dariEpbb, setDariEpbb] = useState({});
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -608,6 +610,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
     const awal = {};
     for (const q of f.pertanyaan) awal[q.id] = emptyValue(q.tipe);
     setAnswers(awal);
+    setDariEpbb({});
     setErrors({});
     berubah.current = false;
   }, []);
@@ -629,6 +632,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
             awal[q.id] = e.jawaban[q.id] === undefined ? emptyValue(q.tipe) : fromApi(q.tipe, e.jawaban[q.id]);
           }
           setAnswers(awal);
+          setDariEpbb(Object.fromEntries((e.dariEpbb || []).map((qid) => [qid, true])));
         } else {
           const [form, kk] = await Promise.all([api.getFormulir(formulirId), api.getKertasKerja(kkId)]);
           if (batal) return;
@@ -662,14 +666,14 @@ export function IsiData({ kkId, formulirId, entriId }) {
       try {
         localStorage.setItem(
           kunciDraf,
-          JSON.stringify({ waktu: Date.now(), answers: jawabanUntukDraf(formulir.pertanyaan, answers) })
+          JSON.stringify({ waktu: Date.now(), answers: jawabanUntukDraf(formulir.pertanyaan, answers), dariEpbb })
         );
       } catch {
         /* penyimpanan penuh / tidak tersedia */
       }
     }, 500);
     return () => clearTimeout(t);
-  }, [answers, formulir, draf, kunciDraf]);
+  }, [answers, dariEpbb, formulir, draf, kunciDraf]);
 
   // Konfirmasi sebelum meninggalkan layar bila ada isian yang belum disimpan.
   useEffect(() => pasangPenjaga(() => berubah.current), []);
@@ -685,6 +689,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
       }
       return hasil;
     });
+    setDariEpbb(draf.dariEpbb && typeof draf.dariEpbb === "object" ? draf.dariEpbb : {});
     berubah.current = true;
     setDraf(null);
     toast(fotoKedaluwarsa ? "Draf dipulihkan. Foto pada draf lama perlu diambil ulang." : "Isian draf dipulihkan.");
@@ -696,9 +701,17 @@ export function IsiData({ kkId, formulirId, entriId }) {
   };
 
   // Mendukung nilai langsung maupun fungsi updater (dipakai unggahan foto).
-  const setAnswer = (qid, v) => {
+  // Isian yang diubah petugas bukan lagi data asli EPBB, jadi penandanya dilepas.
+  const setAnswer = (qid, v, { epbb = false } = {}) => {
     berubah.current = true;
     setAnswers((a) => ({ ...a, [qid]: typeof v === "function" ? v(a[qid]) : v }));
+    setDariEpbb((d) => {
+      if (Boolean(d[qid]) === epbb) return d;
+      const next = { ...d };
+      if (epbb) next[qid] = true;
+      else delete next[qid];
+      return next;
+    });
     setErrors((e) => {
       if (!e[qid]) return e;
       const next = { ...e };
@@ -721,7 +734,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
       if (!q.isiEpbb) continue;
       const v = nilaiDariEpbb(q.isiEpbb, data, wilayah);
       if (v === undefined) continue;
-      setAnswer(q.id, v);
+      setAnswer(q.id, v, { epbb: true });
       jumlah += 1;
     }
     return jumlah;
@@ -758,9 +771,10 @@ export function IsiData({ kkId, formulirId, entriId }) {
     setMenyimpan(lanjut ? "lagi" : "simpan");
     try {
       const payload = buildPayload(pertanyaan, answers);
+      const idDariEpbb = pertanyaan.filter((q) => dariEpbb[q.id]).map((q) => q.id);
       const hasil = entriId
-        ? await api.updateEntri(entriId, payload)
-        : await api.createEntri(kkId, formulirId, payload);
+        ? await api.updateEntri(entriId, payload, idDariEpbb)
+        : await api.createEntri(kkId, formulirId, payload, idDariEpbb);
       berubah.current = false;
       hapusDraf();
       toast(`Data "${judulEntri(hasil.formulir.pertanyaan, hasil.jawaban)}" tersimpan.`);
@@ -860,6 +874,11 @@ export function IsiData({ kkId, formulirId, entriId }) {
             <label className="fk-q-name">
               {q.label || "(Pertanyaan Tanpa Judul)"}
               {q.wajib && <span className="fk-star">*</span>}
+              {dariEpbb[q.id] && (
+                <span className="fk-epbb-tag" title="Diisi otomatis dari data EPBB. Penanda hilang bila isinya diubah.">
+                  <IkonEpbb /> Data EPBB
+                </span>
+              )}
             </label>
             {q.keterangan && <p className="fk-q-ket">{q.keterangan}</p>}
             <FieldInput

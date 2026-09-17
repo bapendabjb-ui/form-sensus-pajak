@@ -18,7 +18,7 @@ router.get(
   })
 );
 
-/** PUT /api/entri/:id  { jawaban } -> ubah isian. Kolom wajib divalidasi -> 422. */
+/** PUT /api/entri/:id  { jawaban, dariEpbb? } -> ubah isian. Kolom wajib divalidasi -> 422. */
 router.put(
   "/:id",
   wrap(async (req, res) => {
@@ -29,7 +29,7 @@ router.put(
     });
     if (!entri) throw notFound("Data tidak ditemukan.");
 
-    const siap = await siapkanJawaban(entri.formulir, req.body?.jawaban, id);
+    const siap = await siapkanJawaban(entri.formulir, req.body?.jawaban, id, req.body?.dariEpbb);
     if (Object.keys(siap.errors).length) {
       throw new ApiError(422, "Periksa kembali isian yang ditandai merah.", { errors: siap.errors });
     }

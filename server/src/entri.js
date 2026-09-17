@@ -11,6 +11,10 @@ const { normalizeNilai, nilaiTerisi, pesanFormat, barisRincianTarif } = require(
 const { FOTO_MAKS_PER_PERTANYAAN } = require("./batas");
 const { includePertanyaan, bentukFormulir, petaJawaban } = require("./bentuk");
 const { notFound } = require("./http");
+const { SUMBER_EPBB } = require("./epbb");
+
+/** Tipe pertanyaan yang bisa diisi dari EPBB - hanya ini yang boleh bertanda "dari EPBB". */
+const TIPE_EPBB = new Set(Object.values(SUMBER_EPBB).flat());
 
 /**
  * Siapkan jawaban dari kiriman klien.
@@ -21,10 +25,12 @@ const { notFound } = require("./http");
  * @param {object} formulir  formulir Prisma lengkap dengan pertanyaan
  * @param {object} masuk     { [pertanyaanId]: nilai }
  * @param {number|null} entriId  entri yang sedang diubah, null untuk entri baru
+ * @param {number[]} [dariEpbb]  id pertanyaan yang isinya masih asli dari EPBB
  * @returns {Promise<{baris: object[], tarif: object[], foto: object[], errors: object}>}
  */
-async function siapkanJawaban(formulir, masuk, entriId) {
+async function siapkanJawaban(formulir, masuk, entriId, dariEpbb = []) {
   const kiriman = masuk && typeof masuk === "object" ? masuk : {};
+  const idEpbb = new Set((Array.isArray(dariEpbb) ? dariEpbb : []).map(Number));
   const siap = { baris: [], tarif: [], foto: [], errors: {} };
 
   const normal = formulir.pertanyaan.map((q) => ({
@@ -65,7 +71,11 @@ async function siapkanJawaban(formulir, masuk, entriId) {
       if (galat) siap.errors[q.id] = galat;
     }
 
-    siap.baris.push({ pertanyaanId: q.id, nilai });
+    siap.baris.push({
+      pertanyaanId: q.id,
+      nilai,
+      dariEpbb: idEpbb.has(q.id) && TIPE_EPBB.has(q.tipe) && nilaiTerisi(q.tipe, nilai),
+    });
 
     if (q.tipe === "linetariff") {
       for (const b of barisRincianTarif(nilai)) siap.tarif.push({ pertanyaanId: q.id, ...b });
@@ -132,6 +142,7 @@ async function muatEntri(id) {
     },
     formulir: bentukFormulir(e.formulir),
     jawaban: petaJawaban(e.jawaban),
+    dariEpbb: e.jawaban.filter((j) => j.dariEpbb).map((j) => j.pertanyaanId),
     createdAt: e.createdAt,
     updatedAt: e.updatedAt,
   };
