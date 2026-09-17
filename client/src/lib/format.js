@@ -20,6 +20,7 @@ export const TYPES = [
   { key: "foto", label: "Foto" },
   { key: "wilayah", label: "Kecamatan & Kelurahan" },
   { key: "rtrw", label: "RT & RW" },
+  { key: "luas", label: "Luas Tanah & Bangunan" },
   { key: "lokasi", label: "Lokasi (GPS / peta)" },
   { key: "nik", label: "NIK" },
   { key: "npwp", label: "NPWP" },
@@ -158,6 +159,16 @@ export function formatRtRw(v) {
   if (rt && rw) return `RT ${rt} / RW ${rw}`;
   if (rt) return `RT ${rt}`;
   return rw ? `RW ${rw}` : "";
+}
+
+/** { tanah, bangunan } -> "Tanah 250,5 m² / Bangunan 72 m²". Samakan dengan server/src/format.js. */
+export function formatLuas(v) {
+  if (!v || typeof v !== "object") return "";
+  const ada = (x) => x !== null && x !== undefined && x !== "";
+  const angka = (x) => groupNum(String(x).replace(",", "."));
+  return [ada(v.tanah) && `Tanah ${angka(v.tanah)} m²`, ada(v.bangunan) && `Bangunan ${angka(v.bangunan)} m²`]
+    .filter(Boolean)
+    .join(" / ");
 }
 
 /* ---------- tanggal ---------- */

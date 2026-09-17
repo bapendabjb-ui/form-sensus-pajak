@@ -9,6 +9,7 @@ import {
   formatNpwp,
   formatNop,
   formatRtRw,
+  formatLuas,
   formatNikNpwp,
   formatTelepon,
 } from "./format.js";
@@ -40,6 +41,8 @@ export function formatNilai(q, nilai) {
       return formatLokasi(nilai, { ringkas: true });
     case "rtrw":
       return formatRtRw(nilai);
+    case "luas":
+      return formatLuas(nilai);
     case "nik":
       return formatNik(nilai);
     case "npwp":

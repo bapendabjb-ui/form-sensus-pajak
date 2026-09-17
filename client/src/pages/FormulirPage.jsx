@@ -137,6 +137,14 @@ function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove, ada
           </p>
         )}
 
+        {q.tipe === "luas" && (
+          <p className="fk-hint">
+            Dua kolom angka bersanding, Luas Tanah dan Luas Bangunan, dalam m². Koma untuk desimal
+            (250,5). Bila wajib, keduanya harus diisi — tanah kosong cukup diisi 0 pada luas bangunan.
+            Di ekspor dipecah menjadi dua kolom angka yang bisa dijumlah.
+          </p>
+        )}
+
         {q.tipe === "nik" && (
           <p className="fk-hint">
             Nomor Induk Kependudukan, tepat 16 digit sesuai KTP-el. Hanya angka yang bisa diketik,

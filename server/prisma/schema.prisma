@@ -69,6 +69,7 @@ enum TipePertanyaan {
   nop
   niknpwp
   telepon
+  luas
 }
 
 /// Satu pertanyaan di dalam sebuah formulir.
@@ -176,6 +177,7 @@ model Entri {
 ///   nik / npwp / nop                          : string digit (16 / 15-17 / 18 digit)
 ///   niknpwp                                   : { nik, npwp }  (minimal salah satu bila wajib)
 ///   telepon                                   : array { keterangan, nomor }  (nomor 8-15 digit)
+///   luas                                      : { tanah, bangunan }  (m², number|null)
 model Jawaban {
   id           Int  @id @default(autoincrement())
   entriId      Int  @map("entri_id")

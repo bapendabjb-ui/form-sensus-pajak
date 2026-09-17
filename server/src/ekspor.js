@@ -11,7 +11,7 @@
  */
 
 const ExcelJS = require("exceljs");
-const { csvNilai, buildCsv, formatNpwp, formatWaktuID } = require("./format");
+const { csvNilai, buildCsv, formatNpwp, formatWaktuID, groupNum } = require("./format");
 const { bentukTim, petaJawaban } = require("./bentuk");
 
 const FORMAT_RIBUAN = "#,##0.##";
@@ -19,7 +19,10 @@ const KOLOM_NO_DATA = 5;
 
 const teks = (s) => ({ teks: s === null || s === undefined ? "" : String(s) });
 
-/** Kolom per pertanyaan. NIK / NPWP dipecah jadi dua kolom supaya bisa difilter sendiri-sendiri. */
+/**
+ * Kolom per pertanyaan. NIK / NPWP dan luas tanah / bangunan dipecah jadi dua kolom
+ * supaya bisa difilter (dan luasnya dijumlah) sendiri-sendiri.
+ */
 function kolomPertanyaan(formulir, baseUrl) {
   return formulir.flatMap((f) =>
     f.pertanyaan.flatMap((q) => {
@@ -30,6 +33,19 @@ function kolomPertanyaan(formulir, baseUrl) {
         return [
           { f, judul: `${judul} (NIK)`, sel: (j) => teks(bagian(j).nik) },
           { f, judul: `${judul} (NPWP)`, sel: (j) => teks(formatNpwp(bagian(j).npwp)) },
+        ];
+      }
+
+      if (q.tipe === "luas") {
+        const luas = (k) => (j) => {
+          const n = j[q.id] && typeof j[q.id] === "object" ? j[q.id][k] : null;
+          return n === null || n === undefined || !Number.isFinite(Number(n))
+            ? teks("")
+            : { ...teks(groupNum(n)), angka: Number(n) };
+        };
+        return [
+          { f, judul: `${judul} (Tanah m²)`, sel: luas("tanah") },
+          { f, judul: `${judul} (Bangunan m²)`, sel: luas("bangunan") },
         ];
       }
 

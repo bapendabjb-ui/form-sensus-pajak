@@ -10,6 +10,7 @@ import { CheckIcon } from "./Icons.jsx";
 import { getKonfigurasi } from "../api.js";
 import {
   groupDigits,
+  digitsOnly,
   unformatNumber,
   hanyaDigit,
   formatNik,
@@ -380,6 +381,44 @@ function RtRwInput({ value, onChange, invalid }) {
   );
 }
 
+/* ---------- luas tanah & bangunan ---------- */
+
+/**
+ * Luas tanah dan luas bangunan (m²) bersanding seperti RT & RW; bertumpuk di layar sempit.
+ * Pemisah ribuan sambil diketik, koma untuk desimal. Bangunan boleh 0.
+ *
+ * value : { tanah, bangunan } - teks angka ("250,5")
+ */
+function LuasInput({ value, onChange, invalid }) {
+  const v = value && typeof value === "object" ? value : { tanah: "", bangunan: "" };
+
+  const kolom = (k, nama) => (
+    <div className="fk-wilayah-kolom">
+      <span className="fk-wilayah-cap">{nama}</span>
+      <div className="fk-luas-wadah">
+        <input
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          className={"fk-input fk-luas-in" + (invalid && v[k] === "" ? " is-invalid" : "")}
+          value={groupDigits(v[k] ?? "")}
+          placeholder="0"
+          aria-label={`${nama} (m²)`}
+          onChange={(e) => onChange({ ...v, [k]: digitsOnly(e.target.value) })}
+        />
+        <span className="fk-luas-satuan">m²</span>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="fk-rtrw fk-luas">
+      {kolom("tanah", "Luas Tanah")}
+      {kolom("bangunan", "Luas Bangunan")}
+    </div>
+  );
+}
+
 /* ---------- rentang harga ---------- */
 
 function RangeInput({ value, onChange, invalid }) {
@@ -561,6 +600,9 @@ export default function FieldInput({ q, value, invalid, onChange, isiEpbb }) {
     case "rtrw":
       return <RtRwInput value={value} onChange={onChange} invalid={invalid} />;
 
+    case "luas":
+      return <LuasInput value={value} onChange={onChange} invalid={invalid} />;
+
     case "nik":
       return <NikInput value={value} onChange={onChange} invalid={invalid} />;
 
@@ -595,4 +637,5 @@ export {
   NikNpwpInput,
   TeleponInput,
   RtRwInput,
+  LuasInput,
 };

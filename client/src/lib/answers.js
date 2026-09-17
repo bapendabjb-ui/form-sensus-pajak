@@ -12,6 +12,7 @@
 
 import {
   hanyaDigit,
+  digitsOnly,
   unformatNumber,
   PANJANG_NIK,
   PANJANG_NPWP_MIN,
@@ -50,6 +51,8 @@ export function emptyValue(tipe) {
       return { kecamatan: "", kelurahan: "" };
     case "rtrw":
       return { rt: "", rw: "" };
+    case "luas":
+      return { tanah: "", bangunan: "" };
     case "niknpwp":
       return { nik: "", npwp: "" };
     case "lokasi":
@@ -95,6 +98,16 @@ const rtRwLengkap = (v) => {
   return { rt: isi(o.rt), rw: isi(o.rw) };
 };
 
+/**
+ * { tanah, bangunan } untuk isian: teks angka berkoma desimal seperti yang diketik ("250,5"),
+ * supaya pemisah ribuan tidak menelan desimalnya.
+ */
+const luasDari = (v) => {
+  const o = v && typeof v === "object" ? v : {};
+  const isian = (x) => (x === null || x === undefined || x === "" ? "" : digitsOnly(String(x).replace(".", ",")));
+  return { tanah: isian(o.tanah), bangunan: isian(o.bangunan) };
+};
+
 /** { nik, npwp } dengan angka saja, dipotong pada panjang maksimalnya. */
 const nikNpwpDari = (v) => {
   const o = v && typeof v === "object" ? v : {};
@@ -125,6 +138,9 @@ export function fromApi(tipe, nilai) {
 
     case "rtrw":
       return rtRwDari(nilai);
+
+    case "luas":
+      return luasDari(nilai);
 
     case "niknpwp":
       return nikNpwpDari(nilai);
@@ -178,6 +194,11 @@ export function toApi(tipe, v) {
 
     case "rtrw":
       return rtRwLengkap(v);
+
+    case "luas": {
+      const o = luasDari(v);
+      return { tanah: toNumberOrNull(o.tanah), bangunan: toNumberOrNull(o.bangunan) };
+    }
 
     case "niknpwp":
       return nikNpwpDari(v);
@@ -239,6 +260,11 @@ export function isFilled(tipe, v) {
     case "rtrw": {
       const r = rtRwDari(v);
       return r.rt !== "" && r.rw !== "";
+    }
+    case "luas": {
+      // Bangunan boleh 0 (tanah kosong), tetapi harus diisi.
+      const o = luasDari(v);
+      return o.tanah !== "" && o.bangunan !== "";
     }
     case "niknpwp": {
       // Badan usaha tidak punya NIK, perorangan belum tentu punya NPWP: cukup salah satu.

@@ -16,6 +16,7 @@ export const SUMBER_EPBB = [
   { kunci: "letak_sp", label: "Letak SP (alamat wajib pajak)", tipe: ["text", "paragraph"] },
   { kunci: "wilayah_op", label: "Kecamatan & kelurahan OP", tipe: ["wilayah"] },
   { kunci: "rtrw_op", label: "RT & RW OP", tipe: ["rtrw"] },
+  { kunci: "luas_op", label: "Luas tanah & bangunan", tipe: ["luas"] },
   { kunci: "luas_tanah", label: "Luas tanah (m²)", tipe: ["number"] },
   { kunci: "luas_bangunan", label: "Luas bangunan (m²)", tipe: ["number"] },
   { kunci: "status_bayar", label: "Status bayar", tipe: ["text", "paragraph"] },
@@ -73,6 +74,14 @@ export function nilaiDariEpbb(sumber, data, wilayah = []) {
     case "rtrw_op":
       v = { rt: rtRw(rinci.rt), rw: rtRw(rinci.rw) };
       break;
+    case "luas_op": {
+      // Bangunan 0 tetap diisi "0": tanah kosong adalah data yang sah.
+      const isi = (n) => (Number.isFinite(Number(n)) && Number(n) >= 0 ? String(Number(n)).replace(".", ",") : "");
+      v = Number(data.luasTanah) > 0 || Number(data.luasBangunan) > 0
+        ? { tanah: isi(data.luasTanah), bangunan: isi(data.luasBangunan) }
+        : undefined;
+      break;
+    }
     case "luas_tanah":
       v = angka(data.luasTanah);
       break;

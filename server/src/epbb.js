@@ -24,6 +24,7 @@ const SUMBER_EPBB = {
   letak_sp: ["text", "paragraph"],
   wilayah_op: ["wilayah"],
   rtrw_op: ["rtrw"],
+  luas_op: ["luas"],
   luas_tanah: ["number"],
   luas_bangunan: ["number"],
   status_bayar: ["text", "paragraph"],

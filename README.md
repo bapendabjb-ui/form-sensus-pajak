@@ -301,7 +301,7 @@ Misalnya, agar petugas boleh menghapus datanya sendiri, hapus `requireAdmin` dar
 | `admin`                 | `username` unik + `password_hash`                                           |
 | `petugas`               | Nama & NIP — sumber dropdown tim petugas                                    |
 | `formulir`              | Bank formulir + `ikon` (nama ikon kartu, kosong = nomor) + `urutan` (susunan tampil, diatur admin lewat seret) |
-| `pertanyaan`            | `tipe` (17 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `nik`, `npwp`, `niknpwp`, `telepon` & `nop`), `label`, `keterangan`, `wajib`, `range_harga`, `urutan` |
+| `pertanyaan`            | `tipe` (19 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `luas`, `nik`, `npwp`, `niknpwp`, `telepon` & `nop`), `label`, `keterangan`, `wajib`, `range_harga`, `isi_epbb`, `urutan` |
 | `pertanyaan_opsi`       | Opsi dropdown/radio/checkbox & daftar "Jenis tarif"                         |
 | `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status` (kolom `judul` tidak dipakai lagi)     |
 | `kertas_kerja_petugas`  | Tim petugas (1–8), `urutan` 0 = penanggung jawab                            |
@@ -366,6 +366,7 @@ Kolom `kertas_kerja.nama_objek` dihapus — nama objek kini diisi lewat pertanya
 | `wilayah`                                                 | `{ kecamatan, kode_kecamatan, kelurahan, kode_kelurahan }` |
 | `lokasi`                                                  | `{ lat, lon, akurasi, ketinggian, waktu, sumber }` — `sumber` = `"gps"` / `"peta"` |
 | `rtrw`                                                    | `{ rt, rw }` — dua string tepat 3 digit (`"007"`) |
+| `luas`                                                    | `{ tanah, bangunan }` — m², angka\|null (`0` sah untuk bangunan) |
 | `nik`, `npwp`, `nop`                                      | string digit (`"3172010101010001"`)               |
 | `niknpwp`                                                 | `{ nik, npwp }` — dua string digit, boleh salah satu kosong |
 | `telepon`                                                 | array `{ keterangan, nomor }` — nomor 8–15 digit, boleh diawali `+`, maks. 10 baris |
@@ -489,6 +490,7 @@ supaya nilai yang salah panjang tidak pernah masuk database.
 | **NIK / NPWP**  | seperti di atas    | Dua kolom bersanding, disimpan sebagai `{ nik, npwp }`. Wajib = minimal salah satu |
 | **NOP PBB**     | tepat **18** digit | Nomor Objek Pajak. Ditampilkan `63.72.010.001.002-0123.0`            |
 | **RT & RW**     | masing-masing **3** digit | Dua kolom terpisah, disimpan sebagai `{ rt, rw }`            |
+| **Luas Tanah & Bangunan** | angka m², desimal koma | Dua kolom bersanding, disimpan `{ tanah, bangunan }`. Wajib = keduanya diisi (bangunan boleh `0`). Di ekspor jadi dua kolom angka |
 
 - Di bawah kolom NIK/NPWP/NOP ada penghitung `12/16 digit` yang berubah kuning selama belum cukup.
 - RT/RW yang diketik pendek dilengkapi nol di depan saat kursor pindah kolom — `7` menjadi `007`.
@@ -532,6 +534,7 @@ browser ──GET /api/nop/:nop──▶ server Sensus Pajak ──GET {EPBB_API
   | Letak SP (alamat wajib pajak)   | Teks / Paragraf     | `JL. A. YANI KM 33, RT 003/RW 001, …`       |
   | Kecamatan & kelurahan OP        | Kecamatan & Kelurahan | dari kode kecamatan/kelurahan di NOP      |
   | RT & RW OP                      | RT & RW             | `005` / `002`                               |
+  | Luas tanah & bangunan           | Luas Tanah & Bangunan | `250,5` / `72`                            |
   | Luas tanah / Luas bangunan      | Angka               | `250,5`                                     |
   | Status bayar                    | Teks / Paragraf     | `Lunas` atau `Belum bayar: 2023, 2025`      |
 

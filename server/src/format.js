@@ -103,6 +103,15 @@ function formatRtRw(v) {
   return rt ? `RT ${rt}` : `RW ${rw}`;
 }
 
+/** { tanah, bangunan } -> "Tanah 250,5 m² / Bangunan 72 m²". Samakan dengan client/src/lib/format.js. */
+function formatLuas(v) {
+  if (!v || typeof v !== "object") return "";
+  const ada = (x) => x !== null && x !== undefined && x !== "";
+  return [ada(v.tanah) && `Tanah ${groupNum(v.tanah)} m²`, ada(v.bangunan) && `Bangunan ${groupNum(v.bangunan)} m²`]
+    .filter(Boolean)
+    .join(" / ");
+}
+
 /** Tanggal + jam dalam zona waktu tertentu -> "13 September 2026 14.05". */
 function formatWaktuID(value, timeZone) {
   const d = value instanceof Date ? value : new Date(value);
@@ -141,6 +150,8 @@ function csvNilai(tipe, nilai, opsi = {}) {
       return nilai.map((f) => `${opsi.baseUrl || ""}/api/foto/${f.id}`).join(" ; ");
     case "rtrw":
       return formatRtRw(nilai);
+    case "luas":
+      return formatLuas(nilai);
     case "telepon":
       // "Pemilik - 0812-3456-7890; Kantor - 0511-4777-123"
       if (!Array.isArray(nilai)) return "";
@@ -199,6 +210,7 @@ module.exports = {
   formatNpwp,
   formatNop,
   formatRtRw,
+  formatLuas,
   formatNomorTelepon,
   csvNilai,
   buildCsv,

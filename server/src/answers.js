@@ -13,6 +13,7 @@
  *   nik / npwp / nop                          : string digit (16 / 15-17 / 18 digit)
  *   niknpwp                                   : { nik, npwp } - wajib = minimal salah satu
  *   telepon                                   : array { keterangan, nomor } - nomor 8-15 digit
+ *   luas                                      : { tanah, bangunan } - m², number|null (0 boleh)
  */
 
 const { normalWilayah } = require("./wilayah");
@@ -36,6 +37,7 @@ const TIPE = [
   "nop",
   "niknpwp",
   "telepon",
+  "luas",
 ];
 
 /** Tipe yang menyimpan daftar opsi di tabel pertanyaan_opsi. */
@@ -122,6 +124,7 @@ function nilaiKosong(tipe) {
   if (tipe === "wilayah") return normalWilayah("", "");
   if (tipe === "rtrw") return { rt: "", rw: "" };
   if (tipe === "niknpwp") return { nik: "", npwp: "" };
+  if (tipe === "luas") return { tanah: null, bangunan: null };
   return "";
 }
 
@@ -152,6 +155,16 @@ function normalizeNilai(tipe, raw) {
     case "range": {
       const obj = raw && typeof raw === "object" ? raw : {};
       return { min: toNumberOrNull(obj.min), max: toNumberOrNull(obj.max) };
+    }
+
+    case "luas": {
+      // { tanah, bangunan } dalam m². Luas negatif tidak masuk akal, jadi dianggap kosong.
+      const obj = raw && typeof raw === "object" ? raw : {};
+      const luas = (v) => {
+        const n = toNumberOrNull(v);
+        return n === null || n < 0 ? null : bulat(n, 2);
+      };
+      return { tanah: luas(obj.tanah), bangunan: luas(obj.bangunan) };
     }
 
     case "linetariff": {
@@ -263,6 +276,9 @@ function nilaiTerisi(tipe, nilai) {
       return Array.isArray(nilai) && nilai.length > 0;
     case "range":
       return !!nilai && typeof nilai === "object" && nilai.min !== null && nilai.max !== null;
+    case "luas":
+      // Bangunan boleh 0 (tanah kosong), tetapi harus diisi.
+      return !!nilai && typeof nilai === "object" && nilai.tanah !== null && nilai.bangunan !== null;
     case "wilayah":
       return !!nilai && typeof nilai === "object" && !!nilai.kecamatan && !!nilai.kelurahan;
     case "lokasi":

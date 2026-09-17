@@ -454,6 +454,9 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-rtrw{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 12px;}
 .fk-rtrw-in{text-align:center; letter-spacing:.18em; font-variant-numeric:tabular-nums;}
 .fk-rtrw-hint{grid-column:1 / -1;}
+.fk-luas-wadah{position:relative; display:flex; align-items:center;}
+.fk-luas-in{padding-right:40px; font-variant-numeric:tabular-nums;}
+.fk-luas-satuan{position:absolute; right:12px; font-size:13px; color:var(--faint); pointer-events:none;}
 
 /* NIK & NPWP: deret digit dengan penghitung panjangnya. */
 .fk-digit{display:flex; flex-direction:column; gap:5px;}
