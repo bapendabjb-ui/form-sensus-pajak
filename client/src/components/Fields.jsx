@@ -1,10 +1,13 @@
+import { useEffect, useState } from "react";
 import CustomSelect from "./CustomSelect.jsx";
 import DatePicker from "./DatePicker.jsx";
 import MoneyInput from "./MoneyInput.jsx";
 import FotoInput from "./FotoInput.jsx";
 import WilayahInput from "./WilayahInput.jsx";
 import LokasiInput from "./LokasiInput.jsx";
+import ModalCekNop from "./CekNop.jsx";
 import { CheckIcon } from "./Icons.jsx";
+import { getKonfigurasi } from "../api.js";
 import {
   groupDigits,
   unformatNumber,
@@ -98,23 +101,35 @@ function NumberInput({ value, onChange, invalid }) {
  *
  * value  : string digit mentah, mis. "3172010101010001"
  * tampil : fungsi pemformat untuk ditampilkan (spasi / titik hanya hiasan)
+ * aksi   : elemen opsional di samping input, mis. tombol Lihat pada NOP
  */
-function DigitInput({ value, onChange, maks, tampil, placeholder, ariaLabel, invalid, petunjuk }) {
+function DigitInput({ value, onChange, maks, tampil, placeholder, ariaLabel, invalid, petunjuk, aksi }) {
   const digit = hanyaDigit(value, maks);
   const kurang = digit.length > 0 && petunjuk(digit.length);
 
+  const input = (
+    <input
+      type="text"
+      inputMode="numeric"
+      autoComplete="off"
+      className={"fk-input fk-digit-in" + (invalid ? " is-invalid" : "")}
+      value={tampil(digit)}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      onChange={(e) => onChange(hanyaDigit(e.target.value, maks))}
+    />
+  );
+
   return (
     <div className="fk-digit">
-      <input
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        className={"fk-input fk-digit-in" + (invalid ? " is-invalid" : "")}
-        value={tampil(digit)}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-        onChange={(e) => onChange(hanyaDigit(e.target.value, maks))}
-      />
+      {aksi ? (
+        <div className="fk-digit-baris">
+          {input}
+          {aksi}
+        </div>
+      ) : (
+        input
+      )}
       <span className={"fk-digit-hitung" + (kurang ? " is-kurang" : "")}>
         {digit.length}/{maks} digit
       </span>
@@ -155,18 +170,54 @@ function NpwpInput({ value, onChange, invalid }) {
   );
 }
 
+/** Tombol Lihat hanya muncul bila server tersambung ke EPBB (EPBB_API_URL & EPBB_API_KEY). */
+function useCekNopAktif() {
+  const [aktif, setAktif] = useState(false);
+  useEffect(() => {
+    let batal = false;
+    getKonfigurasi()
+      .then((k) => !batal && setAktif(Boolean(k.cekNop)))
+      .catch(() => {});
+    return () => {
+      batal = true;
+    };
+  }, []);
+  return aktif;
+}
+
 function NopInput({ value, onChange, invalid }) {
+  const cekAktif = useCekNopAktif();
+  const [lihat, setLihat] = useState(false);
+  const digit = hanyaDigit(value, PANJANG_NOP);
+  const lengkap = digit.length === PANJANG_NOP;
+
   return (
-    <DigitInput
-      value={value}
-      onChange={onChange}
-      maks={PANJANG_NOP}
-      tampil={formatNop}
-      placeholder="63.72.010.001.002-0123.0"
-      ariaLabel="NOP PBB"
-      invalid={invalid}
-      petunjuk={(n) => (n === PANJANG_NOP ? "" : `Kurang ${PANJANG_NOP - n} digit lagi.`)}
-    />
+    <>
+      <DigitInput
+        value={value}
+        onChange={onChange}
+        maks={PANJANG_NOP}
+        tampil={formatNop}
+        placeholder="63.72.010.001.002-0123.0"
+        ariaLabel="NOP PBB"
+        invalid={invalid}
+        petunjuk={(n) => (n === PANJANG_NOP ? "" : `Kurang ${PANJANG_NOP - n} digit lagi.`)}
+        aksi={
+          cekAktif && (
+            <button
+              type="button"
+              className="fk-btn fk-digit-aksi"
+              disabled={!lengkap}
+              title={lengkap ? "Lihat data NOP di EPBB" : `Lengkapi ${PANJANG_NOP} digit NOP terlebih dahulu`}
+              onClick={() => setLihat(true)}
+            >
+              Lihat
+            </button>
+          )
+        }
+      />
+      {lihat && <ModalCekNop nop={digit} onClose={() => setLihat(false)} />}
+    </>
   );
 }
 

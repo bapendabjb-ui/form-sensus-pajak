@@ -22,6 +22,10 @@ const config = {
   uploadDir: path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, "..", "..", "uploads")),
   uploadMaxMb: Number(process.env.UPLOAD_MAX_MB) || 8,
   timezone: process.env.APP_TIMEZONE || "Asia/Makassar",
+  // API cek NOP di EPBB, mis. https://epbb.contoh.go.id/api/nop/cek. Kosong = fitur mati.
+  epbbApiUrl: (process.env.EPBB_API_URL || "").trim(),
+  epbbApiKey: (process.env.EPBB_API_KEY || "").trim(),
+  epbbTimeoutMs: Number(process.env.EPBB_TIMEOUT_MS) || 10000,
 };
 
 config.isProd = config.nodeEnv === "production";

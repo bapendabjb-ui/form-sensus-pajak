@@ -235,6 +235,9 @@ contoh (termasuk pertanyaan foto dan kecamatan & kelurahan) dan 3 petugas. Manua
 | `APP_TIMEZONE`   |       | `Asia/Makassar` | Zona waktu kolom "Waktu input" pada CSV                                 |
 | `SEED_DEMO`      |       | `false`         | `true` = isi data contoh bila database kosong                           |
 | `CORS_ORIGIN`    |       | —               | Asal frontend saat dev. Kosongkan di produksi (satu origin)             |
+| `EPBB_API_URL`   |       | —               | Endpoint cek NOP EPBB, mis. `https://epbb.contoh.go.id/api/nop/cek`. Kosong = tombol **Lihat** tidak tampil |
+| `EPBB_API_KEY`   |       | —               | Kunci API EPBB — sama dengan `api_nop_key` di EPBB                       |
+| `EPBB_TIMEOUT_MS`|       | `10000`         | Batas tunggu respons EPBB                                               |
 
 ---
 
@@ -499,6 +502,26 @@ supaya nilai yang salah panjang tidak pernah masuk database.
 - NOP dikelompokkan sambil diketik mengikuti susunan resminya — provinsi 2, kabupaten/kota 2,
   kecamatan 3, kelurahan 3, blok 3, nomor urut objek 4, kode khusus 1.
 
+### Cek NOP ke EPBB
+
+Bila `EPBB_API_URL` dan `EPBB_API_KEY` diisi, kolom NOP mendapat tombol **Lihat** (aktif setelah
+18 digit lengkap). Tombol itu membuka modal berisi data dari EPBB/SISMIOP: **NOP, Nama WP, Letak SP,
+Letak OP, Luas Tanah & Bangunan, Status Bayar**. Bila ada SPPT yang belum dibayar, tahun-tahunnya
+ditampilkan; bila tidak ada, statusnya **Lunas**.
+
+```
+browser ──GET /api/nop/:nop──▶ server Sensus Pajak ──GET {EPBB_API_URL}/{nop} + X-Api-Key──▶ EPBB ──▶ Oracle
+```
+
+- Kunci API hanya ada di server; browser tidak pernah melihatnya.
+- Endpoint EPBB (`application/controllers/api/Nop.php`) **hanya membaca**: `DAT_OBJEK_PAJAK`,
+  `DAT_SUBJEK_PAJAK`, `REF_KECAMATAN`, `REF_KELURAHAN`, `SPPT`.
+- "Belum bayar" = `STATUS_PEMBAYARAN_SPPT = 0`, nilai SPPT > 0, mulai tahun `api_nop_tahun_awal`
+  (default 2014, sama dengan aturan tunggakan pembayaran bank). SPPT batal (status 2) diabaikan.
+- Formulir diisi tanpa login, jadi `/api/nop` dibatasi **60 pengecekan per IP per 10 menit**.
+- Pemasangan di EPBB: salin `application/config/api_nop.sample.php` menjadi `api_nop.php`, isi
+  `api_nop_key` dengan string acak panjang, set `api_nop_enabled = true`.
+
 ---
 
 ## Menyusun urutan formulir & pertanyaan
@@ -622,8 +645,14 @@ Body `jawaban` berbentuk `{ "<pertanyaanId>": nilai }` (lihat format di atas). K
 | ------ | ------------------ | --------------------------------------------------------------------------------- |
 | `GET`  | `/dashboard/stats` | Kertas kerja, selesai, data, foto, formulir, petugas + 5 kertas kerja terbaru     |
 | `GET`  | `/health`          | Health check (dipakai Railway)                                                    |
-| `GET`  | `/konfigurasi`     | Batas aplikasi: `petugasMaks`, `fotoMaksPerPertanyaan`, `uploadMaksMb`            |
+| `GET`  | `/konfigurasi`     | Batas aplikasi: `petugasMaks`, `fotoMaksPerPertanyaan`, `uploadMaksMb`, `cekNop`  |
 | `GET`  | `/wilayah`         | Kecamatan & kelurahan Kota Banjarbaru                                             |
+
+### Cek NOP
+
+| Method | Endpoint     | Keterangan                                                                                          |
+| ------ | ------------ | --------------------------------------------------------------------------------------------------- |
+| `GET`  | `/nop/:nop`  | `{ nop, namaWp, letakSp, letakOp, luasTanah, luasBangunan, belumBayar: ["2023"] }` · `404` tidak terdaftar · `429` terlalu sering · `502` EPBB bermasalah · `503` belum dikonfigurasi |
 
 ### Bentuk error
 

@@ -184,6 +184,11 @@ export function unduhFormulir(id, jenis = "xlsx") {
 
 export const getStats = () => request("/dashboard/stats");
 
+/* ---------- cek NOP ke EPBB ---------- */
+
+/** Data objek pajak dari EPBB: { nop, namaWp, letakSp, letakOp, luasTanah, luasBangunan, belumBayar }. */
+export const cekNop = (nop) => request(`/nop/${nop}`);
+
 /* ---------- data wilayah (kecamatan & kelurahan) ---------- */
 
 let wilayahCache = null;

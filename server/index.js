@@ -49,6 +49,7 @@ app.use("/api/kertas-kerja", require("./src/routes/kertasKerja"));
 app.use("/api/entri", require("./src/routes/entri"));
 app.use("/api/foto", require("./src/routes/foto"));
 app.use("/api/dashboard", require("./src/routes/dashboard"));
+app.use("/api/nop", require("./src/routes/nop"));
 
 // Data referensi kecamatan & kelurahan untuk pertanyaan bertipe "wilayah".
 app.get("/api/wilayah", (_req, res) => {
@@ -64,6 +65,7 @@ app.get("/api/konfigurasi", (_req, res) => {
     petugasMaks: batas.PETUGAS_MAKS,
     fotoMaksPerPertanyaan: batas.FOTO_MAKS_PER_PERTANYAAN,
     uploadMaksMb: config.uploadMaxMb,
+    cekNop: require("./src/epbb").aktif(),
   });
 });
 

@@ -461,6 +461,9 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-digit-hitung{font-size:11.5px; font-weight:600; color:var(--faint); font-variant-numeric:tabular-nums;}
 .fk-digit-hitung.is-kurang{color:var(--amber);}
 .fk-digit-hint{color:var(--amber);}
+.fk-digit-baris{display:flex; gap:8px; align-items:stretch;}
+.fk-digit-baris .fk-input{flex:1; min-width:0;}
+.fk-digit-aksi{flex:none; padding:0 18px; cursor:pointer;}
 
 .fk-btn-danger{border:1px solid #EBC2BD; background:var(--surface); color:var(--danger); font-weight:600; font-size:14px; padding:11px 18px; border-radius:10px; margin-left:auto;}
 .fk-btn-danger:hover:not(:disabled){background:#FBE9E7;}
@@ -551,6 +554,22 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-dialog-aksi{display:flex; justify-content:flex-end; gap:8px; margin-top:20px; flex-wrap:wrap;}
 .fk-dialog.is-ringkas{max-width:360px;}
 .fk-dialog.is-ringkas .fk-dialog-aksi{margin-top:18px;}
+
+/* ---------- modal informasi NOP (EPBB) ---------- */
+.fk-dialog.fk-nop-modal{max-width:480px; max-height:calc(100% - 40px); overflow-y:auto; overscroll-behavior:contain;}
+.fk-nop-info{margin:14px 0 0; display:flex; flex-direction:column; border:1px solid var(--line-soft); border-radius:12px; overflow:hidden;}
+.fk-nop-baris{display:grid; grid-template-columns:118px 1fr; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line-soft); font-size:14px; line-height:1.45;}
+.fk-nop-info > .fk-nop-baris:last-child{border-bottom:0;}
+.fk-nop-baris dt{color:var(--muted); font-weight:500;}
+.fk-nop-baris dd{margin:0; color:var(--ink); overflow-wrap:anywhere;}
+.fk-nop-luas{display:grid; grid-template-columns:1fr 1fr; border-bottom:1px solid var(--line-soft);}
+.fk-nop-luas .fk-nop-baris{grid-template-columns:1fr; gap:2px; border-bottom:0;}
+.fk-nop-luas .fk-nop-baris + .fk-nop-baris{border-left:1px solid var(--line-soft);}
+.fk-nop-nop{font-variant-numeric:tabular-nums; letter-spacing:.04em; font-weight:600;}
+.fk-nop-tunggak{display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px;}
+.fk-nop-tahun{font-weight:600; color:var(--amber); font-variant-numeric:tabular-nums;}
+.fk-nop-gagal{margin-top:12px;}
+.fk-nop-gagal .fk-dialog-pesan{margin-top:4px;}
 .fk-sheet-opsi svg{color:var(--brand); flex:none;}
 .fk-select-cari{margin-bottom:6px;}
 .fk-cal.is-sheet{position:static; width:auto; border:0; box-shadow:none; padding:4px 2px 6px; margin:0;}
@@ -687,6 +706,9 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-dialog-aksi,
   .fk-dialog.is-ringkas .fk-dialog-aksi{margin-top:22px;}
   .fk-dialog-aksi > button{flex:1; min-height:48px;}
+  .fk-dialog.fk-nop-modal{max-height:92%;}
+  .fk-nop-baris{grid-template-columns:1fr; gap:2px;}
+  .fk-digit-aksi{min-height:48px;}
 
   /* ---- buat kertas kerja & tim ---- */
   .fk-nomor-big{font-size:38px;}
