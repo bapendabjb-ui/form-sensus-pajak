@@ -11,11 +11,15 @@ import { PANJANG_RTRW } from "./format.js";
 
 export const SUMBER_EPBB = [
   { kunci: "nama_wp", label: "Nama WP", tipe: ["text", "paragraph"] },
-  { kunci: "letak_op", label: "Letak OP (alamat lengkap)", tipe: ["text", "paragraph"] },
-  { kunci: "jalan_op", label: "Jalan OP (tanpa RT/RW & wilayah)", tipe: ["text", "paragraph"] },
-  { kunci: "letak_sp", label: "Letak SP (alamat wajib pajak)", tipe: ["text", "paragraph"] },
-  { kunci: "wilayah_op", label: "Kecamatan & kelurahan OP", tipe: ["wilayah"] },
-  { kunci: "rtrw_op", label: "RT & RW OP", tipe: ["rtrw"] },
+  { kunci: "letak_op", label: "Letak Objek Pajak (alamat lengkap)", tipe: ["text", "paragraph"] },
+  { kunci: "jalan_op", label: "Alamat Objek Pajak (jalan & nomor)", tipe: ["text", "paragraph"] },
+  { kunci: "rtrw_op", label: "RT & RW Objek Pajak", tipe: ["rtrw"] },
+  { kunci: "wilayah_op", label: "Kecamatan & kelurahan Objek Pajak", tipe: ["wilayah"] },
+  { kunci: "letak_sp", label: "Letak Subjek Pajak (alamat lengkap)", tipe: ["text", "paragraph"] },
+  { kunci: "jalan_sp", label: "Alamat Subjek Pajak (jalan & nomor)", tipe: ["text", "paragraph"] },
+  { kunci: "rtrw_sp", label: "RT & RW Subjek Pajak", tipe: ["rtrw"] },
+  { kunci: "wilayah_sp", label: "Kecamatan & kelurahan Subjek Pajak", tipe: ["wilayah"] },
+  { kunci: "kelurahan_sp", label: "Kelurahan & kota Subjek Pajak", tipe: ["text", "paragraph"] },
   { kunci: "luas_op", label: "Luas tanah & bangunan", tipe: ["luas"] },
   { kunci: "luas_tanah", label: "Luas tanah (m²)", tipe: ["number"] },
   { kunci: "luas_bangunan", label: "Luas bangunan (m²)", tipe: ["number"] },
@@ -39,6 +43,14 @@ const rtRw = (s) => {
   return d === "" ? "" : d.padStart(PANJANG_RTRW, "0");
 };
 
+/** Nama kelurahan untuk dicocokkan: huruf kecil, tanpa awalan "KEL." / "KELURAHAN", spasi rapi. */
+const namaKelurahan = (s) =>
+  String(s ?? "")
+    .toLowerCase()
+    .replace(/^\s*(kel(urahan)?\.?|desa)\s+/, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
 /** Angka untuk NumberInput: desimal memakai koma seperti ketikan petugas ("250,5"). */
 const angka = (n) => (Number(n) > 0 ? String(Number(n)).replace(".", ",") : "");
 
@@ -51,6 +63,7 @@ const angka = (n) => (Number(n) > 0 ? String(Number(n)).replace(".", ",") : "");
  */
 export function nilaiDariEpbb(sumber, data, wilayah = []) {
   const rinci = data.rinciOp || {};
+  const rinciSp = data.rinciSp || {};
   let v;
   switch (sumber) {
     case "nama_wp":
@@ -73,6 +86,30 @@ export function nilaiDariEpbb(sumber, data, wilayah = []) {
     }
     case "rtrw_op":
       v = { rt: rtRw(rinci.rt), rw: rtRw(rinci.rw) };
+      break;
+    case "jalan_sp":
+      v = rinciSp.jalan;
+      break;
+    case "rtrw_sp":
+      v = { rt: rtRw(rinciSp.rt), rw: rtRw(rinciSp.rw) };
+      break;
+    case "wilayah_sp": {
+      // Subjek pajak hanya punya nama kelurahan: kecamatan dicari dari data wilayah Banjarbaru.
+      // Kelurahan di luar Banjarbaru tidak bisa dipilih, jadi dilewati.
+      const cari = namaKelurahan(rinciSp.kelurahan);
+      let hasil;
+      for (const k of cari ? wilayah : []) {
+        const kel = k.kelurahan.find((l) => namaKelurahan(l.nama) === cari);
+        if (kel) {
+          hasil = { kecamatan: k.nama, kelurahan: kel.nama };
+          break;
+        }
+      }
+      v = hasil;
+      break;
+    }
+    case "kelurahan_sp":
+      v = [rinciSp.kelurahan && `KEL. ${rinciSp.kelurahan}`, rinciSp.kota].filter(Boolean).join(", ");
       break;
     case "luas_op": {
       // Bangunan 0 tetap diisi "0": tanah kosong adalah data yang sah.

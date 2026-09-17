@@ -19,11 +19,17 @@ const aktif = () => Boolean(config.epbbApiUrl && config.epbbApiKey);
  */
 const SUMBER_EPBB = {
   nama_wp: ["text", "paragraph"],
+  // objek pajak
   letak_op: ["text", "paragraph"],
   jalan_op: ["text", "paragraph"],
-  letak_sp: ["text", "paragraph"],
-  wilayah_op: ["wilayah"],
   rtrw_op: ["rtrw"],
+  wilayah_op: ["wilayah"],
+  // subjek pajak (wajib pajak)
+  letak_sp: ["text", "paragraph"],
+  jalan_sp: ["text", "paragraph"],
+  rtrw_sp: ["rtrw"],
+  wilayah_sp: ["wilayah"],
+  kelurahan_sp: ["text", "paragraph"],
   luas_op: ["luas"],
   luas_tanah: ["number"],
   luas_bangunan: ["number"],
@@ -32,6 +38,11 @@ const SUMBER_EPBB = {
 
 const sumberEpbbSah = (tipe, sumber) =>
   Object.prototype.hasOwnProperty.call(SUMBER_EPBB, sumber) && SUMBER_EPBB[sumber].includes(tipe);
+
+const bersihkan = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
+
+/** "JL. MAWAR" + "NO. 5" -> "JL. MAWAR NO. 5". */
+const gabungJalan = (l) => [bersihkan(l?.jalan), bersihkan(l?.blok_kav_no)].filter(Boolean).join(" ");
 
 /** Gabungkan bagian alamat yang terisi, mis. "JL. MAWAR NO. 5, RT 001/RW 002, KEL. X". */
 function susunAlamat(l = {}, penutup = []) {
@@ -83,7 +94,7 @@ const alamatAman = (url) => url.replace(/\/\d{18}$/, "/{nop}");
 
 /**
  * Cek satu NOP 18 digit.
- * @returns {Promise<{nop, namaWp, letakSp, letakOp, luasTanah, luasBangunan, belumBayar: string[]}>}
+ * @returns {Promise<{nop, namaWp, letakSp, letakOp, rinciOp, rinciSp, luasTanah, luasBangunan, belumBayar: string[]}>}
  */
 async function cekNop(nop) {
   if (!aktif()) throw new ApiError(503, "Cek NOP belum diaktifkan di server.");
@@ -147,14 +158,23 @@ async function cekNop(nop) {
       ["KEL. ", d.letak_op?.kelurahan],
       ["KEC. ", d.letak_op?.kecamatan],
     ]),
-    // Bagian letak OP untuk pengisian otomatis kolom jalan, RT/RW, dan wilayah.
+    // Bagian letak objek pajak untuk pengisian otomatis kolom jalan, RT/RW, dan wilayah.
     // Kode kecamatan & kelurahan diambil dari NOP (digit 5-7 dan 8-10).
     rinciOp: {
-      jalan: [d.letak_op?.jalan, d.letak_op?.blok_kav_no].map((s) => String(s ?? "").trim()).filter(Boolean).join(" "),
-      rt: String(d.letak_op?.rt ?? "").trim(),
-      rw: String(d.letak_op?.rw ?? "").trim(),
+      jalan: gabungJalan(d.letak_op),
+      rt: bersihkan(d.letak_op?.rt),
+      rw: bersihkan(d.letak_op?.rw),
       kodeKecamatan: String(d.nop || nop).slice(4, 7),
       kodeKelurahan: String(d.nop || nop).slice(7, 10),
+    },
+    // Bagian letak subjek pajak. SISMIOP tidak menyimpan kecamatan wajib pajak, hanya
+    // nama kelurahan & kota (teks bebas, bisa di luar Banjarbaru).
+    rinciSp: {
+      jalan: gabungJalan(d.letak_sp),
+      rt: bersihkan(d.letak_sp?.rt),
+      rw: bersihkan(d.letak_sp?.rw),
+      kelurahan: bersihkan(d.letak_sp?.kelurahan),
+      kota: bersihkan(d.letak_sp?.kota),
     },
     luasTanah: Number(d.luas_tanah) || 0,
     luasBangunan: Number(d.luas_bangunan) || 0,

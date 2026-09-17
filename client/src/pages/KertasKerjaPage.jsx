@@ -727,7 +727,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
 
   /** Isi pertanyaan bersumber EPBB dari data cek NOP. Mengembalikan jumlah kolom yang terisi. */
   const terapkanEpbb = async (data) => {
-    const sumberWilayah = formulir.pertanyaan.some((q) => q.isiEpbb === "wilayah_op");
+    const sumberWilayah = formulir.pertanyaan.some((q) => q.isiEpbb === "wilayah_op" || q.isiEpbb === "wilayah_sp");
     const wilayah = sumberWilayah ? await api.getWilayah().catch(() => []) : [];
     let jumlah = 0;
     for (const q of formulir.pertanyaan) {

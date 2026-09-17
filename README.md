@@ -507,8 +507,8 @@ supaya nilai yang salah panjang tidak pernah masuk database.
 ### Cek NOP ke EPBB
 
 Bila `EPBB_API_URL` dan `EPBB_API_KEY` diisi, kolom NOP mendapat tombol **Lihat** (aktif setelah
-18 digit lengkap). Tombol itu membuka modal berisi data dari EPBB/SISMIOP: **NOP, Nama WP, Letak SP,
-Letak OP, Luas Tanah & Bangunan, Status Bayar**. Bila ada SPPT yang belum dibayar, tahun-tahunnya
+18 digit lengkap). Tombol itu membuka modal berisi data dari EPBB/SISMIOP: **NOP, Nama WP, Letak Subjek
+Pajak, Letak Objek Pajak, Luas Tanah & Bangunan, Status Bayar**. Bila ada SPPT yang belum dibayar, tahun-tahunnya
 ditampilkan; bila tidak ada, statusnya **Lunas**.
 
 ```
@@ -530,17 +530,25 @@ browser ──GET /api/nop/:nop──▶ server Sensus Pajak ──GET {EPBB_API
   dibuka lagi, dan **dilepas otomatis begitu petugas mengubah isinya** — label itu berarti isinya
   masih sama persis dengan EPBB.
 
-  | Sumber                          | Tipe pertanyaan     | Contoh isi                                  |
-  | ------------------------------- | ------------------- | ------------------------------------------- |
-  | Nama WP                         | Teks / Paragraf     | `HJ. SITI AMINAH`                           |
-  | Letak OP (alamat lengkap)       | Teks / Paragraf     | `JL. MAWAR NO. 5, RT 005/RW 002, KEL. …, KEC. …` |
-  | Jalan OP                        | Teks / Paragraf     | `JL. MAWAR NO. 5`                           |
-  | Letak SP (alamat wajib pajak)   | Teks / Paragraf     | `JL. A. YANI KM 33, RT 003/RW 001, …`       |
-  | Kecamatan & kelurahan OP        | Kecamatan & Kelurahan | dari kode kecamatan/kelurahan di NOP      |
-  | RT & RW OP                      | RT & RW             | `005` / `002`                               |
-  | Luas tanah & bangunan           | Luas Tanah & Bangunan | `250,5` / `72`                            |
-  | Luas tanah / Luas bangunan      | Angka               | `250,5`                                     |
-  | Status bayar                    | Teks / Paragraf     | `Lunas` atau `Belum bayar: 2023, 2025`      |
+  | Sumber                                  | Tipe pertanyaan       | Contoh isi                                  |
+  | --------------------------------------- | --------------------- | ------------------------------------------- |
+  | Nama WP                                 | Teks / Paragraf       | `HJ. SITI AMINAH`                           |
+  | Letak Objek Pajak (alamat lengkap)      | Teks / Paragraf       | `JL. MAWAR NO. 5, RT 005/RW 002, KEL. …, KEC. …` |
+  | Alamat Objek Pajak (jalan & nomor)      | Teks / Paragraf       | `JL. MAWAR NO. 5`                           |
+  | RT & RW Objek Pajak                     | RT & RW               | `005` / `002`                               |
+  | Kecamatan & kelurahan Objek Pajak       | Kecamatan & Kelurahan | dari kode kecamatan/kelurahan di NOP        |
+  | Letak Subjek Pajak (alamat lengkap)     | Teks / Paragraf       | `JL. A. YANI KM 33 NO. 12, RT 003/RW 001, KEL. …, BANJARBARU` |
+  | Alamat Subjek Pajak (jalan & nomor)     | Teks / Paragraf       | `JL. A. YANI KM 33 NO. 12`                  |
+  | RT & RW Subjek Pajak                    | RT & RW               | `003` / `001`                               |
+  | Kecamatan & kelurahan Subjek Pajak      | Kecamatan & Kelurahan | dicocokkan dari nama kelurahan WP ¹         |
+  | Kelurahan & kota Subjek Pajak           | Teks / Paragraf       | `KEL. LOKTABAT UTARA, BANJARBARU`           |
+  | Luas tanah & bangunan                   | Luas Tanah & Bangunan | `250,5` / `72`                              |
+  | Luas tanah / Luas bangunan              | Angka                 | `250,5`                                     |
+  | Status bayar                            | Teks / Paragraf       | `Lunas` atau `Belum bayar: 2023, 2025`      |
+
+  ¹ SISMIOP tidak menyimpan kecamatan wajib pajak, hanya nama kelurahan & kota. Kecamatannya dicari
+  dari data wilayah Banjarbaru; wajib pajak yang beralamat di luar Banjarbaru dilewati — pakai
+  sumber *Kelurahan & kota Subjek Pajak* pada pertanyaan teks untuk mereka.
 
 - Formulir diisi tanpa login, jadi `/api/nop` dibatasi **60 pengecekan per IP per 10 menit**.
 - Pemasangan di EPBB: salin `application/config/api_nop.sample.php` menjadi `api_nop.php`, isi

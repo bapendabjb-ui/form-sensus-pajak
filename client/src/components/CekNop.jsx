@@ -98,11 +98,11 @@ export default function ModalCekNop({ nop, onClose, isiEpbb }) {
               <dd>{d.namaWp || "-"}</dd>
             </div>
             <div className="fk-nop-baris">
-              <dt>Letak SP</dt>
+              <dt>Letak Subjek Pajak</dt>
               <dd>{d.letakSp || "-"}</dd>
             </div>
             <div className="fk-nop-baris">
-              <dt>Letak OP</dt>
+              <dt>Letak Objek Pajak</dt>
               <dd>{d.letakOp || "-"}</dd>
             </div>
             <div className="fk-nop-luas">
