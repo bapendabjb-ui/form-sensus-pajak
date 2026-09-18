@@ -4,7 +4,7 @@ const express = require("express");
 const prisma = require("../prisma");
 const { requireAdmin } = require("../auth");
 const { wrap, notFound, parseId, ApiError } = require("../http");
-const { siapkanJawaban, tulisJawaban, muatEntri } = require("../entri");
+const { siapkanJawaban, tulisJawaban, muatEntri, bacaBerkas } = require("../entri");
 const { hapusBerkas } = require("../foto");
 const { includePertanyaan } = require("../bentuk");
 
@@ -18,7 +18,7 @@ router.get(
   })
 );
 
-/** PUT /api/entri/:id  { jawaban, dariEpbb? } -> ubah isian. Kolom wajib divalidasi -> 422. */
+/** PUT /api/entri/:id  { jawaban, dariEpbb?, berkasLengkap?, catatanBerkas? } -> ubah isian. Kolom wajib divalidasi -> 422. */
 router.put(
   "/:id",
   wrap(async (req, res) => {
@@ -36,7 +36,7 @@ router.put(
 
     let dilepas = [];
     await prisma.$transaction(async (tx) => {
-      await tx.entri.update({ where: { id }, data: { updatedAt: new Date() } });
+      await tx.entri.update({ where: { id }, data: { updatedAt: new Date(), ...bacaBerkas(req.body) } });
       dilepas = await tulisJawaban(tx, id, siap);
     });
     await hapusBerkas(dilepas);

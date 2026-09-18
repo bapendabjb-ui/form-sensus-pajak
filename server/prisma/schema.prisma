@@ -156,6 +156,10 @@ model Entri {
   id            Int      @id @default(autoincrement())
   kertasKerjaId Int      @map("kertas_kerja_id")
   formulirId    Int      @map("formulir_id")
+  /// false = berkas pendukung (mis. KTP, SPPT) belum lengkap; ditandai petugas agar mudah dicari.
+  berkasLengkap Boolean  @default(true) @map("berkas_lengkap")
+  /// Apa saja yang masih kurang. Dikosongkan bila berkas ditandai lengkap.
+  catatanBerkas String   @default("") @map("catatan_berkas") @db.VarChar(500)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -167,6 +171,7 @@ model Entri {
 
   @@index([kertasKerjaId], map: "entri_kertas_kerja_id_idx")
   @@index([formulirId], map: "entri_formulir_id_idx")
+  @@index([berkasLengkap], map: "entri_berkas_lengkap_idx")
   @@map("entri")
 }
 

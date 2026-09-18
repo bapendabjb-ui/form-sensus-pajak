@@ -85,6 +85,22 @@ async function siapkanJawaban(formulir, masuk, entriId, dariEpbb = []) {
   return siap;
 }
 
+const CATATAN_BERKAS_MAKS = 500;
+
+/**
+ * Baca penanda kelengkapan berkas dari kiriman klien.
+ * Tanpa `berkasLengkap` (klien lama) hasilnya {} sehingga nilai tersimpan tidak berubah.
+ * Catatan dikosongkan bila berkas lengkap.
+ */
+function bacaBerkas(body) {
+  if (typeof body?.berkasLengkap !== "boolean") return {};
+  const berkasLengkap = body.berkasLengkap;
+  const catatanBerkas = berkasLengkap
+    ? ""
+    : String(body.catatanBerkas || "").trim().slice(0, CATATAN_BERKAS_MAKS);
+  return { berkasLengkap, catatanBerkas };
+}
+
 /** Pesan untuk kolom wajib yang masih kosong - sama dengan client/src/lib/answers.js. */
 function pesanWajib(tipe) {
   if (tipe === "foto") return "Tambahkan minimal satu foto.";
@@ -143,9 +159,22 @@ async function muatEntri(id) {
     formulir: bentukFormulir(e.formulir),
     jawaban: petaJawaban(e.jawaban),
     dariEpbb: e.jawaban.filter((j) => j.dariEpbb).map((j) => j.pertanyaanId),
+    berkasLengkap: e.berkasLengkap,
+    catatanBerkas: e.catatanBerkas,
     createdAt: e.createdAt,
     updatedAt: e.updatedAt,
   };
 }
 
-module.exports = { siapkanJawaban, tulisJawaban, muatEntri };
+/** Jumlah data berkas tidak lengkap per kertas kerja: Map<kertasKerjaId, jumlah>. */
+async function hitungTidakLengkap(kkIds) {
+  if (!kkIds.length) return new Map();
+  const rows = await prisma.entri.groupBy({
+    by: ["kertasKerjaId"],
+    where: { kertasKerjaId: { in: kkIds }, berkasLengkap: false },
+    _count: { _all: true },
+  });
+  return new Map(rows.map((r) => [r.kertasKerjaId, r._count._all]));
+}
+
+module.exports = { siapkanJawaban, tulisJawaban, muatEntri, bacaBerkas, hitungTidakLengkap };

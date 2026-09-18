@@ -6,7 +6,7 @@ const config = require("../config");
 const { requireAdmin } = require("../auth");
 const { wrap, badRequest, notFound, parseId, ApiError } = require("../http");
 const { ambilNomorBerikutnya, previewNomorBerikutnya } = require("../nomor");
-const { siapkanJawaban, tulisJawaban, muatEntri } = require("../entri");
+const { siapkanJawaban, tulisJawaban, muatEntri, bacaBerkas, hitungTidakLengkap } = require("../entri");
 const { hapusBerkas } = require("../foto");
 const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require("../bentuk");
 const { susunEkspor, barisTanpaData, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
@@ -71,6 +71,8 @@ function bentukDetail({ kk, formulir }) {
     entri: kk.entri.map((e) => ({
       id: e.id,
       formulirId: e.formulirId,
+      berkasLengkap: e.berkasLengkap,
+      catatanBerkas: e.catatanBerkas,
       createdAt: e.createdAt,
       updatedAt: e.updatedAt,
       jawaban: petaJawaban(e.jawaban),
@@ -78,13 +80,14 @@ function bentukDetail({ kk, formulir }) {
   };
 }
 
-const bentukRingkas = (k) => ({
+const bentukRingkas = (k, tidakLengkap) => ({
   id: k.id,
   nomor: k.nomor,
   status: k.status,
   createdAt: k.createdAt,
   petugas: bentukTim(k.petugas),
   jumlahData: k._count.entri,
+  jumlahTidakLengkap: tidakLengkap.get(k.id) || 0,
 });
 
 /* ---------- daftar & penomoran ---------- */
@@ -97,7 +100,8 @@ router.get(
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       include: { ...includeTim, _count: { select: { entri: true } } },
     });
-    res.json(list.map(bentukRingkas));
+    const tidakLengkap = await hitungTidakLengkap(list.map((k) => k.id));
+    res.json(list.map((k) => bentukRingkas(k, tidakLengkap)));
   })
 );
 
@@ -189,7 +193,8 @@ router.put(
 );
 
 /**
- * POST /api/kertas-kerja/:id/entri  { formulirId, jawaban: { [pertanyaanId]: nilai }, dariEpbb?: [pertanyaanId] }
+ * POST /api/kertas-kerja/:id/entri
+ *   { formulirId, jawaban: { [pertanyaanId]: nilai }, dariEpbb?: [pertanyaanId], berkasLengkap?, catatanBerkas? }
  * Tambah satu data lewat formulir. Kolom wajib divalidasi -> 422 { errors }.
  */
 router.post(
@@ -216,7 +221,7 @@ router.post(
 
     let dilepas = [];
     const entri = await prisma.$transaction(async (tx) => {
-      const e = await tx.entri.create({ data: { kertasKerjaId: id, formulirId } });
+      const e = await tx.entri.create({ data: { kertasKerjaId: id, formulirId, ...bacaBerkas(req.body) } });
       dilepas = await tulisJawaban(tx, e.id, siap);
       return e;
     });

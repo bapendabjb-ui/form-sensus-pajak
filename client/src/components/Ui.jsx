@@ -69,6 +69,16 @@ export function StatusPill({ status }) {
   );
 }
 
+/** Penanda data yang berkasnya belum lengkap. `jumlah` untuk ringkasan per kertas kerja. */
+export function BerkasPill({ jumlah = null }) {
+  if (jumlah === 0) return null;
+  return (
+    <span className="fk-pill is-kurang" title="Berkas pendukung belum lengkap">
+      {jumlah === null ? "Berkas tidak lengkap" : `${jumlah} berkas kurang`}
+    </span>
+  );
+}
+
 /**
  * Pemberitahuan bahwa sebuah aksi hanya untuk admin, lengkap dengan jalan
  * masuknya. Dipakai di tempat tombol yang disembunyikan supaya petugas tahu

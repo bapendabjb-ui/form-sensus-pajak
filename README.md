@@ -48,7 +48,11 @@ berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengeksporny
    **Dari galeri**. Foto diperkecil di browser lalu langsung diunggah.
 4. **Susun bank formulir** (admin) — tambah pertanyaan dari bilah **Tambah pertanyaan**, lalu
    seret pegangan ⠿ untuk mengatur urutan formulir maupun urutan pertanyaan di dalamnya.
-5. **Tandai selesai** (minimal satu data), atau **Ekspor CSV** kapan saja.
+5. **Berkas tidak lengkap** — di bawah isian setiap data ada centang **Berkas tidak lengkap** dan
+   kolom catatan (mis. "fotokopi KTP belum ada"). Data bertanda muncul dengan label merah; daftar
+   kertas kerja punya saringan **Berkas tidak lengkap**, halaman kertas kerja punya tombol
+   **Hanya berkas tidak lengkap**, dan Dashboard menampilkan jumlahnya (kartunya bisa diketuk).
+6. **Tandai selesai** (minimal satu data), atau **Ekspor CSV** kapan saja.
    **Ubah petugas** dan penghapusan memerlukan login admin. Data yang sudah tersimpan tetap
    bisa dibuka dan diubah.
 
@@ -305,7 +309,7 @@ Misalnya, agar petugas boleh menghapus datanya sendiri, hapus `requireAdmin` dar
 | `pertanyaan_opsi`       | Opsi dropdown/radio/checkbox & daftar "Jenis tarif"                         |
 | `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status` (kolom `judul` tidak dipakai lagi)     |
 | `kertas_kerja_petugas`  | Tim petugas (1–8), `urutan` 0 = penanggung jawab                            |
-| `entri`                 | Satu data: `kertas_kerja_id` + `formulir_id` (boleh berulang)               |
+| `entri`                 | Satu data: `kertas_kerja_id` + `formulir_id` (boleh berulang); `berkas_lengkap` + `catatan_berkas` |
 | `jawaban`               | `nilai` JSON, **UNIQUE(entri_id, pertanyaan_id)**                           |
 | `rincian_tarif`         | Bentuk ternormalisasi jawaban "rincian tarif" per entri, untuk pelaporan    |
 | `foto`                  | Berkas foto: `berkas` (path relatif), `entri_id`, `pertanyaan_id`, `mime`   |
@@ -662,7 +666,7 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | `GET`    | `/kertas-kerja/:id`               | Tim petugas, seluruh entri, definisi formulir yang diisi  |
 | `PUT`    | `/kertas-kerja/:id/petugas`       | 🔒 `{ petugasIds }` — ganti tim                           |
 | `PUT`    | `/kertas-kerja/:id/status`        | `{ status }` — `selesai` butuh minimal 1 data (**422**)   |
-| `POST`   | `/kertas-kerja/:id/entri`         | `{ formulirId, jawaban }` — tambah satu data              |
+| `POST`   | `/kertas-kerja/:id/entri`         | `{ formulirId, jawaban, berkasLengkap?, catatanBerkas? }` — tambah satu data |
 | `DELETE` | `/kertas-kerja/:id`               | 🔒 Hapus beserta seluruh data & foto                      |
 | `GET`    | `/kertas-kerja/:id/export`        | Unduh CSV; `?formulir=<id>` = hanya satu formulir         |
 | `GET`    | `/kertas-kerja/:id/export/xlsx`   | Unduh Excel (.xlsx), isi sama dengan CSV; `?formulir=<id>` idem |
@@ -672,7 +676,7 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | Method   | Endpoint     | Keterangan                                    |
 | -------- | ------------ | --------------------------------------------- |
 | `GET`    | `/entri/:id` | Satu data + formulirnya + nomor kertas kerja  |
-| `PUT`    | `/entri/:id` | `{ jawaban }` — ubah data                     |
+| `PUT`    | `/entri/:id` | `{ jawaban, berkasLengkap?, catatanBerkas? }` — ubah data (tanpa `berkasLengkap` penanda tidak berubah) |
 | `DELETE` | `/entri/:id` | 🔒 Hapus data beserta fotonya                 |
 
 Body `jawaban` berbentuk `{ "<pertanyaanId>": nilai }` (lihat format di atas). Kolom wajib
@@ -690,7 +694,7 @@ Body `jawaban` berbentuk `{ "<pertanyaanId>": nilai }` (lihat format di atas). K
 
 | Method | Endpoint           | Keterangan                                                                        |
 | ------ | ------------------ | --------------------------------------------------------------------------------- |
-| `GET`  | `/dashboard/stats` | Kertas kerja, selesai, data, foto, formulir, petugas + 5 kertas kerja terbaru     |
+| `GET`  | `/dashboard/stats` | Kertas kerja, selesai, data, data berkas tidak lengkap (`tidakLengkap`), foto, formulir, petugas + 5 kertas kerja terbaru |
 | `GET`  | `/health`          | Health check (dipakai Railway)                                                    |
 | `GET`  | `/konfigurasi`     | Batas aplikasi: `petugasMaks`, `fotoMaksPerPertanyaan`, `uploadMaksMb`, `cekNop`  |
 | `GET`  | `/wilayah`         | Kecamatan & kelurahan Kota Banjarbaru                                             |
@@ -724,7 +728,7 @@ formulir untuk seluruh kertas kerja, kemudian **Unduh Excel** / **Unduh CSV**.
 Ekspor per formulir diurutkan menurut nomor kertas kerja; kolom `Nomor`, `Status`, `Petugas`, dan
 `NIP` mengikuti kertas kerja masing-masing baris. **Satu baris per data.** Kolom:
 `Nomor`, `Status`, `Petugas` (nama tim digabung `; `), `NIP`, `Formulir`, `No. data`, `Waktu input`,
-lalu satu kolom per pertanyaan berjudul `Judul formulir - Label` (pertanyaan NIK / NPWP menjadi dua
+`Kelengkapan berkas` (`Lengkap` / `Tidak lengkap`), `Catatan kekurangan berkas`, lalu satu kolom per pertanyaan berjudul `Judul formulir - Label` (pertanyaan NIK / NPWP menjadi dua
 kolom). Sel milik formulir lain dibiarkan kosong; pertanyaan foto berisi tautan lengkap ke fotonya.
 
 - **CSV** diawali **BOM UTF-8** agar rapi saat dibuka di Excel.

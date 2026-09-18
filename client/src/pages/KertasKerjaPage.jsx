@@ -2,14 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../api.js";
 import { useToast } from "../components/Toast.jsx";
 import { useDialog } from "../components/Dialog.jsx";
-import { PageHead, Panel, Loading, ErrorBox, Empty, StatusPill, KunciAdmin } from "../components/Ui.jsx";
+import { PageHead, Panel, Loading, ErrorBox, Empty, StatusPill, BerkasPill, KunciAdmin } from "../components/Ui.jsx";
 import FieldInput from "../components/Fields.jsx";
 import PetugasTim from "../components/PetugasTim.jsx";
 import { fromApi, emptyValue, buildPayload, validateRequired, statusFoto, isFilled } from "../lib/answers.js";
 import { nilaiDariEpbb } from "../lib/epbb.js";
 import { judulEntri, ringkasEntri, fotoEntri } from "../lib/ringkas.js";
 import { formatTimestamp } from "../lib/format.js";
-import { IkonFormulir, IkonEpbb } from "../components/Icons.jsx";
+import { IkonFormulir, IkonEpbb, CheckIcon } from "../components/Icons.jsx";
+import { FILTER_KK, bacaFilterKk, simpanFilterKk, cocokFilterKk } from "../lib/filterKk.js";
 import { useAdmin } from "../lib/admin.js";
 import { navigate, kembali, pasangPenjaga } from "../lib/router.js";
 
@@ -31,6 +32,12 @@ export function DaftarKertasKerja() {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [filter, setFilter] = useState(bacaFilterKk);
+
+  const pilihFilter = (f) => {
+    setFilter(f);
+    simpanFilterKk(f);
+  };
 
   const muat = useCallback(async () => {
     setLoading(true);
@@ -68,6 +75,7 @@ export function DaftarKertasKerja() {
   };
 
   const buat = () => navigate("/kertas-kerja/baru");
+  const tampil = list.filter((k) => cocokFilterKk(k, filter));
 
   return (
     <>
@@ -92,41 +100,67 @@ export function DaftarKertasKerja() {
           Belum ada kertas kerja.
         </Empty>
       ) : (
-        <div className="fk-kk-list">
-          {list.map((k) => (
-            <div
-              className="fk-kk-card is-clickable"
-              key={k.id}
-              role="link"
-              tabIndex={0}
-              onClick={() => navigate(urlKk(k.id))}
-              onKeyDown={(e) => e.key === "Enter" && navigate(urlKk(k.id))}
-            >
-              <span className="fk-nomor">{k.nomor}</span>
-              <div className="fk-kk-card-body">
-                <div className="fk-lib-title fk-ellipsis">{ringkasTim(k.petugas)}</div>
-                <div className="fk-lib-sub fk-ellipsis">
-                  {k.jumlahData} data · {formatTimestamp(k.createdAt)}
+        <>
+          <div className="fk-filter" role="tablist" aria-label="Saring kertas kerja">
+            {FILTER_KK.map(([kunci, label]) => (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={filter === kunci}
+                key={kunci}
+                className={"fk-filter-btn" + (filter === kunci ? " is-on" : "") + (kunci === "kurang" ? " is-kurang" : "")}
+                onClick={() => pilihFilter(kunci)}
+              >
+                {label}
+                <span className="fk-filter-jumlah">{list.filter((k) => cocokFilterKk(k, kunci)).length}</span>
+              </button>
+            ))}
+          </div>
+          {tampil.length === 0 ? (
+            <Empty>
+              {filter === "kurang"
+                ? "Tidak ada kertas kerja dengan berkas tidak lengkap."
+                : "Tidak ada kertas kerja pada saringan ini."}
+            </Empty>
+          ) : (
+            <div className="fk-kk-list">
+              {tampil.map((k) => (
+                <div
+                  className="fk-kk-card is-clickable"
+                  key={k.id}
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => navigate(urlKk(k.id))}
+                  onKeyDown={(e) => e.key === "Enter" && navigate(urlKk(k.id))}
+                >
+                  <span className="fk-nomor">{k.nomor}</span>
+                  <div className="fk-kk-card-body">
+                    <div className="fk-lib-title fk-ellipsis">{ringkasTim(k.petugas)}</div>
+                    <div className="fk-lib-sub fk-ellipsis">
+                      {k.jumlahData} data · {formatTimestamp(k.createdAt)}
+                    </div>
+                  </div>
+                  <BerkasPill jumlah={k.jumlahTidakLengkap} />
+                  <StatusPill status={k.status} />
+                  {/* Aksi tambahan hanya di desktop; di HP semuanya ada di halaman kertas kerja. */}
+                  <div className="fk-kk-card-actions" onClick={(e) => e.stopPropagation()}>
+                    <button type="button" className="fk-mini" onClick={() => api.unduhExcel(k.id)}>
+                      Excel
+                    </button>
+                    <button type="button" className="fk-mini" onClick={() => api.unduhCsv(k.id)}>
+                      CSV
+                    </button>
+                    {admin && (
+                      <button type="button" className="fk-mini is-danger" onClick={() => hapus(k)}>
+                        Hapus
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <StatusPill status={k.status} />
-              {/* Aksi tambahan hanya di desktop; di HP semuanya ada di halaman kertas kerja. */}
-              <div className="fk-kk-card-actions" onClick={(e) => e.stopPropagation()}>
-                <button type="button" className="fk-mini" onClick={() => api.unduhExcel(k.id)}>
-                  Excel
-                </button>
-                <button type="button" className="fk-mini" onClick={() => api.unduhCsv(k.id)}>
-                  CSV
-                </button>
-                {admin && (
-                  <button type="button" className="fk-mini is-danger" onClick={() => hapus(k)}>
-                    Hapus
-                  </button>
-                )}
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </>
   );
@@ -238,6 +272,7 @@ export function DetailKertasKerja({ id }) {
   const [petugas, setPetugas] = useState([]);
   const [galatTim, setGalatTim] = useState("");
   const [sibuk, setSibuk] = useState(false);
+  const [hanyaKurang, setHanyaKurang] = useState(() => bacaFilterKk() === "kurang");
 
   const muat = useCallback(async () => {
     setLoading(true);
@@ -361,6 +396,13 @@ export function DetailKertasKerja({ id }) {
   const terisi = bank.filter((f) => jumlahPerForm.has(f.id)).length;
   const persen = bank.length ? Math.round((terisi / bank.length) * 100) : 0;
   const selesai = kk.status === "selesai";
+  const jumlahKurang = kk.entri.filter((e) => !e.berkasLengkap).length;
+  const saringKurang = hanyaKurang && jumlahKurang > 0;
+  const kelompokTampil = saringKurang
+    ? kelompok
+        .map((g) => ({ ...g, entri: g.entri.filter((e) => !e.berkasLengkap) }))
+        .filter((g) => g.entri.length)
+    : kelompok;
 
   return (
     <div className="fk-fill">
@@ -375,7 +417,10 @@ export function DetailKertasKerja({ id }) {
               Dibuat {formatTimestamp(kk.createdAt)} · {totalData} data
             </p>
           </div>
-          <StatusPill status={kk.status} />
+          <span className="fk-kk-pills">
+            <BerkasPill jumlah={jumlahKurang} />
+            <StatusPill status={kk.status} />
+          </span>
         </div>
 
         <div className="fk-maju">
@@ -491,11 +536,24 @@ export function DetailKertasKerja({ id }) {
         </div>
       )}
 
-      <div className="fk-bagian">Data terkumpul{totalData ? ` · ${totalData}` : ""}</div>
+      <div className="fk-bagian-baris">
+        <div className="fk-bagian">Data terkumpul{totalData ? ` · ${totalData}` : ""}</div>
+        {jumlahKurang > 0 && (
+          <button
+            type="button"
+            className={"fk-filter-btn is-kurang" + (saringKurang ? " is-on" : "")}
+            aria-pressed={saringKurang}
+            onClick={() => setHanyaKurang((v) => !v)}
+          >
+            Hanya berkas tidak lengkap
+            <span className="fk-filter-jumlah">{jumlahKurang}</span>
+          </button>
+        )}
+      </div>
       {totalData === 0 ? (
         <Empty>Belum ada data. Pilih salah satu formulir di atas untuk mulai mengisi.</Empty>
       ) : (
-        kelompok.map(({ formulir, entri }) => (
+        kelompokTampil.map(({ formulir, entri }) => (
           <div className="fk-baris-list" key={formulir.id}>
             <div className="fk-grup-judul">
               <span className="fk-grup-nama">{formulir.judul}</span>
@@ -532,6 +590,12 @@ export function DetailKertasKerja({ id }) {
                   <span className="fk-baris-teks">
                     <span className="fk-baris-judul">{judulEntri(formulir.pertanyaan, e.jawaban)}</span>
                     {ringkas.length > 0 && <span className="fk-baris-ket">{ringkas.join(" · ")}</span>}
+                    {!e.berkasLengkap && (
+                      <span className="fk-baris-kurang">
+                        <BerkasPill />
+                        {e.catatanBerkas && <span className="fk-baris-catatan">{e.catatanBerkas}</span>}
+                      </span>
+                    )}
                     {foto.length > 0 && (
                       <span className="fk-baris-foto">
                         {foto.slice(0, 4).map((f) => (
@@ -565,6 +629,7 @@ export function DetailKertasKerja({ id }) {
 /* ================= isi / ubah satu data ================= */
 
 const UMUR_FOTO_DRAF_MS = 20 * 3600 * 1000; // unggahan yang tak disimpan dibersihkan server setelah 24 jam
+const BERKAS_LENGKAP = { berkasLengkap: true, catatanBerkas: "" };
 
 /** Salin jawaban untuk disimpan sebagai draf: foto hanya yang sudah terunggah. */
 /**
@@ -609,6 +674,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
   const [answers, setAnswers] = useState({});
   // { [pertanyaanId]: true } untuk isian yang masih asli dari EPBB; hilang begitu petugas mengubahnya.
   const [dariEpbb, setDariEpbb] = useState({});
+  const [berkas, setBerkasState] = useState(BERKAS_LENGKAP);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -633,6 +699,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
     for (const q of f.pertanyaan) awal[q.id] = emptyValue(q.tipe);
     setAnswers(awal);
     setDariEpbb({});
+    setBerkasState(BERKAS_LENGKAP);
     setErrors({});
     berubah.current = false;
   }, []);
@@ -655,6 +722,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
           }
           setAnswers(awal);
           setDariEpbb(Object.fromEntries((e.dariEpbb || []).map((qid) => [qid, true])));
+          setBerkasState({ berkasLengkap: e.berkasLengkap !== false, catatanBerkas: e.catatanBerkas || "" });
         } else {
           const [form, kk] = await Promise.all([api.getFormulir(formulirId), api.getKertasKerja(kkId)]);
           if (batal) return;
@@ -688,14 +756,19 @@ export function IsiData({ kkId, formulirId, entriId }) {
       try {
         localStorage.setItem(
           kunciDraf,
-          JSON.stringify({ waktu: Date.now(), answers: jawabanUntukDraf(formulir.pertanyaan, answers), dariEpbb })
+          JSON.stringify({
+            waktu: Date.now(),
+            answers: jawabanUntukDraf(formulir.pertanyaan, answers),
+            dariEpbb,
+            berkas,
+          })
         );
       } catch {
         /* penyimpanan penuh / tidak tersedia */
       }
     }, 500);
     return () => clearTimeout(t);
-  }, [answers, dariEpbb, formulir, draf, kunciDraf]);
+  }, [answers, dariEpbb, berkas, formulir, draf, kunciDraf]);
 
   // Konfirmasi sebelum meninggalkan layar bila ada isian yang belum disimpan.
   useEffect(() => pasangPenjaga(() => berubah.current), []);
@@ -712,6 +785,9 @@ export function IsiData({ kkId, formulirId, entriId }) {
       return hasil;
     });
     setDariEpbb(draf.dariEpbb && typeof draf.dariEpbb === "object" ? draf.dariEpbb : {});
+    if (draf.berkas && typeof draf.berkas.berkasLengkap === "boolean") {
+      setBerkasState({ berkasLengkap: draf.berkas.berkasLengkap, catatanBerkas: String(draf.berkas.catatanBerkas || "") });
+    }
     berubah.current = true;
     setDraf(null);
     toast(fotoKedaluwarsa ? "Draf dipulihkan. Foto pada draf lama perlu diambil ulang." : "Isian draf dipulihkan.");
@@ -740,6 +816,11 @@ export function IsiData({ kkId, formulirId, entriId }) {
       delete next[qid];
       return next;
     });
+  };
+
+  const setBerkas = (ubah) => {
+    berubah.current = true;
+    setBerkasState((b) => ({ ...b, ...ubah }));
   };
 
   // Pertanyaan yang diatur admin untuk diisi dari hasil cek NOP (EPBB).
@@ -795,8 +876,8 @@ export function IsiData({ kkId, formulirId, entriId }) {
       const payload = buildPayload(pertanyaan, answers);
       const idDariEpbb = pertanyaan.filter((q) => dariEpbb[q.id]).map((q) => q.id);
       const hasil = entriId
-        ? await api.updateEntri(entriId, payload, idDariEpbb)
-        : await api.createEntri(kkId, formulirId, payload, idDariEpbb);
+        ? await api.updateEntri(entriId, payload, idDariEpbb, berkas)
+        : await api.createEntri(kkId, formulirId, payload, idDariEpbb, berkas);
       berubah.current = false;
       hapusDraf();
       toast(`Data "${judulEntri(hasil.formulir.pertanyaan, hasil.jawaban)}" tersimpan.`);
@@ -933,6 +1014,36 @@ export function IsiData({ kkId, formulirId, entriId }) {
             </div>
           )
         )}
+      </section>
+
+      <section className={"fk-section fk-berkas" + (berkas.berkasLengkap ? "" : " is-kurang")}>
+        <div className="fk-field">
+          <span className="fk-q-name">Kelengkapan berkas</span>
+          <p className="fk-q-ket">
+            Tandai bila dokumen pendukung belum lengkap, supaya data ini mudah dicari lagi lewat saringan
+            "Berkas tidak lengkap".
+          </p>
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={!berkas.berkasLengkap}
+            className={"fk-choice" + (berkas.berkasLengkap ? "" : " is-on")}
+            onClick={() => setBerkas({ berkasLengkap: !berkas.berkasLengkap })}
+          >
+            <span className="fk-ind fk-ind-check">{!berkas.berkasLengkap && <CheckIcon />}</span>
+            <span>Berkas tidak lengkap</span>
+          </button>
+          {!berkas.berkasLengkap && (
+            <textarea
+              className="fk-input fk-textarea fk-berkas-catatan"
+              placeholder="Apa yang masih kurang? Mis. fotokopi KTP, SPPT tahun lalu"
+              maxLength={500}
+              value={berkas.catatanBerkas}
+              onChange={(e) => setBerkas({ catatanBerkas: e.target.value })}
+              aria-label="Catatan kekurangan berkas"
+            />
+          )}
+        </div>
       </section>
 
       {entriId &&

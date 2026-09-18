@@ -83,7 +83,18 @@ function kolomKertasKerja(kk) {
  */
 function susunEkspor(data, formulir, { baseUrl, timezone }) {
   const kolom = kolomPertanyaan(formulir, baseUrl);
-  const header = ["Nomor", "Status", "Petugas", "NIP", "Formulir", "No. data", "Waktu input", ...kolom.map((k) => k.judul)];
+  const header = [
+    "Nomor",
+    "Status",
+    "Petugas",
+    "NIP",
+    "Formulir",
+    "No. data",
+    "Waktu input",
+    "Kelengkapan berkas",
+    "Catatan kekurangan berkas",
+    ...kolom.map((k) => k.judul),
+  ];
   const judulForm = new Map(formulir.map((f) => [f.id, f.judul]));
 
   // "No. data" dihitung per kertas kerja per formulir.
@@ -101,6 +112,8 @@ function susunEkspor(data, formulir, { baseUrl, timezone }) {
       teks(judulForm.get(e.formulirId)),
       { teks: String(ke), angka: ke },
       teks(formatWaktuID(e.createdAt, timezone)),
+      teks(e.berkasLengkap === false ? "Tidak lengkap" : "Lengkap"),
+      teks(e.catatanBerkas),
       ...kolom.map((k) => (k.f.id === e.formulirId ? k.sel(jawaban) : teks(""))),
     ];
   });

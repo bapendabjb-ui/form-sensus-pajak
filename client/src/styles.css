@@ -68,6 +68,10 @@ body {
 .fk-stat{background:var(--surface); border:1px solid var(--line); border-radius:13px; padding:16px 18px;}
 .fk-stat-num{font-family:'Space Grotesk',sans-serif; font-size:28px; font-weight:700; color:var(--brand-dark); line-height:1;}
 .fk-stat-label{font-size:12.5px; color:var(--muted); margin-top:6px;}
+.fk-stat.is-clickable{text-align:left; font:inherit; color:inherit; cursor:pointer; transition:.12s;}
+.fk-stat.is-clickable:hover{border-color:var(--brand);}
+.fk-stat.is-kurang{border-color:#EBC2BD; background:#FDF5F4;}
+.fk-stat.is-kurang .fk-stat-num{color:#A5312A;}
 .fk-dash-actions{display:flex; gap:10px; flex-wrap:wrap;}
 
 /* ================= daftar kertas kerja ================= */
@@ -84,6 +88,17 @@ body {
 .fk-pill{font-size:11.5px; font-weight:600; padding:4px 10px; border-radius:20px; white-space:nowrap;}
 .fk-pill.is-draft{background:#FBF0DC; color:var(--amber);}
 .fk-pill.is-done{background:var(--brand-tint); color:var(--brand-dark);}
+.fk-pill.is-kurang{background:#FBE9E7; color:#A5312A;}
+
+/* saringan daftar (kertas kerja, data berkas tidak lengkap) */
+.fk-filter{display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; margin-bottom:10px;}
+.fk-filter::-webkit-scrollbar{display:none;}
+.fk-filter-btn{display:inline-flex; align-items:center; gap:7px; flex:none; border:1px solid var(--line); background:var(--surface); color:var(--muted); font-size:13px; font-weight:500; padding:7px 12px; border-radius:20px; white-space:nowrap;}
+.fk-filter-btn:hover{border-color:var(--brand); color:var(--brand-dark);}
+.fk-filter-btn.is-on{background:var(--brand-tint); border-color:var(--brand); color:var(--brand-dark); font-weight:600;}
+.fk-filter-btn.is-kurang.is-on{background:#FBE9E7; border-color:#D98A83; color:#A5312A;}
+.fk-filter-jumlah{font-size:11.5px; font-weight:700; background:#F2F5F7; color:var(--muted); border-radius:20px; padding:1px 7px;}
+.fk-filter-btn.is-on .fk-filter-jumlah{background:rgba(255,255,255,.75); color:inherit;}
 .fk-kk-card-actions{display:flex; gap:5px; flex-wrap:wrap;}
 .fk-mini{border:1px solid var(--line); background:var(--surface); color:var(--muted); font-size:12px; font-weight:500; padding:5px 10px; border-radius:8px;}
 .fk-mini:hover{border-color:var(--brand); color:var(--brand);}
@@ -114,6 +129,7 @@ body {
 /* ================= detail kertas kerja ================= */
 .fk-fill{display:flex; flex-direction:column; gap:16px;}
 .fk-kk-detail-head{display:flex; align-items:center; gap:14px;}
+.fk-kk-pills{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
 .fk-kk-detail-meta{flex:1; min-width:0;}
 .fk-kk-title-top{font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:600; margin:0 0 3px;}
 
@@ -413,6 +429,16 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-baris-foto{display:flex; align-items:center; gap:4px; margin-top:6px;}
 .fk-baris-foto img{width:40px; height:40px; object-fit:cover; border-radius:7px; border:1px solid var(--line-soft); background:#E6EAEF;}
 .fk-baris-lebih{font-size:12px; font-weight:600; color:var(--muted); padding-left:4px;}
+.fk-baris-kurang{display:flex; align-items:center; gap:8px; margin-top:5px; min-width:0;}
+.fk-baris-catatan{font-size:12.5px; color:#A5312A; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;}
+.fk-bagian-baris{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin:8px 2px -6px;}
+.fk-bagian-baris .fk-bagian{margin:0;}
+.fk-bagian-baris .fk-filter-btn{padding:5px 11px; font-size:12.5px;}
+.fk-berkas.is-kurang{border-color:#EBC2BD; background:#FDF5F4;}
+.fk-berkas .fk-field{border-bottom:0;}
+.fk-berkas.is-kurang .fk-choice.is-on{border-color:#D98A83; background:#FBE9E7;}
+.fk-berkas.is-kurang .fk-choice.is-on .fk-ind{border-color:#A5312A; color:#A5312A;}
+.fk-berkas-catatan{margin-top:10px;}
 .fk-grup-judul{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:11px 16px; background:#F6F8FA; border-bottom:1px solid var(--line-soft); font-size:13.5px; font-weight:600;}
 .fk-grup-nama{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .fk-grup-aksi{display:flex; align-items:center; gap:5px; flex:none;}
@@ -715,7 +741,7 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   /* nomor di kiri (dua baris), judul lalu status di kanan — teks tidak terhimpit pill */
   .fk-kk-detail-head{display:grid; grid-template-columns:auto 1fr; column-gap:12px; row-gap:6px; align-items:center;}
   .fk-kk-detail-head .fk-nomor{grid-row:span 2;}
-  .fk-kk-detail-head .fk-pill{grid-column:2; justify-self:start;}
+  .fk-kk-detail-head .fk-kk-pills{grid-column:2; justify-self:start;}
   .fk-nomor.is-big{font-size:17px; padding:8px 12px;}
   .fk-kk-title-top{font-size:19px;}
   .fk-maju-teks{font-size:13px;}

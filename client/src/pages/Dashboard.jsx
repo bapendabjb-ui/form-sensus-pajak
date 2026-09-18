@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../api.js";
-import { Panel, PageHead, Loading, ErrorBox, StatusPill } from "../components/Ui.jsx";
+import { Panel, PageHead, Loading, ErrorBox, StatusPill, BerkasPill } from "../components/Ui.jsx";
 import { navigate } from "../lib/router.js";
+import { simpanFilterKk } from "../lib/filterKk.js";
 
 /** "Andi Saputra" atau "Andi Saputra +2" - cukup pendek untuk baris keterangan. */
 const ringkasTim = (petugas = []) => {
@@ -31,10 +32,18 @@ export default function Dashboard() {
     muat();
   }, [muat]);
 
+  /** Buka daftar kertas kerja dengan saringan tertentu. */
+  const lihat = (filter) => () => {
+    simpanFilterKk(filter);
+    navigate("/kertas-kerja");
+  };
+
   const kartu = stats
     ? [
-        [stats.totalKertasKerja, "Kertas kerja"],
-        [stats.selesai, "Selesai"],
+        [stats.totalKertasKerja, "Kertas kerja", lihat("semua")],
+        [stats.draft, "Draft", lihat("draft")],
+        [stats.selesai, "Selesai", lihat("selesai")],
+        [stats.tidakLengkap, "Data Berkas Tidak Lengkap", lihat("kurang"), "is-kurang"],
         [stats.totalData, "Data Terkumpul"],
         [stats.totalFoto, "Foto Terlampir"],
         [stats.totalFormulir, "Formulir"],
@@ -60,13 +69,25 @@ export default function Dashboard() {
             </button>
           </div>
 
-          <div className="fk-stats is-6">
-            {kartu.map(([angka, label]) => (
-              <div className="fk-stat" key={label}>
-                <div className="fk-stat-num">{Number(angka).toLocaleString("id-ID")}</div>
-                <div className="fk-stat-label">{label}</div>
-              </div>
-            ))}
+          <div className="fk-stats">
+            {kartu.map(([angka, label, onClick, kelas = ""]) => {
+              const isi = (
+                <>
+                  <div className="fk-stat-num">{Number(angka).toLocaleString("id-ID")}</div>
+                  <div className="fk-stat-label">{label}</div>
+                </>
+              );
+              const cls = `fk-stat ${angka > 0 ? kelas : ""}`.trim();
+              return onClick ? (
+                <button type="button" className={cls + " is-clickable"} key={label} onClick={onClick}>
+                  {isi}
+                </button>
+              ) : (
+                <div className={cls} key={label}>
+                  {isi}
+                </div>
+              );
+            })}
           </div>
 
           <Panel title="Kertas Kerja Terbaru">
@@ -86,6 +107,7 @@ export default function Dashboard() {
                       <div className="fk-lib-title fk-ellipsis">{ringkasTim(k.petugas)}</div>
                       <div className="fk-lib-sub">{k.jumlahData} data</div>
                     </div>
+                    <BerkasPill jumlah={k.jumlahTidakLengkap} />
                     <StatusPill status={k.status} />
                   </button>
                 ))}
