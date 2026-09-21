@@ -44,8 +44,6 @@ export default function Dashboard() {
         [stats.draft, "Draft", lihat("draft")],
         [stats.selesai, "Selesai", lihat("selesai")],
         [stats.tidakLengkap, "Data Berkas Tidak Lengkap", lihat("kurang"), "is-kurang"],
-        [stats.totalData, "Data Terkumpul"],
-        [stats.totalFoto, "Foto Terlampir"],
       ]
     : [];
 

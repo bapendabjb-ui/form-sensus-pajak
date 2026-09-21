@@ -13,13 +13,11 @@ const router = express.Router();
 router.get(
   "/stats",
   wrap(async (_req, res) => {
-    const [totalKertasKerja, selesai, totalData, tidakLengkap, totalFoto, rekapPetugas, terbaru] =
+    const [totalKertasKerja, selesai, tidakLengkap, rekapPetugas, terbaru] =
       await Promise.all([
         prisma.kertasKerja.count(),
         prisma.kertasKerja.count({ where: { status: "selesai" } }),
-        prisma.entri.count(),
         prisma.entri.count({ where: { berkasLengkap: false } }),
-        prisma.foto.count({ where: { entriId: { not: null } } }),
         peringkatPetugas(5),
         prisma.kertasKerja.findMany({
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -36,9 +34,7 @@ router.get(
       totalKertasKerja,
       selesai,
       draft: totalKertasKerja - selesai,
-      totalData,
       tidakLengkap,
-      totalFoto,
       rekapPetugas,
       terbaru: terbaru.map((k) => ({
         id: k.id,

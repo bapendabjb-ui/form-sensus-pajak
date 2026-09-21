@@ -6,7 +6,7 @@ import { Panel, PageHead, Loading, ErrorBox, KunciAdmin } from "../components/Ui
 import { useAdmin } from "../lib/admin.js";
 import { kapitalTiapKata, ubahDengan } from "../lib/kapital.js";
 
-const angka = (n) => Number(n || 0).toLocaleString("id-ID");
+const formatAngka = (n) => Number(n || 0).toLocaleString("id-ID");
 
 /**
  * Rekap hasil kerja seorang petugas. Petugas yang belum pernah masuk tim
@@ -16,11 +16,14 @@ const angka = (n) => Number(n || 0).toLocaleString("id-ID");
 function RekapPetugas({ data = 0, kertasKerja = 0 }) {
   if (!kertasKerja) return <div className="fk-rekap is-kosong">Belum ditugaskan</div>;
   return (
-    <div className="fk-rekap" title={`${angka(data)} data dari ${angka(kertasKerja)} kertas kerja`}>
-      <span className="fk-rekap-num">{angka(data)}</span>
+    <div
+      className="fk-rekap"
+      title={`${formatAngka(data)} data dari ${formatAngka(kertasKerja)} kertas kerja`}
+    >
+      <span className="fk-rekap-num">{formatAngka(data)}</span>
       <span className="fk-rekap-label">data</span>
       <span className="fk-rekap-sep">·</span>
-      <span className="fk-rekap-num">{angka(kertasKerja)}</span>
+      <span className="fk-rekap-num">{formatAngka(kertasKerja)}</span>
       <span className="fk-rekap-label">kertas kerja</span>
     </div>
   );
@@ -156,7 +159,7 @@ export default function PetugasPage() {
         {list.length > 0 && (
           <input
             type="search"
-            className="fk-input fk-petugas-cari"
+            className="fk-input fk-cari"
             placeholder="Cari nama atau NIP..."
             value={cari}
             onChange={(e) => setCari(e.target.value)}

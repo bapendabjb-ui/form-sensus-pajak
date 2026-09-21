@@ -10,7 +10,7 @@ import { nilaiDariEpbb } from "../lib/epbb.js";
 import { judulEntri, ringkasEntri, fotoEntri } from "../lib/ringkas.js";
 import { formatTimestamp } from "../lib/format.js";
 import { IkonFormulir, IkonEpbb, CheckIcon } from "../components/Icons.jsx";
-import { FILTER_KK, bacaFilterKk, simpanFilterKk, cocokFilterKk } from "../lib/filterKk.js";
+import { FILTER_KK, bacaFilterKk, simpanFilterKk, cocokFilterKk, cocokCariKk } from "../lib/filterKk.js";
 import { useAdmin } from "../lib/admin.js";
 import { navigate, kembali, pasangPenjaga } from "../lib/router.js";
 
@@ -33,6 +33,7 @@ export function DaftarKertasKerja() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState(bacaFilterKk);
+  const [cari, setCari] = useState("");
 
   const pilihFilter = (f) => {
     setFilter(f);
@@ -75,7 +76,11 @@ export function DaftarKertasKerja() {
   };
 
   const buat = () => navigate("/kertas-kerja/baru");
-  const tampil = list.filter((k) => cocokFilterKk(k, filter));
+  // Pencarian dulu, baru saringan: angka pada tombol saringan ikut menyusut
+  // mengikuti kata kunci, supaya tidak menjanjikan hasil yang tak akan muncul.
+  const dicari = list.filter((k) => cocokCariKk(k, cari));
+  const tampil = dicari.filter((k) => cocokFilterKk(k, filter));
+  const kata = cari.trim();
 
   return (
     <>
@@ -101,6 +106,15 @@ export function DaftarKertasKerja() {
         </Empty>
       ) : (
         <>
+          <input
+            type="search"
+            className="fk-input fk-cari"
+            placeholder="Cari nomor, nama petugas, atau NIP..."
+            value={cari}
+            onChange={(e) => setCari(e.target.value)}
+            enterKeyHint="search"
+            aria-label="Cari kertas kerja"
+          />
           <div className="fk-filter" role="tablist" aria-label="Saring kertas kerja">
             {FILTER_KK.map(([kunci, label]) => (
               <button
@@ -112,15 +126,21 @@ export function DaftarKertasKerja() {
                 onClick={() => pilihFilter(kunci)}
               >
                 {label}
-                <span className="fk-filter-jumlah">{list.filter((k) => cocokFilterKk(k, kunci)).length}</span>
+                <span className="fk-filter-jumlah">{dicari.filter((k) => cocokFilterKk(k, kunci)).length}</span>
               </button>
             ))}
           </div>
+          {/* Pesan kosong membedakan sebabnya: kata kunci tidak menemukan apa pun,
+              atau kata kunci menemukan tetapi saringannya yang menyisihkan semua. */}
           {tampil.length === 0 ? (
             <Empty>
-              {filter === "kurang"
-                ? "Tidak ada kertas kerja dengan berkas tidak lengkap."
-                : "Tidak ada kertas kerja pada saringan ini."}
+              {kata && dicari.length === 0
+                ? `Tidak ada kertas kerja yang cocok dengan “${kata}”.`
+                : kata
+                  ? `Tidak ada hasil “${kata}” pada saringan ini.`
+                  : filter === "kurang"
+                    ? "Tidak ada kertas kerja dengan berkas tidak lengkap."
+                    : "Tidak ada kertas kerja pada saringan ini."}
             </Empty>
           ) : (
             <div className="fk-kk-list">
