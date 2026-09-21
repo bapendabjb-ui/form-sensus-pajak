@@ -208,7 +208,23 @@ export const deleteFormulir = (id, force = false) =>
 
 /* ---------- kertas kerja ---------- */
 
-export const listKertasKerja = () => request("/kertas-kerja");
+/**
+ * Daftar kertas kerja, dipaginasi di server.
+ *
+ * Pencarian & penyaringan ikut dikirim ke server: daftar ini tumbuh terus, dan
+ * menyaring di klien hanya akan menyaring halaman yang kebetulan sudah dimuat.
+ *
+ * @returns {Promise<{ baris, hal, per, total, adaLagi, jumlah }>}
+ *   `jumlah` = angka untuk tiap tombol saringan, dihitung atas hasil pencarian.
+ */
+export function listKertasKerja({ hal = 1, per = 20, cari = "", saring = "semua" } = {}) {
+  const q = new URLSearchParams({ hal: String(hal), per: String(per), saring });
+  if (cari) q.set("cari", cari);
+  return request(`/kertas-kerja?${q}`);
+}
+
+/** Daftar ringkas untuk dropdown halaman Ekspor (tanpa paginasi). Khusus admin. */
+export const pilihanKertasKerja = () => request("/kertas-kerja/pilihan", { auth: true });
 export const nomorBerikutnya = () => request("/kertas-kerja/nomor-berikutnya");
 export const getKertasKerja = (id) => request(`/kertas-kerja/${id}`);
 export const createKertasKerja = (petugasIds) =>

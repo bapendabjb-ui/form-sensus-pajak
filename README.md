@@ -380,6 +380,7 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `answers.test.js`      | Arti "kosong" tiap tipe pertanyaan (sisi server sebagai acuan)         |
 | `imporPetugas.test.js` | Pembacaan .csv/.xlsx daftar petugas & penomoran barisnya               |
 | `peta.test.js`         | Titik tanpa koordinat tidak pernah masuk peta                          |
+| `kertasKerja.test.js`  | Batas paginasi daftar, serta pencarian & penyaringan yang pindah ke server |
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) menjalankan lint, tes,
 build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
@@ -759,7 +760,8 @@ tanpa itu jawabannya `401 { error, kode: "akses" }`.
 
 | Method   | Endpoint                          | Keterangan                                                |
 | -------- | --------------------------------- | --------------------------------------------------------- |
-| `GET`    | `/kertas-kerja`                   | Daftar + tim petugas + `jumlahData`                       |
+| `GET`    | `/kertas-kerja`                   | Daftar **berpaginasi** — lihat di bawah tabel             |
+| `GET`    | `/kertas-kerja/pilihan`           | 🔒 Daftar ringkas tanpa paginasi untuk dropdown halaman Ekspor |
 | `GET`    | `/kertas-kerja/nomor-berikutnya`  | Pratinjau nomor + `petugasMaks` (8)                       |
 | `POST`   | `/kertas-kerja`                   | `{ petugasIds: [1..8 id] }` → nomor otomatis              |
 | `GET`    | `/kertas-kerja/:id`               | Tim petugas, seluruh entri, definisi formulir yang diisi  |
@@ -769,6 +771,43 @@ tanpa itu jawabannya `401 { error, kode: "akses" }`.
 | `DELETE` | `/kertas-kerja/:id`               | 🔒 Hapus beserta seluruh data & foto                      |
 | `GET`    | `/kertas-kerja/:id/export`        | Unduh CSV; `?formulir=<id>` = hanya satu formulir         |
 | `GET`    | `/kertas-kerja/:id/export/xlsx`   | Unduh Excel (.xlsx), isi sama dengan CSV; `?formulir=<id>` idem |
+
+**`GET /kertas-kerja?hal=1&per=20&cari=&saring=semua`**
+
+```json
+{
+  "baris": [ { "id": 7, "nomor": "00007", "status": "draft", "petugas": [], "jumlahData": 3, "jumlahTidakLengkap": 1 } ],
+  "hal": 1, "per": 20, "total": 137, "adaLagi": true,
+  "jumlah": { "semua": 137, "draft": 40, "selesai": 97, "kurang": 12 }
+}
+```
+
+| Parameter | Bawaan  | Keterangan                                                                 |
+| --------- | ------- | -------------------------------------------------------------------------- |
+| `hal`     | `1`     | Halaman, mulai dari 1                                                       |
+| `per`     | `20`    | Baris per halaman, **dibatasi 100**                                         |
+| `cari`    | —       | Penggalan nomor. Karakter non-angka dibuang, jadi `4` menemukan `00004`     |
+| `saring`  | `semua` | `semua` · `draft` · `selesai` · `kurang` (punya data berkas tidak lengkap)  |
+
+Nilai yang tidak masuk akal dibulatkan ke batasnya, bukan ditolak: `per=100000`
+menjadi 100, `hal=0` menjadi 1, dan saringan yang tidak dikenal menjadi `semua`.
+
+Daftar ini dipaginasi karena tumbuh terus sepanjang umur aplikasi dan tidak
+pernah menyusut. Karena itu **pencarian, penyaringan, dan angka pada tombol
+saringan ikut dikerjakan server** — kalau ditinggal di klien, ketiganya hanya
+akan bekerja atas halaman yang kebetulan sedang dimuat. `jumlah` dihitung atas
+hasil *pencarian*, bukan seluruh tabel, supaya tombol saringan tidak
+menjanjikan hasil yang tak akan muncul.
+
+Di layar, halaman berikutnya diambil lewat tombol **Muat lebih banyak** yang
+menambahkan baris ke daftar yang sudah tampil; kotak pencarian menunggu 300 ms
+setelah ketikan berhenti sebelum memanggil server.
+
+Dropdown di halaman **Ekspor** sengaja tidak dipaginasi (`/kertas-kerja/pilihan`):
+dropdown-nya sudah punya kotak pencarian sendiri, dan memaginasi daftar pilihan
+justru menyembunyikan kertas kerja yang sedang dicari. Barisnya dibuat seringan
+mungkin sebagai gantinya — tanpa status dan tanpa hitungan berkas tidak lengkap,
+yang keduanya tidak dipakai di layar itu.
 
 ### Data (entri)
 

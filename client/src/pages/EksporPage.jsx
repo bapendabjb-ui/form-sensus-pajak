@@ -60,7 +60,7 @@ export default function EksporPage({ admin, onAuthChanged }) {
     setLoading(true);
     setError("");
     try {
-      const [kk, formulir] = await Promise.all([api.listKertasKerja(), api.listFormulir()]);
+      const [kk, formulir] = await Promise.all([api.pilihanKertasKerja(), api.listFormulir()]);
       setKkList(kk);
       setFormList(formulir);
     } catch (e) {

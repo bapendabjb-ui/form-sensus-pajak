@@ -99,16 +99,124 @@ const bentukRingkas = (k, tidakLengkap) => ({
 
 /* ---------- daftar & penomoran ---------- */
 
-/** GET /api/kertas-kerja -> daftar kertas kerja. */
+/** Banyak baris per halaman bila klien tidak menentukan, dan batas atasnya. */
+const PER_HALAMAN = 20;
+const PER_HALAMAN_MAKS = 100;
+
+const SARINGAN = new Set(["semua", "draft", "selesai", "kurang"]);
+
+/**
+ * Syarat WHERE dari kata kunci pencarian.
+ *
+ * Nomor kertas kerja hanya angka, jadi karakter lain dibuang lebih dulu -
+ * mengetik "4" cukup untuk menemukan "00004" tanpa perlu menghitung nolnya,
+ * sama seperti pencarian sebelumnya yang berjalan di sisi klien.
+ */
+function syaratCari(cari) {
+  const q = String(cari || "").replace(/\D/g, "");
+  return q ? { nomor: { contains: q } } : {};
+}
+
+/** Syarat WHERE dari saringan status / kelengkapan berkas. */
+function syaratSaring(saring) {
+  if (saring === "draft" || saring === "selesai") return { status: saring };
+  // "Berkas tidak lengkap" bukan kolom kertas kerja, melainkan sifat entri di
+  // dalamnya. EXISTS jauh lebih murah daripada menghitung seluruhnya hanya
+  // untuk tahu ada-tidaknya, dan entri_berkas_lengkap_idx sudah menopangnya.
+  if (saring === "kurang") return { entri: { some: { berkasLengkap: false } } };
+  return {};
+}
+
+/**
+ * GET /api/kertas-kerja?hal=1&per=20&cari=&saring=semua
+ *   -> { baris, hal, per, total, adaLagi, jumlah: { semua, draft, selesai, kurang } }
+ *
+ * Dipaginasi karena daftar ini bertambah terus sepanjang umur aplikasi dan
+ * tidak pernah menyusut. Pencarian, penyaringan, dan angka pada tombol saringan
+ * ikut pindah ke server - kalau ditinggal di klien, ketiganya hanya akan
+ * bekerja atas halaman yang kebetulan sedang dimuat.
+ *
+ * Angka pada tombol saringan dihitung atas hasil PENCARIAN, bukan seluruh
+ * tabel, supaya tombol tidak menjanjikan hasil yang tak akan muncul.
+ */
+/**
+ * Baca hal / per / saring dari query string, dengan pembulatan ke batas yang
+ * masuk akal. Nilai ngawur (huruf, negatif, 10.000) tidak boleh membuat server
+ * menarik seluruh tabel atau melempar galat - cukup dikembalikan ke batasnya.
+ */
+function bacaPaginasi(query = {}) {
+  const halMentah = Math.floor(Number(query.hal));
+  const perMentah = Math.floor(Number(query.per));
+  return {
+    hal: Number.isFinite(halMentah) && halMentah > 0 ? halMentah : 1,
+    per: Number.isFinite(perMentah) && perMentah > 0 ? Math.min(perMentah, PER_HALAMAN_MAKS) : PER_HALAMAN,
+    saring: SARINGAN.has(query.saring) ? query.saring : "semua",
+  };
+}
+
 router.get(
   "/",
+  wrap(async (req, res) => {
+    const { hal, per, saring } = bacaPaginasi(req.query);
+
+    const cari = syaratCari(req.query.cari);
+    const where = { ...cari, ...syaratSaring(saring) };
+
+    const hitung = (tambahan) => prisma.kertasKerja.count({ where: { ...cari, ...tambahan } });
+
+    const [list, total, semua, draft, selesai, kurang] = await Promise.all([
+      prisma.kertasKerja.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip: (hal - 1) * per,
+        take: per,
+        include: { ...includeTim, _count: { select: { entri: true } } },
+      }),
+      prisma.kertasKerja.count({ where }),
+      hitung({}),
+      hitung(syaratSaring("draft")),
+      hitung(syaratSaring("selesai")),
+      hitung(syaratSaring("kurang")),
+    ]);
+
+    const tidakLengkap = await hitungTidakLengkap(list.map((k) => k.id));
+
+    res.json({
+      baris: list.map((k) => bentukRingkas(k, tidakLengkap)),
+      hal,
+      per,
+      total,
+      adaLagi: hal * per < total,
+      jumlah: { semua, draft, selesai, kurang },
+    });
+  })
+);
+
+/**
+ * GET /api/kertas-kerja/pilihan -> [{ id, nomor, jumlahData, petugas }]
+ *
+ * Isi dropdown halaman Ekspor. Sengaja tidak dipaginasi: dropdown-nya sudah
+ * punya kotak pencarian sendiri, dan memaginasi daftar pilihan hanya akan
+ * menyembunyikan kertas kerja yang justru sedang dicari. Barisnya dibuat
+ * seringan mungkin sebagai gantinya - tanpa status dan tanpa hitungan berkas
+ * tidak lengkap, yang keduanya tidak dipakai di layar itu.
+ */
+router.get(
+  "/pilihan",
+  requireAdmin,
   wrap(async (_req, res) => {
     const list = await prisma.kertasKerja.findMany({
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       include: { ...includeTim, _count: { select: { entri: true } } },
     });
-    const tidakLengkap = await hitungTidakLengkap(list.map((k) => k.id));
-    res.json(list.map((k) => bentukRingkas(k, tidakLengkap)));
+    res.json(
+      list.map((k) => ({
+        id: k.id,
+        nomor: k.nomor,
+        jumlahData: k._count.entri,
+        petugas: bentukTim(k.petugas),
+      }))
+    );
   })
 );
 
@@ -316,3 +424,9 @@ router.get(
 );
 
 module.exports = router;
+
+// Diekspor untuk diuji terpisah: ketiganya murni dan menentukan baris mana yang
+// ikut terkirim, sementara query di atas perlu database.
+module.exports.bacaPaginasi = bacaPaginasi;
+module.exports.syaratCari = syaratCari;
+module.exports.syaratSaring = syaratSaring;
