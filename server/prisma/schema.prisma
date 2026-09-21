@@ -181,6 +181,8 @@ model Entri {
   @@index([kertasKerjaId], map: "entri_kertas_kerja_id_idx")
   @@index([formulirId], map: "entri_formulir_id_idx")
   @@index([berkasLengkap], map: "entri_berkas_lengkap_idx")
+  /// Peta admin menyaring entri yang punya koordinat rekaman.
+  @@index([rekamLat], map: "entri_rekam_lat_idx")
   @@map("entri")
 }
 
