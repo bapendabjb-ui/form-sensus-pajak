@@ -254,6 +254,18 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-lib-row.is-sel{border-color:var(--brand); background:var(--brand-tint);}
 .fk-lib-row.is-editing{cursor:default; border-color:var(--brand);}
 .fk-lib-row > div:first-child{min-width:0;}
+
+/* Rekap hasil kerja petugas: angka menonjol, satuannya menyusul kecil.
+   Didorong ke kanan supaya sejajar antarbaris walau panjang nama berbeda. */
+.fk-rekap{display:flex; align-items:baseline; gap:4px; margin-left:auto; flex:none; white-space:nowrap; font-size:12px; color:var(--muted);}
+.fk-rekap-num{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; color:var(--ink);}
+.fk-rekap-sep{color:var(--line); padding:0 2px;}
+.fk-rekap.is-kosong{font-size:11.5px; color:var(--faint); font-style:italic;}
+/* Baris rekap di dashboard hanya dibaca, bukan tombol. */
+.fk-rekap-row{cursor:default;}
+.fk-rekap-row:hover{border-color:var(--line);}
+.fk-rekap-row > div{min-width:0;}
+.fk-peringkat{width:22px; height:22px; border-radius:50%; background:#E6EAEF; color:var(--muted); font-size:11.5px; font-weight:700; display:grid; place-items:center; flex:none;}
 /* Isi baris bank formulir — melebar mengisi sisa ruang di samping pegangan seret. */
 .fk-lib-main{flex:1; min-width:0;}
 
@@ -789,6 +801,10 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-lib-row{padding:14px; gap:8px; flex-wrap:wrap;}
   .fk-lib-row > div:first-child{flex:1 1 60%;}
   .fk-lib-main{flex:1 1 60%;}
+  /* Rekap turun ke barisnya sendiri di bawah nama: berdampingan dengan tombol
+     Ubah/Hapus angkanya jadi terlalu sempit untuk dibaca sekilas. */
+  .fk-rekap{margin-left:0; flex-basis:100%; order:3;}
+  .fk-rekap-row .fk-rekap{flex-basis:auto; margin-left:auto; order:0;}
   .fk-login{padding:4px 0;}
   .fk-login-card{padding:22px 18px;}
 

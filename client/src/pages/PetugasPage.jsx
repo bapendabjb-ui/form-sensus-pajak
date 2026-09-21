@@ -6,6 +6,26 @@ import { Panel, PageHead, Loading, ErrorBox, KunciAdmin } from "../components/Ui
 import { useAdmin } from "../lib/admin.js";
 import { kapitalTiapKata, ubahDengan } from "../lib/kapital.js";
 
+const angka = (n) => Number(n || 0).toLocaleString("id-ID");
+
+/**
+ * Rekap hasil kerja seorang petugas. Petugas yang belum pernah masuk tim
+ * ditandai jelas, bukan ditampilkan sebagai "0 data" yang mudah terbaca
+ * sebagai kegagalan mengisi.
+ */
+function RekapPetugas({ data = 0, kertasKerja = 0 }) {
+  if (!kertasKerja) return <div className="fk-rekap is-kosong">Belum ditugaskan</div>;
+  return (
+    <div className="fk-rekap" title={`${angka(data)} data dari ${angka(kertasKerja)} kertas kerja`}>
+      <span className="fk-rekap-num">{angka(data)}</span>
+      <span className="fk-rekap-label">data</span>
+      <span className="fk-rekap-sep">·</span>
+      <span className="fk-rekap-num">{angka(kertasKerja)}</span>
+      <span className="fk-rekap-label">kertas kerja</span>
+    </div>
+  );
+}
+
 export default function PetugasPage() {
   const toast = useToast();
   const { konfirmasi } = useDialog();
@@ -184,6 +204,7 @@ export default function PetugasPage() {
                     <div className="fk-lib-title">{p.nama}</div>
                     <div className="fk-lib-sub">NIP {p.nip || "—"}</div>
                   </div>
+                  <RekapPetugas data={p.jumlahData} kertasKerja={p.jumlahKertasKerja} />
                   {admin && (
                     <div className="fk-kk-card-actions">
                       <button

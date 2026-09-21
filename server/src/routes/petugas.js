@@ -5,10 +5,17 @@ const prisma = require("../prisma");
 const { requireAdmin } = require("../auth");
 const { wrap, badRequest, notFound, conflict, parseId } = require("../http");
 const { kapitalTiapKata } = require("../nama");
+const { rekapPetugas, rekapKosong } = require("../rekap");
 
 const router = express.Router();
 
-const bentuk = (p) => ({ id: p.id, nama: p.nama, nip: p.nip, createdAt: p.createdAt });
+const bentuk = (p, rekap = rekapKosong()) => ({
+  id: p.id,
+  nama: p.nama,
+  nip: p.nip,
+  createdAt: p.createdAt,
+  ...rekap,
+});
 
 /** NIP dibandingkan tanpa spasi: "031 1998 2021" sama dengan "03119982021". */
 const kunciNip = (nip) => String(nip || "").replace(/\s/g, "");
@@ -36,14 +43,18 @@ async function pastikanUnik(nama, nip, kecualiId) {
 }
 
 /**
- * GET /api/petugas -> daftar petugas (sumber dropdown di wizard kertas kerja).
+ * GET /api/petugas -> daftar petugas (sumber dropdown di wizard kertas kerja),
+ * lengkap dengan rekap jumlah kertas kerja & data yang dikerjakan masing-masing.
  * Terbuka: petugas lapangan perlu menyusun timnya tanpa login.
  */
 router.get(
   "/",
   wrap(async (_req, res) => {
-    const list = await prisma.petugas.findMany({ orderBy: { nama: "asc" } });
-    res.json(list.map(bentuk));
+    const [list, rekap] = await Promise.all([
+      prisma.petugas.findMany({ orderBy: { nama: "asc" } }),
+      rekapPetugas(),
+    ]);
+    res.json(list.map((p) => bentuk(p, rekap.get(p.id))));
   })
 );
 

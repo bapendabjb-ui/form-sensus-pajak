@@ -90,6 +90,32 @@ export default function Dashboard() {
             })}
           </div>
 
+          <Panel title="Rekap Petugas" sub="5 Petugas Dengan Data Terbanyak.">
+            {stats.rekapPetugas.length === 0 ? (
+              <div className="fk-lt-empty">Belum ada data yang dikerjakan petugas.</div>
+            ) : (
+              <div className="fk-lib-list">
+                {stats.rekapPetugas.map((p, i) => (
+                  <div className="fk-lib-row fk-rekap-row" key={p.id}>
+                    <span className="fk-peringkat">{i + 1}</span>
+                    <div>
+                      <div className="fk-lib-title fk-ellipsis">{p.nama}</div>
+                      <div className="fk-lib-sub">
+                        {Number(p.jumlahKertasKerja).toLocaleString("id-ID")} kertas kerja
+                      </div>
+                    </div>
+                    <div className="fk-rekap">
+                      <span className="fk-rekap-num">
+                        {Number(p.jumlahData).toLocaleString("id-ID")}
+                      </span>
+                      <span className="fk-rekap-label">data</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+
           <Panel title="Kertas Kerja Terbaru">
             {stats.terbaru.length === 0 ? (
               <div className="fk-lt-empty">Belum ada kertas kerja.</div>

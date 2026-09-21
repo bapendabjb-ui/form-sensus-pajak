@@ -5,6 +5,7 @@ const prisma = require("../prisma");
 const { wrap } = require("../http");
 const { bentukTim } = require("../bentuk");
 const { hitungTidakLengkap } = require("../entri");
+const { peringkatPetugas } = require("../rekap");
 
 const router = express.Router();
 
@@ -12,7 +13,17 @@ const router = express.Router();
 router.get(
   "/stats",
   wrap(async (_req, res) => {
-    const [totalKertasKerja, selesai, totalFormulir, totalPetugas, totalData, tidakLengkap, totalFoto, terbaru] =
+    const [
+      totalKertasKerja,
+      selesai,
+      totalFormulir,
+      totalPetugas,
+      totalData,
+      tidakLengkap,
+      totalFoto,
+      rekapPetugas,
+      terbaru,
+    ] =
       await Promise.all([
         prisma.kertasKerja.count(),
         prisma.kertasKerja.count({ where: { status: "selesai" } }),
@@ -21,6 +32,7 @@ router.get(
         prisma.entri.count(),
         prisma.entri.count({ where: { berkasLengkap: false } }),
         prisma.foto.count({ where: { entriId: { not: null } } }),
+        peringkatPetugas(5),
         prisma.kertasKerja.findMany({
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: 5,
@@ -41,6 +53,7 @@ router.get(
       totalData,
       tidakLengkap,
       totalFoto,
+      rekapPetugas,
       terbaru: terbaru.map((k) => ({
         id: k.id,
         nomor: k.nomor,
