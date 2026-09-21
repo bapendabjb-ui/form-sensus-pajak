@@ -46,8 +46,6 @@ export default function Dashboard() {
         [stats.tidakLengkap, "Data Berkas Tidak Lengkap", lihat("kurang"), "is-kurang"],
         [stats.totalData, "Data Terkumpul"],
         [stats.totalFoto, "Foto Terlampir"],
-        [stats.totalFormulir, "Formulir"],
-        [stats.totalPetugas, "Petugas"],
       ]
     : [];
 
@@ -64,8 +62,8 @@ export default function Dashboard() {
             <button type="button" className="fk-btn" onClick={() => navigate("/kertas-kerja/baru")}>
               + Buat Kertas Kerja
             </button>
-            <button type="button" className="fk-btn-ghost" onClick={() => navigate("/formulir")}>
-              Kelola Formulir
+            <button type="button" className="fk-btn-ghost" onClick={() => navigate("/kertas-kerja")}>
+              Kertas Kerja
             </button>
           </div>
 

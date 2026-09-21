@@ -13,22 +13,10 @@ const router = express.Router();
 router.get(
   "/stats",
   wrap(async (_req, res) => {
-    const [
-      totalKertasKerja,
-      selesai,
-      totalFormulir,
-      totalPetugas,
-      totalData,
-      tidakLengkap,
-      totalFoto,
-      rekapPetugas,
-      terbaru,
-    ] =
+    const [totalKertasKerja, selesai, totalData, tidakLengkap, totalFoto, rekapPetugas, terbaru] =
       await Promise.all([
         prisma.kertasKerja.count(),
         prisma.kertasKerja.count({ where: { status: "selesai" } }),
-        prisma.formulir.count(),
-        prisma.petugas.count(),
         prisma.entri.count(),
         prisma.entri.count({ where: { berkasLengkap: false } }),
         prisma.foto.count({ where: { entriId: { not: null } } }),
@@ -48,8 +36,6 @@ router.get(
       totalKertasKerja,
       selesai,
       draft: totalKertasKerja - selesai,
-      totalFormulir,
-      totalPetugas,
       totalData,
       tidakLengkap,
       totalFoto,
