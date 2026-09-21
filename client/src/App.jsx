@@ -5,7 +5,6 @@ import { DialogProvider } from "./components/Dialog.jsx";
 import { Empty } from "./components/Ui.jsx";
 import { Lambang, IconKembali, IconGrid, IconDoc, IconUser, IconList, IconLock, IconUnduh, IconPeta } from "./components/Icons.jsx";
 import LoginAdmin from "./components/LoginAdmin.jsx";
-import GerbangAkses from "./components/GerbangAkses.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import { DaftarKertasKerja, BuatKertasKerja, DetailKertasKerja, IsiData } from "./pages/kertas-kerja/index.js";
 import PetugasPage from "./pages/PetugasPage.jsx";
@@ -54,48 +53,20 @@ function usePenandaKetik() {
   }, []);
 }
 
-/**
- * Status gerbang kode akses: "memuat" | "perlu" | "lolos".
- *
- * Hanya soal tampilan - server tetap menolak setiap permintaan tanpa cookie
- * yang sah, dan penolakan itu (onAksesDitolak) mengembalikan layar ke gerbang
- * bila cookie-nya kedaluwarsa di tengah pemakaian.
- */
-function useGerbangAkses() {
-  const [status, setStatus] = useState("memuat");
-
-  useEffect(() => {
-    let batal = false;
-    api.cekAkses().then((a) => {
-      if (!batal) setStatus(!a.perlu || a.sudah ? "lolos" : "perlu");
-    });
-    return () => {
-      batal = true;
-    };
-  }, []);
-
-  useEffect(() => api.onAksesDitolak(() => setStatus("perlu")), []);
-
-  return [status, () => setStatus("lolos")];
-}
-
 function Shell() {
   const lokasi = useLokasi();
   const rute = cocokkanRute(lokasi);
   const [admin, setAdmin] = useState(api.isLoggedIn());
-  const [akses, lolosAkses] = useGerbangAkses();
 
   usePenandaKetik();
 
   // Ikuti perubahan status login (termasuk token kedaluwarsa saat request).
   useEffect(() => api.onAuthChange(setAdmin), []);
 
-  // Verifikasi token tersimpan saat aplikasi dibuka - tetapi hanya setelah
-  // gerbang dilewati, supaya /auth/me tidak dipanggil dan gagal lebih dulu.
+  // Verifikasi token tersimpan saat aplikasi dibuka.
   useEffect(() => {
-    if (akses !== "lolos") return;
     api.cekSesi().then((ok) => setAdmin(ok));
-  }, [akses]);
+  }, []);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -119,11 +90,6 @@ function Shell() {
   // Halamannya sendiri tetap dijaga masing-masing, karena alamatnya bisa
   // diketik langsung.
   const menu = NAV.filter((m) => !m.admin || admin);
-
-  // Sebelum gerbang dilewati, tidak ada gunanya menggambar sidebar & bilah tab:
-  // setiap halaman di baliknya hanya akan menampilkan galat.
-  if (akses === "memuat") return <div className="fk-login" aria-busy="true" />;
-  if (akses === "perlu") return <GerbangAkses onLolos={lolosAkses} />;
 
   let halaman;
   switch (rute.nama) {

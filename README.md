@@ -121,7 +121,6 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── FotoInput.jsx       kamera/galeri, perkecil, unggah, pratinjau
 │       │   ├── PetugasTim.jsx      penyusun tim petugas 1–8 orang
 │       │   ├── LoginAdmin.jsx      kartu login admin (dipakai /masuk & /formulir)
-│       │   ├── GerbangAkses.jsx    layar kode akses petugas (bila AKSES_KODE dipasang)
 │       │   ├── Sheet.jsx           lembar pilihan dari bawah layar (HP)
 │       │   ├── WilayahInput.jsx    kecamatan & kelurahan bertingkat
 │       │   ├── LokasiInput.jsx     titik GPS + akurasi
@@ -150,7 +149,7 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │   │   ├── config.js               pembacaan .env + guard produksi
 │   │   ├── batas.js                petugasMaks & fotoMaks - satu sumber untuk klien juga
 │   │   ├── auth.js                 bcrypt, JWT (+versi token), middleware admin, seed admin
-│   │   ├── keamanan.js             header keamanan (CSP dll.) + gerbang kode akses
+│   │   ├── keamanan.js             header keamanan (CSP dll.)
 │   │   ├── laju.js                 pembatas laju bersama (login & cek NOP)
 │   │   ├── nomor.js                penomoran 5 digit dalam transaksi
 │   │   ├── answers.js              normalisasi & validasi nilai per tipe
@@ -159,7 +158,7 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │   │   ├── wilayah.js              data kecamatan & kelurahan Kota Banjarbaru
 │   │   ├── bentuk.js               bentuk keluaran JSON bersama
 │   │   ├── format.js               format tanggal/uang + penyusun CSV (anti rumus)
-│   │   └── routes/                 akses, auth, petugas, formulir, kertasKerja, entri, foto, dashboard, peta, nop
+│   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, foto, dashboard, peta, nop
 │   └── test/                       tes node:test - logika murni, tanpa database
 │
 ├── uploads/                        foto (lokal; di Railway pakai volume) — tidak di-commit
@@ -254,7 +253,6 @@ contoh (termasuk pertanyaan foto dan kecamatan & kelurahan) dan 3 petugas. Manua
 | `EPBB_API_URL`   |       | —               | Endpoint cek NOP EPBB, mis. `https://epbb.contoh.go.id/api/nop/cek`. Kosong = tombol **Lihat** tidak tampil |
 | `EPBB_API_KEY`   |       | —               | Kunci API EPBB — sama dengan `api_nop_key` di EPBB                       |
 | `EPBB_TIMEOUT_MS`|       | `10000`         | Batas tunggu respons EPBB                                               |
-| `AKSES_KODE`     |       | —               | Kode akses bersama untuk petugas. Diisi = **seluruh `/api` tertutup** bagi yang belum memasukkannya. Kosong = terbuka untuk umum. Lihat [Hak akses](#hak-akses) |
 | `APP_URL`        |       | —               | Alamat publik aplikasi, mis. `https://sensus.contoh.go.id`. Dipakai menyusun tautan foto di berkas ekspor; kosong = diambil dari header `Host` permintaan |
 
 ---
@@ -277,39 +275,17 @@ contoh (termasuk pertanyaan foto dan kecamatan & kelurahan) dan 3 petugas. Manua
 
 ## Hak akses
 
-Ada **dua lapis** yang terpisah: kode akses menentukan siapa yang boleh memakai
-aplikasi sama sekali, dan login admin menentukan siapa yang boleh mengelola.
+Aplikasi **tidak memakai kode akses**: siapa pun yang tahu alamatnya bisa membuka
+halaman lapangan dan bekerja tanpa login. Hanya pengelolaan dan penghapusan yang
+butuh login admin.
 
-### Lapis 1 — kode akses petugas (`AKSES_KODE`)
+> **Perhatikan:** dengan begitu siapa pun yang tahu alamat aplikasi bisa membaca
+> dan mengubah data sensus di halaman lapangan — termasuk NIK, NPWP, nomor telepon,
+> alamat, foto, dan titik koordinat rumah wajib pajak. Batasi alamatnya ke petugas,
+> atau pasang perlindungan di depan aplikasi (VPN, IP allowlist, atau proxy
+> berautentikasi) bila datanya sensitif.
 
-Pekerjaan lapangan sengaja tidak memakai akun: petugas membuka aplikasi dan
-langsung bekerja. Konsekuensinya, **tanpa kode akses siapa pun yang tahu alamat
-aplikasi bisa membaca dan mengubah seluruh data sensus** — termasuk NIK, NPWP,
-nomor telepon, alamat, foto, dan titik koordinat rumah wajib pajak.
-
-Isi `AKSES_KODE` di environment untuk menutupnya:
-
-| `AKSES_KODE` | Akibatnya                                                                    |
-| ------------ | ---------------------------------------------------------------------------- |
-| kosong       | `/api` terbuka untuk umum — persis perilaku lama                             |
-| diisi        | seluruh `/api` menolak `401` sampai kodenya dimasukkan, atau pemanggil membawa token admin |
-
-Petugas memasukkannya sekali per perangkat di layar pembuka. Kode itu **tidak**
-disimpan di sisi klien: server menukarnya dengan cookie `HttpOnly` berumur 30 hari.
-Cookie dipilih, bukan header, karena `<img src="/api/foto/123">` tidak bisa
-mengirim `Authorization` — dengan cookie, **enumerasi foto ikut tertutup**.
-Mengganti `AKSES_KODE` (atau `JWT_SECRET`) langsung membatalkan semua cookie yang
-beredar. Admin punya jalan masuk sendiri di layar itu dan tidak perlu tahu kodenya.
-
-Yang tetap terbuka walau kode dipasang, dan alasannya:
-
-| Endpoint          | Alasan                                          |
-| ----------------- | ----------------------------------------------- |
-| `/api/health`     | dipakai healthcheck Railway                     |
-| `/api/akses`      | tempat kode ditukar dengan cookie               |
-| `/api/auth/login` | admin harus bisa masuk tanpa kode akses petugas |
-
-### Lapis 2 — login admin
+### Login admin
 
 Prinsipnya: **pekerjaan lapangan terbuka, pengelolaan dan penghapusan butuh admin.**
 
@@ -365,7 +341,7 @@ npm run lint    # ESLint untuk server & client sekaligus
 ```
 
 Tes sengaja hanya menyentuh **logika murni** — validasi jawaban, penyusunan CSV
-& Excel, gerbang kode akses, pembatas laju, pembacaan berkas impor, dan penyaring
+& Excel, pembatas laju, pembacaan berkas impor, dan penyaring
 titik peta. Karena itu tidak ada database di CI, dan `npm test` bisa dijalankan di
 mana saja tanpa persiapan. Berkas tesnya ada di [`server/test/`](server/test/).
 
@@ -374,7 +350,7 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | Berkas tes             | Yang dijaga                                                            |
 | ---------------------- | ---------------------------------------------------------------------- |
 | `format.test.js`       | Sel CSV yang akan dibaca Excel sebagai rumus selalu dilucuti           |
-| `keamanan.test.js`     | Gerbang kode akses, header keamanan, dan host ubin peta di CSP         |
+| `keamanan.test.js`     | Header keamanan dan host ubin peta di CSP                               |
 | `laju.test.js`         | Pembatas login hanya menghitung percobaan yang gagal                   |
 | `auth.test.js`         | Password contoh ditolak; versi token ikut ditandatangani               |
 | `answers.test.js`      | Arti "kosong" tiap tipe pertanyaan (sisi server sebagai acuan)         |
@@ -715,17 +691,6 @@ jawaban server belum tiba, supaya layar tidak berkedip saat pertama kali dibuka.
 
 Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Bearer <token>`.
 
-Bila `AKSES_KODE` dipasang, **seluruh** endpoint di bawah (kecuali `/health`,
-`/akses`, dan `/auth/login`) juga menuntut cookie kode akses atau token admin;
-tanpa itu jawabannya `401 { error, kode: "akses" }`.
-
-### Akses
-
-| Method | Endpoint  | Keterangan                                                                      |
-| ------ | --------- | -------------------------------------------------------------------------------- |
-| `GET`  | `/akses`  | `{ perlu, sudah }` — apakah gerbang dipasang, dan apakah pemanggil sudah lolos    |
-| `POST` | `/akses`  | `{ kode }` → memasang cookie `HttpOnly` 30 hari. Kode salah → **400**. Dibatasi 10 kegagalan / IP / 15 menit |
-
 ### Auth
 
 | Method | Endpoint      | Keterangan                                             |
@@ -907,7 +872,6 @@ DATABASE_URL   = mysql://${{MySQL.MYSQLUSER}}:${{MySQL.MYSQL_ROOT_PASSWORD}}@${{
 JWT_SECRET     = <string acak panjang>
 ADMIN_USERNAME = admin
 ADMIN_PASSWORD = <password kuat, minimal 8 karakter>
-AKSES_KODE     = <kode yang dibagikan ke petugas>
 APP_URL        = https://<domain-railway-anda>
 UPLOAD_DIR     = /app/uploads
 NODE_ENV       = production
@@ -916,8 +880,6 @@ NODE_ENV       = production
 - Ganti `MySQL` pada `${{MySQL.…}}` bila nama service database berbeda.
 - **Jangan** set `PORT` — Railway meng-inject sendiri.
 - Biarkan `CORS_ORIGIN` kosong.
-- `AKSES_KODE` boleh dikosongkan bila aplikasi memang dimaksudkan terbuka untuk
-  umum — baca [Hak akses](#hak-akses) lebih dulu sebelum memutuskan.
 - `ADMIN_PASSWORD` yang lemah membuat server **menolak start** saat akun admin
   belum ada. Itu disengaja; isi dengan password sungguhan.
 

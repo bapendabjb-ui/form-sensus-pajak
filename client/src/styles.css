@@ -163,9 +163,6 @@ body {
 .fk-login-sub{font-size:13px; color:var(--muted); margin:0 0 8px;}
 .fk-login-card .fk-input{text-align:left;}
 .fk-login-btn{margin-top:4px;}
-/* Tautan sekunder pada gerbang kode akses: pindah ke login admin dan sebaliknya. */
-.fk-akses-alt{background:none; border:0; color:var(--muted); font-size:13px; font-weight:500; padding:8px 4px; text-decoration:underline; text-underline-offset:3px;}
-.fk-akses-alt:hover{color:var(--brand-dark);}
 /* Kaki daftar kertas kerja: keterangan jumlah + tombol muat lebih banyak. */
 .fk-muat-lagi{display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap; padding:18px 0 4px;}
 .fk-muat-info{font-size:13px; color:var(--muted);}

@@ -25,23 +25,6 @@ function umumkan() {
   for (const fn of pendengar) fn(Boolean(token));
 }
 
-/* ---------- gerbang kode akses ---------- */
-
-const pendengarAkses = new Set();
-
-/**
- * Daftarkan callback yang dipanggil saat server menolak permintaan karena kode
- * akses belum/tidak lagi sah - mis. cookie-nya kedaluwarsa di tengah pemakaian.
- */
-export function onAksesDitolak(fn) {
-  pendengarAkses.add(fn);
-  return () => pendengarAkses.delete(fn);
-}
-
-function umumkanAksesDitolak() {
-  for (const fn of pendengarAkses) fn();
-}
-
 export const getToken = () => token;
 export const isLoggedIn = () => Boolean(token);
 
@@ -88,10 +71,7 @@ async function request(path, { method = "GET", body, auth = false } = {}) {
   const tipe = res.headers.get("content-type") || "";
   const data = tipe.includes("application/json") ? await res.json().catch(() => ({})) : await res.text();
 
-  // Kode akses belum/tidak lagi sah: bukan urusan login admin, jadi token tidak
-  // dibuang - cukup beri tahu shell supaya gerbangnya ditampilkan lagi.
-  if (res.status === 401 && data && data.kode === "akses") umumkanAksesDitolak();
-  else if (res.status === 401 && auth) clearToken();
+  if (res.status === 401 && auth) clearToken();
 
   if (!res.ok) {
     const pesan = (data && data.error) || `Permintaan gagal (${res.status}).`;
@@ -99,20 +79,6 @@ async function request(path, { method = "GET", body, auth = false } = {}) {
   }
   return data;
 }
-
-/* ---------- kode akses ---------- */
-
-/**
- * Apakah aplikasi ini dipagari kode akses, dan apakah pengguna sudah lolos?
- *
- * Bila pengecekannya sendiri gagal (mis. jaringan putus), jawabannya "tidak
- * perlu": gerbang ini hanya soal tampilan, dan server tetap menolak setiap
- * permintaan tanpa cookie yang sah - penolakan itu lalu memunculkan gerbangnya.
- */
-export const cekAkses = () => request("/akses").catch(() => ({ perlu: false, sudah: true }));
-
-/** Tukar kode akses dengan cookie. Melempar ApiError bila kodenya salah. */
-export const kirimKodeAkses = (kode) => request("/akses", { method: "POST", body: { kode } });
 
 /* ---------- auth ---------- */
 
@@ -182,10 +148,6 @@ export async function imporPetugas(file) {
 
   const body = await res.json().catch(() => ({}));
   if (res.status === 401) {
-    if (body.kode === "akses") {
-      umumkanAksesDitolak();
-      throw new ApiError(401, body.error || "Kode akses diperlukan.", body);
-    }
     clearToken();
     throw new ApiError(401, "Sesi admin sudah berakhir. Silakan login kembali.");
   }
@@ -267,7 +229,6 @@ export async function uploadFoto(file) {
     throw new ApiError(0, "Tidak dapat menghubungi server. Periksa koneksi Anda.");
   }
   const body = await res.json().catch(() => ({}));
-  if (res.status === 401 && body.kode === "akses") umumkanAksesDitolak();
   if (!res.ok) throw new ApiError(res.status, body.error || `Unggah foto gagal (${res.status}).`, body);
   return body;
 }
@@ -295,10 +256,6 @@ async function unduhBerkas(path, namaCadangan) {
     // Galat dikirim sebagai JSON, bukan berkas.
     const data = await res.json().catch(() => ({}));
     if (res.status === 401) {
-      if (data.kode === "akses") {
-        umumkanAksesDitolak();
-        throw new ApiError(401, data.error || "Kode akses diperlukan.", data);
-      }
       clearToken();
       throw new ApiError(401, "Sesi admin sudah berakhir. Silakan login kembali.", data);
     }

@@ -18,7 +18,7 @@ const config = require("./src/config");
 const prisma = require("./src/prisma");
 const { ApiError } = require("./src/http");
 const { ensureAdminSeed } = require("./src/auth");
-const { headerKeamanan, jagaAkses, aksesAktif } = require("./src/keamanan");
+const { headerKeamanan } = require("./src/keamanan");
 const { ensureCounter } = require("./src/nomor");
 const { siapkanFolder, sapuFotoYatim } = require("./src/foto");
 const seedDemo = require("./prisma/seed");
@@ -40,14 +40,10 @@ if (config.corsOrigin) {
 
 /* ---------- API ---------- */
 
-// Gerbang kode akses. Tidak berbuat apa-apa bila AKSES_KODE kosong.
-app.use("/api", jagaAkses);
-
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "sensus-pajak", env: config.nodeEnv, time: new Date().toISOString() });
 });
 
-app.use("/api/akses", require("./src/routes/akses"));
 app.use("/api/auth", require("./src/routes/auth"));
 app.use("/api/petugas", require("./src/routes/petugas"));
 app.use("/api/formulir", require("./src/routes/formulir"));
@@ -175,12 +171,6 @@ async function start() {
     const hasil = await seedDemo();
     if (hasil.diisi) console.log("[Sensus Pajak] data contoh diisi (SEED_DEMO=true).");
   }
-
-  console.log(
-    aksesAktif()
-      ? "[Sensus Pajak] gerbang kode akses AKTIF - seluruh /api butuh kode akses atau token admin."
-      : "[Sensus Pajak] gerbang kode akses nonaktif (AKSES_KODE kosong) - /api terbuka untuk umum."
-  );
 
   // Railway meng-inject PORT; wajib memakai nilai tersebut.
   const server = app.listen(config.port, "0.0.0.0", () => {
