@@ -4,6 +4,7 @@ const express = require("express");
 const prisma = require("../prisma");
 const { wrap } = require("../http");
 const { bentukTim } = require("../bentuk");
+const { adminOpsional, isAdmin } = require("../auth");
 
 const router = express.Router();
 
@@ -48,7 +49,9 @@ const punyaTitik = (n) =>
  */
 router.get(
   "/",
-  wrap(async (_req, res) => {
+  adminOpsional,
+  wrap(async (req, res) => {
+    const admin = isAdmin(req);
     const rows = await prisma.jawaban.findMany({
       where: { pertanyaan: { tipe: "lokasi" } },
       select: {
@@ -77,24 +80,57 @@ router.get(
       },
     });
 
+    const bentukTitik = (e, lat, lon, sumber) => ({
+      entriId: e.id,
+      lat,
+      lon,
+      sumber, // "formulir" = jawaban koordinat; "rekam" = terekam otomatis (admin saja)
+      judul: judulEntri(e.jawaban),
+      formulir: e.formulir.judul,
+      berkasLengkap: e.berkasLengkap,
+      catatanBerkas: e.catatanBerkas || "",
+      updatedAt: e.updatedAt,
+      kertasKerjaId: e.kertasKerja.id,
+      nomor: e.kertasKerja.nomor,
+      status: e.kertasKerja.status,
+      petugas: bentukTim(e.kertasKerja.petugas),
+    });
+
     const titik = [];
+    const sudahAda = new Set();
     for (const r of rows) {
       if (!punyaTitik(r.nilai) || !r.entri) continue;
-      const e = r.entri;
-      titik.push({
-        entriId: e.id,
-        lat: r.nilai.lat,
-        lon: r.nilai.lon,
-        judul: judulEntri(e.jawaban),
-        formulir: e.formulir.judul,
-        berkasLengkap: e.berkasLengkap,
-        catatanBerkas: e.catatanBerkas || "",
-        updatedAt: e.updatedAt,
-        kertasKerjaId: e.kertasKerja.id,
-        nomor: e.kertasKerja.nomor,
-        status: e.kertasKerja.status,
-        petugas: bentukTim(e.kertasKerja.petugas),
+      titik.push(bentukTitik(r.entri, r.nilai.lat, r.nilai.lon, "formulir"));
+      sudahAda.add(r.entri.id);
+    }
+
+    // Koordinat rekaman otomatis: hanya untuk admin, dan hanya sebagai cadangan
+    // bagi data yang formulirnya tidak punya pertanyaan lokasi (mis. PBB-P2).
+    // Entri yang sudah punya titik dari formulir tidak digandakan.
+    if (admin) {
+      const rekaman = await prisma.entri.findMany({
+        where: { rekamLat: { not: null }, rekamLon: { not: null } },
+        select: {
+          id: true,
+          rekamLat: true,
+          rekamLon: true,
+          berkasLengkap: true,
+          catatanBerkas: true,
+          updatedAt: true,
+          formulir: { select: { judul: true } },
+          jawaban: {
+            select: { nilai: true, pertanyaan: { select: { tipe: true, urutan: true } } },
+            orderBy: { pertanyaan: { urutan: "asc" } },
+          },
+          kertasKerja: {
+            select: { id: true, nomor: true, status: true, petugas: { include: { petugas: true } } },
+          },
+        },
       });
+      for (const e of rekaman) {
+        if (sudahAda.has(e.id)) continue;
+        titik.push(bentukTitik(e, e.rekamLat, e.rekamLon, "rekam"));
+      }
     }
 
     // Titik terbaru di akhir supaya tergambar paling atas saat bertumpuk.

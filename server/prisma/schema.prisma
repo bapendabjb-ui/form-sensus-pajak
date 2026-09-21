@@ -160,6 +160,15 @@ model Entri {
   berkasLengkap Boolean  @default(true) @map("berkas_lengkap")
   /// Apa saja yang masih kurang. Dikosongkan bila berkas ditandai lengkap.
   catatanBerkas String   @default("") @map("catatan_berkas") @db.VarChar(500)
+  /// Koordinat perangkat petugas saat data ini pertama kali disimpan, diambil
+  /// otomatis tanpa pertanyaan di formulir. Null bila izin lokasi ditolak atau
+  /// GPS gagal - pendataan sengaja tidak dihalangi oleh urusan GPS.
+  /// HANYA UNTUK ADMIN: jangan pernah ikut dikirim ke petugas (lihat bentukEntri).
+  rekamLat      Float?    @map("rekam_lat")
+  rekamLon      Float?    @map("rekam_lon")
+  /// Perkiraan simpangan dalam meter, apa adanya dari perangkat.
+  rekamAkurasi  Float?    @map("rekam_akurasi")
+  rekamWaktu    DateTime? @map("rekam_waktu")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

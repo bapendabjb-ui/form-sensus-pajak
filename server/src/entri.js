@@ -101,6 +101,28 @@ function bacaBerkas(body) {
   return { berkasLengkap, catatanBerkas };
 }
 
+/**
+ * Baca koordinat rekaman otomatis dari body.
+ *
+ * Dikirim diam-diam oleh layar isi data, bukan berasal dari pertanyaan formulir.
+ * Apa pun yang tidak masuk akal (izin ditolak, GPS gagal, angka di luar
+ * jangkauan, nilai berbentuk teks) menghasilkan {} - artinya kolom rekaman
+ * tidak disentuh sama sekali dan penyimpanan data tetap berjalan. Pendataan
+ * tidak boleh terhalang urusan GPS.
+ */
+function bacaRekamKoordinat(body) {
+  const r = body?.rekamKoordinat;
+  if (!r || typeof r !== "object") return {};
+
+  const lat = typeof r.lat === "number" ? r.lat : null;
+  const lon = typeof r.lon === "number" ? r.lon : null;
+  if (lat === null || lon === null) return {};
+  if (!(lat >= -90 && lat <= 90) || !(lon >= -180 && lon <= 180)) return {};
+
+  const akurasi = typeof r.akurasi === "number" && r.akurasi >= 0 ? r.akurasi : null;
+  return { rekamLat: lat, rekamLon: lon, rekamAkurasi: akurasi, rekamWaktu: new Date() };
+}
+
 /** Pesan untuk kolom wajib yang masih kosong - sama dengan client/src/lib/answers.js. */
 function pesanWajib(tipe) {
   if (tipe === "foto") return "Tambahkan minimal satu foto.";
@@ -143,7 +165,11 @@ async function tulisJawaban(tx, entriId, siap) {
 }
 
 /** Muat satu entri lengkap (formulir + jawaban + info kertas kerja) dalam bentuk JSON. */
-async function muatEntri(id) {
+/**
+ * @param {number} id
+ * @param {{ admin?: boolean }} opsi  admin=true menambahkan koordinat rekaman.
+ */
+async function muatEntri(id, { admin = false } = {}) {
   const e = await prisma.entri.findUnique({
     where: { id },
     include: { jawaban: true, kertasKerja: true, formulir: { include: includePertanyaan } },
@@ -163,6 +189,16 @@ async function muatEntri(id) {
     catatanBerkas: e.catatanBerkas,
     createdAt: e.createdAt,
     updatedAt: e.updatedAt,
+    // Koordinat rekaman hanya untuk admin. Disisipkan di sini, bukan disaring
+    // di tampilan: kalau ikut terkirim, petugas bisa membacanya di network tab.
+    ...(admin
+      ? {
+          rekamKoordinat:
+            e.rekamLat === null || e.rekamLon === null
+              ? null
+              : { lat: e.rekamLat, lon: e.rekamLon, akurasi: e.rekamAkurasi, waktu: e.rekamWaktu },
+        }
+      : {}),
   };
 }
 
@@ -177,4 +213,11 @@ async function hitungTidakLengkap(kkIds) {
   return new Map(rows.map((r) => [r.kertasKerjaId, r._count._all]));
 }
 
-module.exports = { siapkanJawaban, tulisJawaban, muatEntri, bacaBerkas, hitungTidakLengkap };
+module.exports = {
+  siapkanJawaban,
+  tulisJawaban,
+  muatEntri,
+  bacaBerkas,
+  bacaRekamKoordinat,
+  hitungTidakLengkap,
+};

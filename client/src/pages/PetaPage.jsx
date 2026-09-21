@@ -54,7 +54,7 @@ export default function PetaPage() {
     <>
       <PageHead
         title="Peta Sensus"
-        sub="Sebaran Objek Yang Sudah Didata. Titik Diambil Dari Jawaban Koordinat Pada Tiap Data."
+        sub="Pemetaan Data Sensus"
       />
 
       {error && <ErrorBox onRetry={muat}>{error}</ErrorBox>}

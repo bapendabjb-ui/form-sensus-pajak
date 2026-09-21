@@ -30,9 +30,14 @@ const LAPISAN = {
   },
 };
 
-const ikonTitik = (status) =>
+/**
+ * Warna = status kertas kerja. Titik dari koordinat yang terekam otomatis
+ * digambar berlubang supaya tidak tertukar dengan titik yang sengaja diukur
+ * petugas lewat pertanyaan lokasi - ketelitiannya bisa jauh berbeda.
+ */
+const ikonTitik = (t) =>
   L.divIcon({
-    className: `fk-titik is-${status === "selesai" ? "selesai" : "draft"}`,
+    className: `fk-titik is-${t.status === "selesai" ? "selesai" : "draft"}${t.sumber === "rekam" ? " is-rekam" : ""}`,
     html: '<span class="fk-titik-isi"></span>',
     iconSize: [16, 16],
     iconAnchor: [8, 8],
@@ -54,6 +59,9 @@ function isiBalon(t) {
     `<span class="fk-balon-sub">${aman(t.nomor)} · ${aman(t.formulir)}</span>`,
     `<span class="fk-balon-sub">${aman(ringkasTim(t.petugas))}</span>`,
   ];
+  if (t.sumber === "rekam") {
+    baris.push(`<span class="fk-balon-rekam">Posisi terekam otomatis · hanya admin</span>`);
+  }
   if (!t.berkasLengkap) {
     const catatan = t.catatanBerkas ? `: ${aman(t.catatanBerkas)}` : "";
     baris.push(`<span class="fk-balon-kurang">Berkas tidak lengkap${catatan}</span>`);
@@ -104,7 +112,7 @@ export default function PetaSebaran({ titik = [], onBuka }) {
 
     grup.clearLayers();
     for (const t of titik) {
-      const penanda = L.marker([t.lat, t.lon], { icon: ikonTitik(t.status) }).bindPopup(isiBalon(t));
+      const penanda = L.marker([t.lat, t.lon], { icon: ikonTitik(t) }).bindPopup(isiBalon(t));
       // Tombol di dalam balon baru ada di DOM setelah balon terbuka.
       penanda.on("popupopen", (e) => {
         const tombol = e.popup.getElement()?.querySelector(".fk-balon-buka");
@@ -132,6 +140,11 @@ export default function PetaSebaran({ titik = [], onBuka }) {
           <span className="fk-legenda">
             <span className="fk-titik-contoh is-draft" /> Draft
           </span>
+          {titik.some((t) => t.sumber === "rekam") && (
+            <span className="fk-legenda">
+              <span className="fk-titik-contoh is-rekam" /> Terekam otomatis
+            </span>
+          )}
         </div>
         <div className="fk-peta-jenis" role="radiogroup" aria-label="Jenis peta">
           {Object.entries(LAPISAN).map(([k, l]) => (

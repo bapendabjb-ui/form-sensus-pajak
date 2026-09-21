@@ -12,6 +12,7 @@ import { formatTimestamp } from "../lib/format.js";
 import { IkonFormulir, IkonEpbb, CheckIcon } from "../components/Icons.jsx";
 import { FILTER_KK, bacaFilterKk, simpanFilterKk, cocokFilterKk, cocokCariKk } from "../lib/filterKk.js";
 import { useAdmin } from "../lib/admin.js";
+import { mulaiRekamPosisi, ambilRekamPosisi } from "../lib/rekamPosisi.js";
 import { navigate, kembali, pasangPenjaga } from "../lib/router.js";
 
 const urlKk = (id) => `/kertas-kerja/${id}`;
@@ -242,7 +243,7 @@ export function BuatKertasKerja() {
     <>
       <PageHead
         title="Buat Kertas Kerja"
-        sub="Tentukan tim petugas. Data diisi per formulir setelah kertas kerja dibuat."
+        sub="Tentukan tim petugas."
       />
 
       <Panel>
@@ -705,9 +706,17 @@ export function IsiData({ kkId, formulirId, entriId }) {
   const [draf, setDraf] = useState(null); // draf tersimpan yang belum dipulihkan
   const wadah = useRef(null);
   const berubah = useRef(false);
+  // Perekaman posisi otomatis untuk peta cakupan. Dimulai begitu layar dibuka
+  // supaya GPS sempat mengunci sebelum petugas menekan Simpan; hasilnya tidak
+  // pernah ditampilkan di sini, dan server hanya membukanya untuk admin.
+  const posisi = useRef(null);
 
   const urlKembali = urlKk(kkId);
   const kunciDraf = entriId ? `sensus-pajak:draf:data-${entriId}` : `sensus-pajak:draf:kk${kkId}-f${formulirId}`;
+
+  useEffect(() => {
+    posisi.current = mulaiRekamPosisi();
+  }, []);
 
   const hapusDraf = useCallback(() => {
     try {
@@ -898,9 +907,11 @@ export function IsiData({ kkId, formulirId, entriId }) {
     try {
       const payload = buildPayload(pertanyaan, answers);
       const idDariEpbb = pertanyaan.filter((q) => dariEpbb[q.id]).map((q) => q.id);
+      // null bila izin ditolak / GPS gagal / belum mengunci - penyimpanan jalan terus.
+      const rekam = await ambilRekamPosisi(posisi.current);
       const hasil = entriId
-        ? await api.updateEntri(entriId, payload, idDariEpbb, berkas)
-        : await api.createEntri(kkId, formulirId, payload, idDariEpbb, berkas);
+        ? await api.updateEntri(entriId, payload, idDariEpbb, berkas, rekam)
+        : await api.createEntri(kkId, formulirId, payload, idDariEpbb, berkas, rekam);
       berubah.current = false;
       hapusDraf();
       toast(`Data "${judulEntri(hasil.formulir.pertanyaan, hasil.jawaban)}" tersimpan.`);
@@ -1043,7 +1054,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
         <div className="fk-field">
           <span className="fk-q-name">Kelengkapan berkas</span>
           <p className="fk-q-ket">
-            Tandai bila dokumen pendukung belum lengkap, supaya data ini mudah dicari lagi lewat saringan
+            Tandai bila dokumen pendukung belum lengkap, supaya data ini mudah dicari
             "Berkas tidak lengkap".
           </p>
           <button

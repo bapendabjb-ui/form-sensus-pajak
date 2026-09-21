@@ -50,6 +50,15 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * `auth`:
+ *   true       - endpoint khusus admin; token wajib dikirim, dan 401 berarti
+ *                sesi habis sehingga token dibuang.
+ *   "opsional" - endpoint terbuka yang memberi TAMBAHAN isi bila peminta admin
+ *                (mis. koordinat rekaman). Token dikirim bila ada, tetapi 401
+ *                tidak membuang token: endpoint ini tidak pernah menolak.
+ *   false      - tanpa token.
+ */
 async function request(path, { method = "GET", body, auth = false } = {}) {
   const headers = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -66,7 +75,7 @@ async function request(path, { method = "GET", body, auth = false } = {}) {
     throw new ApiError(0, "Tidak dapat menghubungi server. Periksa koneksi Anda.");
   }
 
-  if (res.status === 401 && auth) clearToken();
+  if (res.status === 401 && auth === true) clearToken();
 
   if (res.status === 204) return null;
 
@@ -139,18 +148,23 @@ export const deleteKertasKerja = (id) => request(`/kertas-kerja/${id}`, { method
 
 /* ---------- entri: satu data yang diisi lewat formulir ---------- */
 
-export const getEntri = (id) => request(`/entri/${id}`);
+export const getEntri = (id) => request(`/entri/${id}`, { auth: "opsional" });
 /**
  * `dariEpbb` = id pertanyaan yang isinya masih asli dari data EPBB (penanda "Data EPBB").
  * `berkas`   = { berkasLengkap, catatanBerkas } - penanda berkas tidak lengkap.
  */
-export const createEntri = (kertasKerjaId, formulirId, jawaban, dariEpbb = [], berkas = {}) =>
+export const createEntri = (kertasKerjaId, formulirId, jawaban, dariEpbb = [], berkas = {}, rekamKoordinat = null) =>
   request(`/kertas-kerja/${kertasKerjaId}/entri`, {
     method: "POST",
-    body: { formulirId, jawaban, dariEpbb, ...berkas },
+    body: { formulirId, jawaban, dariEpbb, ...berkas, rekamKoordinat },
+    auth: "opsional",
   });
-export const updateEntri = (id, jawaban, dariEpbb = [], berkas = {}) =>
-  request(`/entri/${id}`, { method: "PUT", body: { jawaban, dariEpbb, ...berkas } });
+export const updateEntri = (id, jawaban, dariEpbb = [], berkas = {}, rekamKoordinat = null) =>
+  request(`/entri/${id}`, {
+    method: "PUT",
+    body: { jawaban, dariEpbb, ...berkas, rekamKoordinat },
+    auth: "opsional",
+  });
 export const deleteEntri = (id) => request(`/entri/${id}`, { method: "DELETE", auth: true });
 
 /* ---------- foto ---------- */
@@ -194,8 +208,11 @@ export const getStats = () => request("/dashboard/stats");
 
 /* ---------- peta sensus ---------- */
 
-/** Semua titik hasil sensus, satu titik per data yang punya jawaban koordinat. */
-export const listPeta = () => request("/peta");
+/**
+ * Semua titik hasil sensus, satu titik per data.
+ * Admin juga menerima titik dari koordinat yang terekam otomatis.
+ */
+export const listPeta = () => request("/peta", { auth: "opsional" });
 
 /* ---------- cek NOP ke EPBB ---------- */
 

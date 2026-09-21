@@ -3,10 +3,17 @@
 const express = require("express");
 const prisma = require("../prisma");
 const config = require("../config");
-const { requireAdmin } = require("../auth");
+const { requireAdmin, adminOpsional, isAdmin } = require("../auth");
 const { wrap, badRequest, notFound, parseId, ApiError } = require("../http");
 const { ambilNomorBerikutnya, previewNomorBerikutnya } = require("../nomor");
-const { siapkanJawaban, tulisJawaban, muatEntri, bacaBerkas, hitungTidakLengkap } = require("../entri");
+const {
+  siapkanJawaban,
+  tulisJawaban,
+  muatEntri,
+  bacaBerkas,
+  bacaRekamKoordinat,
+  hitungTidakLengkap,
+} = require("../entri");
 const { hapusBerkas } = require("../foto");
 const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require("../bentuk");
 const { susunEkspor, barisTanpaData, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
@@ -199,6 +206,9 @@ router.put(
  */
 router.post(
   "/:id/entri",
+  // Terbuka untuk petugas; adminOpsional hanya menentukan apakah koordinat
+  // rekaman ikut dikembalikan dalam respons.
+  adminOpsional,
   wrap(async (req, res) => {
     const id = parseId(req.params.id);
     const kk = await prisma.kertasKerja.findUnique({ where: { id } });
@@ -221,13 +231,20 @@ router.post(
 
     let dilepas = [];
     const entri = await prisma.$transaction(async (tx) => {
-      const e = await tx.entri.create({ data: { kertasKerjaId: id, formulirId, ...bacaBerkas(req.body) } });
+      const e = await tx.entri.create({
+        data: {
+          kertasKerjaId: id,
+          formulirId,
+          ...bacaBerkas(req.body),
+          ...bacaRekamKoordinat(req.body),
+        },
+      });
       dilepas = await tulisJawaban(tx, e.id, siap);
       return e;
     });
     await hapusBerkas(dilepas);
 
-    res.status(201).json(await muatEntri(entri.id));
+    res.status(201).json(await muatEntri(entri.id, { admin: isAdmin(req) }));
   })
 );
 
