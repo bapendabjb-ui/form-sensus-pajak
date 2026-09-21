@@ -298,18 +298,20 @@ async function dataEkspor(req) {
 }
 
 /**
- * GET /api/kertas-kerja/:id/export[?formulir=<id>] -> CSV (BOM UTF-8).
+ * GET /api/kertas-kerja/:id/export[?formulir=<id>] -> CSV (BOM UTF-8). Khusus admin.
  * Satu baris per data. Kolom pertanyaan dikelompokkan per formulir; sel milik
  * formulir lain dibiarkan kosong.
  */
 router.get(
   "/:id/export",
+  requireAdmin,
   wrap(async (req, res) => kirimCsv(res, await dataEkspor(req)))
 );
 
 /** GET /api/kertas-kerja/:id/export/xlsx[?formulir=<id>] -> Excel, isi sama dengan CSV. */
 router.get(
   "/:id/export/xlsx",
+  requireAdmin,
   wrap(async (req, res) => kirimXlsx(res, await dataEkspor(req)))
 );
 

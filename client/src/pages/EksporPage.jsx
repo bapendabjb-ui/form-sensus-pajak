@@ -39,6 +39,9 @@ function TombolUnduh({ onExcel, onCsv, disabled }) {
 
 export default function EksporPage({ admin, onAuthChanged }) {
   const toast = useToast();
+  // Unduhan lewat fetch bertoken bisa gagal (sesi habis, jaringan putus);
+  // tanpa ini galatnya tenggelam sebagai promise yang ditolak diam-diam.
+  const unduhKe = (janji) => janji.catch((e) => toast(e.message, true));
   const [kkList, setKkList] = useState([]);
   const [formList, setFormList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -143,8 +146,8 @@ export default function EksporPage({ admin, onAuthChanged }) {
 
         <TombolUnduh
           disabled={!kkTerpilih || memuatGrup}
-          onExcel={() => api.unduhExcel(kkId, kkFormId || undefined)}
-          onCsv={() => api.unduhCsv(kkId, kkFormId || undefined)}
+          onExcel={() => unduhKe(api.unduhExcel(kkId, kkFormId || undefined))}
+          onCsv={() => unduhKe(api.unduhCsv(kkId, kkFormId || undefined))}
         />
       </Panel>
 
@@ -165,8 +168,8 @@ export default function EksporPage({ admin, onAuthChanged }) {
 
         <TombolUnduh
           disabled={!formTerpilih}
-          onExcel={() => api.unduhFormulir(formId, "xlsx")}
-          onCsv={() => api.unduhFormulir(formId, "csv")}
+          onExcel={() => unduhKe(api.unduhFormulir(formId, "xlsx"))}
+          onCsv={() => unduhKe(api.unduhFormulir(formId, "csv"))}
         />
       </Panel>
     </>

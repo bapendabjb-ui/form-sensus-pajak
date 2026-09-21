@@ -173,20 +173,70 @@ export async function uploadFoto(file) {
   return body;
 }
 
-/** Unduh CSV lewat navigasi browser (server mengirim header Content-Disposition). */
-export function unduhCsv(id, formulirId) {
-  window.location.href = `${BASE}/kertas-kerja/${id}/export${formulirId ? `?formulir=${formulirId}` : ""}`;
+/**
+ * Unduh berkas ekspor.
+ *
+ * Endpoint ekspor khusus admin, sehingga permintaannya harus membawa token.
+ * Navigasi browser biasa (window.location.href) tidak bisa memasang header
+ * Authorization, jadi berkasnya diambil lewat fetch lalu disimpan sebagai blob.
+ *
+ * Melempar ApiError; pemanggil menampilkan pesannya lewat toast.
+ */
+async function unduhBerkas(path, namaCadangan) {
+  let res;
+  try {
+    res = await fetch(BASE + path, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  } catch {
+    throw new ApiError(0, "Tidak dapat menghubungi server. Periksa koneksi Anda.");
+  }
+
+  if (res.status === 401) {
+    clearToken();
+    throw new ApiError(401, "Sesi admin sudah berakhir. Silakan login kembali.");
+  }
+  if (!res.ok) {
+    // Galat dikirim sebagai JSON, bukan berkas.
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, data.error || `Unduhan gagal (${res.status}).`, data);
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = namaDariHeader(res.headers.get("content-disposition")) || namaCadangan;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Beri browser waktu memulai penyimpanan sebelum blob dilepas.
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-/** Unduh Excel (.xlsx) dengan cara yang sama. `formulirId` membatasi ke satu formulir. */
-export function unduhExcel(id, formulirId) {
-  window.location.href = `${BASE}/kertas-kerja/${id}/export/xlsx${formulirId ? `?formulir=${formulirId}` : ""}`;
+/** Ambil nama berkas dari header Content-Disposition: attachment; filename="x.xlsx". */
+function namaDariHeader(disposition) {
+  const cocok = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition || "");
+  return cocok ? decodeURIComponent(cocok[1].trim()) : "";
 }
+
+/** Unduh CSV satu kertas kerja. `formulirId` membatasi ke satu formulir. */
+export const unduhCsv = (id, formulirId) =>
+  unduhBerkas(`/kertas-kerja/${id}/export${formulirId ? `?formulir=${formulirId}` : ""}`, "kertas-kerja.csv");
+
+/** Unduh Excel (.xlsx) satu kertas kerja. */
+export const unduhExcel = (id, formulirId) =>
+  unduhBerkas(
+    `/kertas-kerja/${id}/export/xlsx${formulirId ? `?formulir=${formulirId}` : ""}`,
+    "kertas-kerja.xlsx"
+  );
 
 /** Unduh seluruh data satu formulir dari semua kertas kerja. jenis: "xlsx" | "csv". */
-export function unduhFormulir(id, jenis = "xlsx") {
-  window.location.href = `${BASE}/formulir/${id}/export${jenis === "xlsx" ? "/xlsx" : ""}`;
-}
+export const unduhFormulir = (id, jenis = "xlsx") =>
+  unduhBerkas(
+    `/formulir/${id}/export${jenis === "xlsx" ? "/xlsx" : ""}`,
+    `formulir.${jenis === "xlsx" ? "xlsx" : "csv"}`
+  );
 
 /* ---------- dashboard ---------- */
 

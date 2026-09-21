@@ -17,6 +17,13 @@ import { navigate, kembali, pasangPenjaga } from "../lib/router.js";
 
 const urlKk = (id) => `/kertas-kerja/${id}`;
 
+/**
+ * Ekspor khusus admin, jadi unduhannya kini lewat fetch bertoken dan bisa
+ * gagal (sesi habis, jaringan putus). Bungkus supaya galatnya sampai ke
+ * pengguna, bukan tenggelam sebagai promise yang ditolak diam-diam.
+ */
+const unduh = (toast) => (janji) => janji.catch((e) => toast(e.message, true));
+
 /** "Andi Saputra" atau "Andi Saputra +2" - cukup pendek untuk baris keterangan. */
 const ringkasTim = (petugas = []) => {
   if (!petugas.length) return "—";
@@ -30,6 +37,7 @@ export function DaftarKertasKerja() {
   const toast = useToast();
   const { konfirmasi } = useDialog();
   const admin = useAdmin();
+  const unduhKe = unduh(toast);
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -166,20 +174,21 @@ export function DaftarKertasKerja() {
                   </div>
                   <BerkasPill jumlah={k.jumlahTidakLengkap} />
                   <StatusPill status={k.status} />
-                  {/* Aksi tambahan hanya di desktop; di HP semuanya ada di halaman kertas kerja. */}
-                  <div className="fk-kk-card-actions" onClick={(e) => e.stopPropagation()}>
-                    <button type="button" className="fk-mini" onClick={() => api.unduhExcel(k.id)}>
-                      Excel
-                    </button>
-                    <button type="button" className="fk-mini" onClick={() => api.unduhCsv(k.id)}>
-                      CSV
-                    </button>
-                    {admin && (
+                  {/* Aksi tambahan hanya di desktop; di HP semuanya ada di halaman kertas kerja.
+                      Seluruhnya khusus admin: ekspor maupun hapus. */}
+                  {admin && (
+                    <div className="fk-kk-card-actions" onClick={(e) => e.stopPropagation()}>
+                      <button type="button" className="fk-mini" onClick={() => unduhKe(api.unduhExcel(k.id))}>
+                        Excel
+                      </button>
+                      <button type="button" className="fk-mini" onClick={() => unduhKe(api.unduhCsv(k.id))}>
+                        CSV
+                      </button>
                       <button type="button" className="fk-mini is-danger" onClick={() => hapus(k)}>
                         Hapus
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -288,6 +297,7 @@ export function DetailKertasKerja({ id }) {
   const toast = useToast();
   const { konfirmasi } = useDialog();
   const admin = useAdmin();
+  const unduhKe = unduh(toast);
   const [kk, setKk] = useState(null);
   const [bank, setBank] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -506,22 +516,26 @@ export function DetailKertasKerja({ id }) {
                   Ubah petugas
                 </button>
               )}
-              <button
-                type="button"
-                className="fk-btn-ghost"
-                onClick={() => api.unduhExcel(kk.id)}
-                title="Seluruh formulir di kertas kerja ini"
-              >
-                Ekspor Excel
-              </button>
-              <button
-                type="button"
-                className="fk-btn-ghost"
-                onClick={() => api.unduhCsv(kk.id)}
-                title="Seluruh formulir di kertas kerja ini"
-              >
-                Ekspor CSV
-              </button>
+              {admin && (
+                <>
+                  <button
+                    type="button"
+                    className="fk-btn-ghost"
+                    onClick={() => unduhKe(api.unduhExcel(kk.id))}
+                    title="Seluruh formulir di kertas kerja ini"
+                  >
+                    Ekspor Excel
+                  </button>
+                  <button
+                    type="button"
+                    className="fk-btn-ghost"
+                    onClick={() => unduhKe(api.unduhCsv(kk.id))}
+                    title="Seluruh formulir di kertas kerja ini"
+                  >
+                    Ekspor CSV
+                  </button>
+                </>
+              )}
             </div>
           </>
         )}
@@ -582,22 +596,26 @@ export function DetailKertasKerja({ id }) {
             <div className="fk-grup-judul">
               <span className="fk-grup-nama">{formulir.judul}</span>
               <span className="fk-grup-aksi">
-                <button
-                  type="button"
-                  className="fk-mini"
-                  onClick={() => api.unduhExcel(kk.id, formulir.id)}
-                  title={`Ekspor data ${formulir.judul} ke Excel`}
-                >
-                  Excel
-                </button>
-                <button
-                  type="button"
-                  className="fk-mini"
-                  onClick={() => api.unduhCsv(kk.id, formulir.id)}
-                  title={`Ekspor data ${formulir.judul} ke CSV`}
-                >
-                  CSV
-                </button>
+                {admin && (
+                  <>
+                    <button
+                      type="button"
+                      className="fk-mini"
+                      onClick={() => unduhKe(api.unduhExcel(kk.id, formulir.id))}
+                      title={`Ekspor data ${formulir.judul} ke Excel`}
+                    >
+                      Excel
+                    </button>
+                    <button
+                      type="button"
+                      className="fk-mini"
+                      onClick={() => unduhKe(api.unduhCsv(kk.id, formulir.id))}
+                      title={`Ekspor data ${formulir.judul} ke CSV`}
+                    >
+                      CSV
+                    </button>
+                  </>
+                )}
                 <span className="fk-baris-jumlah">{entri.length}</span>
               </span>
             </div>

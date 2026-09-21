@@ -567,7 +567,7 @@ export default function FormulirPage({ admin, onAuthChanged }) {
                         <button
                           type="button"
                           className="fk-mini"
-                          onClick={() => api.unduhFormulir(f.id, "xlsx")}
+                          onClick={() => api.unduhFormulir(f.id, "xlsx").catch((e) => toast(e.message, true))}
                           title={`Ekspor semua data ${f.judul} ke Excel`}
                         >
                           Excel
@@ -575,7 +575,7 @@ export default function FormulirPage({ admin, onAuthChanged }) {
                         <button
                           type="button"
                           className="fk-mini"
-                          onClick={() => api.unduhFormulir(f.id, "csv")}
+                          onClick={() => api.unduhFormulir(f.id, "csv").catch((e) => toast(e.message, true))}
                           title={`Ekspor semua data ${f.judul} ke CSV`}
                         >
                           CSV
