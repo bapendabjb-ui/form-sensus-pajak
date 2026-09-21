@@ -106,14 +106,17 @@ export function DaftarKertasKerja() {
         </Empty>
       ) : (
         <>
+          {/* Angka saja: nomor kertas kerja memang hanya angka, dan menyaring di
+              sini membuat isi kotak selalu persis sama dengan yang dicari. */}
           <input
             type="search"
             className="fk-input fk-cari"
-            placeholder="Cari nomor, nama petugas, atau NIP..."
+            placeholder="Cari nomor kertas kerja..."
             value={cari}
-            onChange={(e) => setCari(e.target.value)}
+            onChange={(e) => setCari(e.target.value.replace(/\D/g, ""))}
+            inputMode="numeric"
             enterKeyHint="search"
-            aria-label="Cari kertas kerja"
+            aria-label="Cari nomor kertas kerja"
           />
           <div className="fk-filter" role="tablist" aria-label="Saring kertas kerja">
             {FILTER_KK.map(([kunci, label]) => (
@@ -135,9 +138,9 @@ export function DaftarKertasKerja() {
           {tampil.length === 0 ? (
             <Empty>
               {kata && dicari.length === 0
-                ? `Tidak ada kertas kerja yang cocok dengan “${kata}”.`
+                ? `Tidak ada kertas kerja bernomor “${kata}”.`
                 : kata
-                  ? `Tidak ada hasil “${kata}” pada saringan ini.`
+                  ? `Nomor “${kata}” tidak ada pada saringan ini.`
                   : filter === "kurang"
                     ? "Tidak ada kertas kerja dengan berkas tidak lengkap."
                     : "Tidak ada kertas kerja pada saringan ini."}

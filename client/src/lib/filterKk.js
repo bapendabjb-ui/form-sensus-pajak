@@ -38,33 +38,18 @@ export function cocokFilterKk(k, f) {
   return true;
 }
 
-/** Angka sependek ini dianggap nomor kertas kerja, bukan penggalan NIP. */
-const MIN_DIGIT_NIP = 4;
-
 /**
  * Apakah kertas kerja ringkas `k` cocok dengan kata kunci `kata`.
  *
- * Dicocokkan ke nomor kertas kerja serta nama dan NIP anggota timnya - tiga hal
- * yang diingat petugas saat mencari pekerjaannya sendiri. Nomor dicocokkan
- * sebagai penggalan, jadi mengetik "4" sudah menemukan "00004" tanpa perlu
- * menghitung nolnya. NIP dibandingkan tanpa spasi, sama seperti di menu Petugas.
+ * Sengaja hanya mencocokkan nomor kertas kerja - nama petugas dan NIP tidak
+ * ikut dicari. Untuk menelusuri petugas, gunakan menu Petugas.
  *
- * NIP hanya ikut dicocokkan bila yang diketik minimal MIN_DIGIT_NIP digit:
- * NIP panjang (18 digit) hampir pasti memuat angka pendek apa pun, sehingga
- * mengetik "12" untuk mencari kertas kerja 00012 justru akan menarik semua
- * kertas kerja yang NIP petugasnya kebetulan mengandung "12".
+ * Nomor dicocokkan sebagai penggalan angka, jadi mengetik "4" sudah menemukan
+ * "00004" tanpa perlu menghitung nolnya. Spasi diabaikan, dan huruf apa pun
+ * yang terketik dibuang lebih dulu supaya nomor tetap ketemu.
  */
 export function cocokCariKk(k, kata) {
-  const q = String(kata || "").trim().toLowerCase();
+  const q = String(kata || "").replace(/\D/g, "");
   if (!q) return true;
-
-  if (String(k.nomor || "").toLowerCase().includes(q)) return true;
-
-  const angka = q.replace(/\s/g, "");
-  const cariNip = angka.length >= MIN_DIGIT_NIP;
-  return (k.petugas || []).some(
-    (p) =>
-      String(p.nama || "").toLowerCase().includes(q) ||
-      (cariNip && String(p.nip || "").replace(/\s/g, "").includes(angka))
-  );
+  return String(k.nomor || "").includes(q);
 }
