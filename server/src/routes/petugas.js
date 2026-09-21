@@ -37,18 +37,29 @@ const kunciNama = (nama) => String(nama || "").trim().replace(/\s+/g, " ").toLow
  * Tolak nama atau NIP yang sudah dipakai petugas lain. NIP kosong boleh dobel (opsional).
  * Dicek di aplikasi, bukan indeks unik database, supaya data lama yang terlanjur
  * dobel tidak menggagalkan migrasi saat deploy.
+ *
+ * Penyamaannya dikerjakan MySQL, bukan di Node: yang kembali hanya baris yang
+ * benar-benar bentrok, bukan seluruh tabel petugas. REGEXP_REPLACE menyamakan
+ * spasi persis seperti kunciNama() / kunciNip() di atas, supaya aturan di
+ * database dan di aplikasi tidak bisa menyimpang.
  */
 async function pastikanUnik(nama, nip, kecualiId) {
-  const lain = await prisma.petugas.findMany({
-    where: kecualiId ? { id: { not: kecualiId } } : {},
-    select: { nama: true, nip: true },
-  });
+  const kNama = kunciNama(nama);
+  const kNip = kunciNip(nip);
 
-  const namaSama = lain.find((p) => kunciNama(p.nama) === kunciNama(nama));
+  const bentrok = await prisma.$queryRaw`
+    SELECT nama, nip FROM petugas
+    WHERE id <> ${kecualiId || 0}
+      AND (
+        LOWER(REGEXP_REPLACE(TRIM(nama), '[[:space:]]+', ' ')) = ${kNama}
+        OR (${kNip} <> '' AND REGEXP_REPLACE(nip, '[[:space:]]', '') = ${kNip})
+      )
+    LIMIT 5`;
+
+  const namaSama = bentrok.find((p) => kunciNama(p.nama) === kNama);
   if (namaSama) throw conflict(`Petugas bernama ${namaSama.nama} sudah terdaftar.`);
 
-  const kunci = kunciNip(nip);
-  const nipSama = kunci && lain.find((p) => kunciNip(p.nip) === kunci);
+  const nipSama = kNip && bentrok.find((p) => kunciNip(p.nip) === kNip);
   if (nipSama) throw conflict(`NIP ${nip} sudah terdaftar atas nama ${nipSama.nama}.`);
 }
 

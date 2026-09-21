@@ -11,6 +11,7 @@
  */
 
 const ExcelJS = require("exceljs");
+const config = require("./config");
 const { csvNilai, buildCsv, formatNpwp, formatWaktuID, groupNum } = require("./format");
 const { bentukTim, petaJawaban } = require("./bentuk");
 
@@ -121,6 +122,17 @@ function susunEkspor(data, formulir, { baseUrl, timezone }) {
   return { header, baris };
 }
 
+/**
+ * Alamat dasar untuk tautan foto di berkas ekspor.
+ *
+ * APP_URL dipakai bila diisi; kalau tidak, disusun dari permintaan. Header Host
+ * datang dari klien dan bisa dipalsukan, sehingga tautan foto di berkas ekspor
+ * bisa menunjuk ke alamat orang lain - memasang APP_URL di produksi menutup itu.
+ */
+function baseUrlEkspor(req) {
+  return config.appUrl || `${req.protocol}://${req.get("host")}`;
+}
+
 /** Baris pengganti untuk kertas kerja yang belum punya data. */
 const barisTanpaData = (kk) => kolomKertasKerja(kk);
 
@@ -191,4 +203,13 @@ async function kirimXlsx(res, { nama, sheet, tabel }) {
   res.send(Buffer.from(buffer));
 }
 
-module.exports = { susunEkspor, barisTanpaData, namaBerkas, keCsv, keXlsx, kirimCsv, kirimXlsx };
+module.exports = {
+  susunEkspor,
+  barisTanpaData,
+  baseUrlEkspor,
+  namaBerkas,
+  keCsv,
+  keXlsx,
+  kirimCsv,
+  kirimXlsx,
+};

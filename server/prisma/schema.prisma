@@ -17,6 +17,8 @@ model Admin {
   id           Int    @id @default(autoincrement())
   username     String @unique(map: "admin_username_key") @db.VarChar(64)
   passwordHash String @map("password_hash") @db.VarChar(255)
+  /// Dinaikkan setiap password diganti; token dengan versi lama langsung ditolak.
+  tokenVersi   Int    @default(0) @map("token_versi")
 
   @@map("admin")
 }
@@ -163,7 +165,9 @@ model Entri {
   /// Koordinat perangkat petugas saat data ini pertama kali disimpan, diambil
   /// otomatis tanpa pertanyaan di formulir. Null bila izin lokasi ditolak atau
   /// GPS gagal - pendataan sengaja tidak dihalangi oleh urusan GPS.
-  /// HANYA UNTUK ADMIN: jangan pernah ikut dikirim ke petugas (lihat bentukEntri).
+  /// Terbuka untuk semua pemakai aplikasi, bukan admin saja: sejak titik peta
+  /// hanya bersumber dari koordinat rekaman, membatasinya ke admin membuat
+  /// halaman Peta Sensus kosong bagi petugas.
   rekamLat      Float?    @map("rekam_lat")
   rekamLon      Float?    @map("rekam_lon")
   /// Perkiraan simpangan dalam meter, apa adanya dari perangkat.

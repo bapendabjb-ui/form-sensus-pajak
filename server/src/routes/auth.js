@@ -2,17 +2,38 @@
 
 const express = require("express");
 const prisma = require("../prisma");
-const { hashPassword, verifyPassword, signAdminToken, requireAdmin } = require("../auth");
+const {
+  PASSWORD_MIN,
+  PASSWORD_MAKS,
+  hashPassword,
+  verifyPassword,
+  signAdminToken,
+  requireAdmin,
+} = require("../auth");
 const { wrap, badRequest, unauthorized } = require("../http");
-
-const PASSWORD_MIN = 8;
-const PASSWORD_MAKS = 72; // bcrypt hanya membaca 72 byte pertama
+const { pembatas } = require("../laju");
 
 const router = express.Router();
+
+/**
+ * Pembatas percobaan login.
+ *
+ * Hanya percobaan yang GAGAL yang dihitung, jadi admin yang tahu passwordnya
+ * tidak pernah terkunci sendiri - hanya penebak yang terkena. 10 kegagalan per
+ * 15 menit per IP cukup longgar untuk salah ketik, tetapi membuat penebakan
+ * berurutan tidak ada artinya melawan bcrypt.
+ */
+const batasiLogin = pembatas({
+  jendelaMs: 15 * 60 * 1000,
+  maks: 10,
+  hanyaGagal: true,
+  pesan: "Terlalu banyak percobaan login yang gagal. Coba lagi dalam beberapa menit.",
+});
 
 /** POST /api/auth/login -> { token, username } */
 router.post(
   "/login",
+  batasiLogin,
   wrap(async (req, res) => {
     const username = String(req.body?.username || "").trim();
     const password = String(req.body?.password || "");
@@ -36,6 +57,10 @@ router.get("/me", requireAdmin, (req, res) => {
 /**
  * PUT /api/auth/password  { passwordLama, passwordBaru } -> ganti password admin yang sedang login.
  * Password lama yang salah dijawab 400, bukan 401, supaya klien tidak ikut logout.
+ *
+ * tokenVersi dinaikkan bersamaan dengan hash barunya: seluruh token yang sudah
+ * beredar - termasuk di perangkat lain - langsung tidak berlaku. Klien yang
+ * sedang mengganti password diberi token baru supaya tidak ikut terlempar.
  */
 router.put(
   "/password",
@@ -56,11 +81,12 @@ router.put(
     if (!cocok) throw badRequest("Password lama salah.");
     if (passwordLama === passwordBaru) throw badRequest("Password baru harus berbeda dari password lama.");
 
-    await prisma.admin.update({
+    const diperbarui = await prisma.admin.update({
       where: { id: admin.id },
-      data: { passwordHash: await hashPassword(passwordBaru) },
+      data: { passwordHash: await hashPassword(passwordBaru), tokenVersi: { increment: 1 } },
     });
-    res.json({ ok: true });
+
+    res.json({ ok: true, token: signAdminToken(diperbarui) });
   })
 );
 

@@ -81,7 +81,7 @@ router.get(
       entriId: e.id,
       lat,
       lon,
-      sumber, // "formulir" = jawaban koordinat; "rekam" = terekam otomatis (admin saja)
+      sumber, // "formulir" = jawaban koordinat; "rekam" = terekam otomatis saat data disimpan
       judul: judulEntri(e.jawaban),
       formulir: e.formulir.judul,
       berkasLengkap: e.berkasLengkap,

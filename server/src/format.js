@@ -190,11 +190,38 @@ function csvNilai(tipe, nilai, opsi = {}) {
   }
 }
 
+/**
+ * Awalan yang membuat Excel / LibreOffice / Google Sheets memperlakukan isi sel
+ * sebagai rumus, bukan teks.
+ */
+const AWALAN_RUMUS = /^[=+\-@\t\r]/;
+
+/** Angka biasa, termasuk yang negatif dan yang sudah diberi pemisah ribuan. */
+const ANGKA_POLOS = /^-?[\d.,]+$/;
+
+/**
+ * Netralkan sel yang akan dibaca sebagai rumus.
+ *
+ * Isi data diketik petugas lewat endpoint yang terbuka tanpa login, jadi nilai
+ * seperti `=HYPERLINK(...)` bisa masuk ke database dan ikut terekspor. Yang
+ * membuka berkas hasil ekspor justru admin, sehingga selnya harus dilucuti
+ * sebelum ditulis. Apostrof di depan memberi tahu Excel "ini teks" dan tidak
+ * ikut tampil di selnya.
+ *
+ * Angka negatif dikecualikan: "-5" aman dan memberinya apostrof malah membuat
+ * kolomnya tidak bisa dijumlah.
+ */
+function lindungiSelCsv(str) {
+  if (!AWALAN_RUMUS.test(str)) return str;
+  if (ANGKA_POLOS.test(str)) return str;
+  return "'" + str;
+}
+
 /** Susun CSV dengan BOM UTF-8 agar rapi saat dibuka di Excel. */
 function buildCsv(rows) {
   const esc = (s) => {
     const str = s === null || s === undefined ? "" : String(s);
-    return '"' + str.replace(/"/g, '""') + '"';
+    return '"' + lindungiSelCsv(str).replace(/"/g, '""') + '"';
   };
   const body = rows.map((r) => r.map(esc).join(",")).join("\r\n");
   return "﻿" + body + "\r\n";
@@ -213,5 +240,6 @@ module.exports = {
   formatLuas,
   formatNomorTelepon,
   csvNilai,
+  lindungiSelCsv,
   buildCsv,
 };

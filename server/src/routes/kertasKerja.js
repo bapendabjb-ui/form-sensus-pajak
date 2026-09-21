@@ -16,7 +16,7 @@ const {
 } = require("../entri");
 const { hapusBerkas } = require("../foto");
 const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require("../bentuk");
-const { susunEkspor, barisTanpaData, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
+const { susunEkspor, barisTanpaData, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
 
 const router = express.Router();
 
@@ -285,7 +285,7 @@ async function dataEkspor(req) {
     )
     .map((e) => ({ kk, e }));
 
-  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  const baseUrl = baseUrlEkspor(req);
   const tabel = susunEkspor(data, formulir, { baseUrl, timezone: config.timezone });
   if (data.length === 0) tabel.baris.push(barisTanpaData(kk));
 

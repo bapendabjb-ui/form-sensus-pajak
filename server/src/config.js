@@ -26,6 +26,11 @@ const config = {
   epbbApiUrl: (process.env.EPBB_API_URL || "").trim(),
   epbbApiKey: (process.env.EPBB_API_KEY || "").trim(),
   epbbTimeoutMs: Number(process.env.EPBB_TIMEOUT_MS) || 10000,
+  // Kode akses bersama untuk petugas. Kosong = aplikasi terbuka seperti semula.
+  aksesKode: (process.env.AKSES_KODE || "").trim(),
+  // Alamat publik aplikasi, dipakai menyusun tautan foto di berkas ekspor.
+  // Kosong = disusun dari header Host permintaan.
+  appUrl: (process.env.APP_URL || "").trim().replace(/\/+$/, ""),
 };
 
 config.isProd = config.nodeEnv === "production";
@@ -37,6 +42,11 @@ if (!config.jwtSecret) {
   }
   config.jwtSecret = "sensus-pajak-dev-secret-jangan-dipakai-di-produksi";
   console.warn("[Sensus Pajak] JWT_SECRET belum diset - memakai secret pengembangan.");
+}
+
+if (config.isProd && config.aksesKode && config.aksesKode.length < 6) {
+  console.error("[Sensus Pajak] AKSES_KODE terlalu pendek (minimal 6 karakter). Hentikan proses.");
+  process.exit(1);
 }
 
 module.exports = config;

@@ -1,0 +1,46 @@
+# Pemeriksaan otomatis setiap perubahan masuk ke main atau diajukan lewat PR.
+#
+# Tiga hal yang diperiksa - lint, tes, dan build frontend - dijalankan dalam satu
+# job berurutan: ketiganya cepat, dan memecahnya jadi beberapa job hanya menambah
+# waktu antre serta pemasangan dependensi berulang.
+#
+# Tidak ada database di sini. Tes yang ada sengaja hanya menyentuh logika murni
+# (validasi jawaban, ekspor, keamanan, impor), sehingga CI tidak perlu MySQL.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  periksa:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `npm ci` menjalankan postinstall (prisma generate), yang membaca
+      # server/prisma/schema.prisma - tidak perlu koneksi database.
+      - name: Pasang dependensi
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tes
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+      # Migrasi tidak dijalankan di CI, tetapi bentuknya tetap harus sah -
+      # skema yang rusak baru ketahuan saat deploy kalau tidak diperiksa di sini.
+      - name: Periksa skema Prisma
+        run: npx prisma validate

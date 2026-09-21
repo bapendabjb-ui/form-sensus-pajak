@@ -9,7 +9,7 @@ const { TIPE, BERTIPE_OPSI } = require("../answers");
 const { sumberEpbbSah } = require("../epbb");
 const { includePertanyaan, bentukFormulir } = require("../bentuk");
 const { hapusBerkas, sapuFotoYatim } = require("../foto");
-const { susunEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
+const { susunEkspor, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
 
 const router = express.Router();
 
@@ -204,7 +204,7 @@ async function dataEksporFormulir(req) {
     .map((e) => ({ kk: e.kertasKerja, e }))
     .sort((a, b) => a.kk.nomor.localeCompare(b.kk.nomor) || a.e.createdAt - b.e.createdAt || a.e.id - b.e.id);
 
-  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  const baseUrl = baseUrlEkspor(req);
   return {
     nama: `formulir-${namaBerkas(f.judul, "formulir")}`,
     sheet: f.judul,
