@@ -4,7 +4,6 @@ const express = require("express");
 const prisma = require("../prisma");
 const { wrap } = require("../http");
 const { bentukTim } = require("../bentuk");
-const { adminOpsional, isAdmin } = require("../auth");
 
 const router = express.Router();
 
@@ -49,9 +48,7 @@ const punyaTitik = (n) =>
  */
 router.get(
   "/",
-  adminOpsional,
-  wrap(async (req, res) => {
-    const admin = isAdmin(req);
+  wrap(async (_req, res) => {
     const rows = await prisma.jawaban.findMany({
       where: { pertanyaan: { tipe: "lokasi" } },
       select: {
@@ -104,10 +101,10 @@ router.get(
       sudahAda.add(r.entri.id);
     }
 
-    // Koordinat rekaman otomatis: hanya untuk admin, dan hanya sebagai cadangan
-    // bagi data yang formulirnya tidak punya pertanyaan lokasi (mis. PBB-P2).
-    // Entri yang sudah punya titik dari formulir tidak digandakan.
-    if (admin) {
+    // Koordinat rekaman otomatis: dipakai sebagai cadangan bagi data yang
+    // formulirnya tidak punya pertanyaan lokasi (mis. PBB-P2). Entri yang sudah
+    // punya titik dari jawaban formulir tidak digandakan.
+    {
       const rekaman = await prisma.entri.findMany({
         where: { rekamLat: { not: null }, rekamLon: { not: null } },
         select: {

@@ -3,7 +3,7 @@
 const express = require("express");
 const prisma = require("../prisma");
 const config = require("../config");
-const { requireAdmin, adminOpsional, isAdmin } = require("../auth");
+const { requireAdmin } = require("../auth");
 const { wrap, badRequest, notFound, parseId, ApiError } = require("../http");
 const { ambilNomorBerikutnya, previewNomorBerikutnya } = require("../nomor");
 const {
@@ -206,9 +206,6 @@ router.put(
  */
 router.post(
   "/:id/entri",
-  // Terbuka untuk petugas; adminOpsional hanya menentukan apakah koordinat
-  // rekaman ikut dikembalikan dalam respons.
-  adminOpsional,
   wrap(async (req, res) => {
     const id = parseId(req.params.id);
     const kk = await prisma.kertasKerja.findUnique({ where: { id } });
@@ -244,7 +241,7 @@ router.post(
     });
     await hapusBerkas(dilepas);
 
-    res.status(201).json(await muatEntri(entri.id, { admin: isAdmin(req) }));
+    res.status(201).json(await muatEntri(entri.id));
   })
 );
 

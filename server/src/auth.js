@@ -40,30 +40,6 @@ function requireAdmin(req, _res, next) {
 }
 
 /**
- * Middleware: kenali admin bila tokennya dibawa, tetapi jangan pernah menolak.
- *
- * Dipakai oleh route yang terbuka untuk petugas namun menyimpan bagian yang
- * hanya boleh dilihat admin (mis. koordinat rekaman otomatis pada entri).
- * Token yang tidak sah diperlakukan sama dengan tidak ada token: permintaan
- * tetap lanjut sebagai bukan-admin.
- */
-function adminOpsional(req, _res, next) {
-  const token = readToken(req);
-  if (token) {
-    try {
-      const payload = jwt.verify(token, config.jwtSecret);
-      if (payload.role === "admin") req.admin = payload;
-    } catch {
-      /* token kedaluwarsa / palsu: lanjut sebagai petugas biasa */
-    }
-  }
-  return next();
-}
-
-/** Apakah permintaan ini datang dari admin yang sudah lolos salah satu middleware di atas. */
-const isAdmin = (req) => !!req.admin;
-
-/**
  * Seed akun admin dari ADMIN_USERNAME / ADMIN_PASSWORD bila belum ada.
  * Dijalankan setiap start, idempoten.
  */
@@ -76,12 +52,4 @@ async function ensureAdminSeed() {
   return { created: true, username };
 }
 
-module.exports = {
-  hashPassword,
-  verifyPassword,
-  signAdminToken,
-  requireAdmin,
-  adminOpsional,
-  isAdmin,
-  ensureAdminSeed,
-};
+module.exports = { hashPassword, verifyPassword, signAdminToken, requireAdmin, ensureAdminSeed };

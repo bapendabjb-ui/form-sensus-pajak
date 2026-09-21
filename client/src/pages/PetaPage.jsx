@@ -52,10 +52,7 @@ export default function PetaPage() {
 
   return (
     <>
-      <PageHead
-        title="Peta Sensus"
-        sub="Pemetaan Data Sensus"
-      />
+      <PageHead title="Peta Sensus" sub="Pemetaan Data Sensus" />
 
       {error && <ErrorBox onRetry={muat}>{error}</ErrorBox>}
 
@@ -63,8 +60,8 @@ export default function PetaPage() {
         <Loading label="Memuat titik..." />
       ) : titik.length === 0 ? (
         <Empty>
-          Belum ada data berkoordinat. Titik muncul setelah petugas mengisi pertanyaan bertipe lokasi
-          pada sebuah data.
+          Belum ada data berkoordinat. Titik muncul setelah petugas menyimpan data dengan izin lokasi
+          aktif di perangkatnya.
         </Empty>
       ) : (
         <>

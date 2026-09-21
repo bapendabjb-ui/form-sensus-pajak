@@ -2,7 +2,7 @@
 
 const express = require("express");
 const prisma = require("../prisma");
-const { requireAdmin, adminOpsional, isAdmin } = require("../auth");
+const { requireAdmin } = require("../auth");
 const { wrap, notFound, parseId, ApiError } = require("../http");
 const { siapkanJawaban, tulisJawaban, muatEntri, bacaBerkas, bacaRekamKoordinat } = require("../entri");
 const { hapusBerkas } = require("../foto");
@@ -13,16 +13,14 @@ const router = express.Router();
 /** GET /api/entri/:id -> satu data lengkap dengan formulir & jawabannya. */
 router.get(
   "/:id",
-  adminOpsional,
   wrap(async (req, res) => {
-    res.json(await muatEntri(parseId(req.params.id), { admin: isAdmin(req) }));
+    res.json(await muatEntri(parseId(req.params.id)));
   })
 );
 
 /** PUT /api/entri/:id  { jawaban, dariEpbb?, berkasLengkap?, catatanBerkas? } -> ubah isian. Kolom wajib divalidasi -> 422. */
 router.put(
   "/:id",
-  adminOpsional,
   wrap(async (req, res) => {
     const id = parseId(req.params.id);
     const entri = await prisma.entri.findUnique({
@@ -51,7 +49,7 @@ router.put(
     });
     await hapusBerkas(dilepas);
 
-    res.json(await muatEntri(id, { admin: isAdmin(req) }));
+    res.json(await muatEntri(id));
   })
 );
 

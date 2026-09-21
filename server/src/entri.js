@@ -165,11 +165,7 @@ async function tulisJawaban(tx, entriId, siap) {
 }
 
 /** Muat satu entri lengkap (formulir + jawaban + info kertas kerja) dalam bentuk JSON. */
-/**
- * @param {number} id
- * @param {{ admin?: boolean }} opsi  admin=true menambahkan koordinat rekaman.
- */
-async function muatEntri(id, { admin = false } = {}) {
+async function muatEntri(id) {
   const e = await prisma.entri.findUnique({
     where: { id },
     include: { jawaban: true, kertasKerja: true, formulir: { include: includePertanyaan } },
@@ -189,16 +185,10 @@ async function muatEntri(id, { admin = false } = {}) {
     catatanBerkas: e.catatanBerkas,
     createdAt: e.createdAt,
     updatedAt: e.updatedAt,
-    // Koordinat rekaman hanya untuk admin. Disisipkan di sini, bukan disaring
-    // di tampilan: kalau ikut terkirim, petugas bisa membacanya di network tab.
-    ...(admin
-      ? {
-          rekamKoordinat:
-            e.rekamLat === null || e.rekamLon === null
-              ? null
-              : { lat: e.rekamLat, lon: e.rekamLon, akurasi: e.rekamAkurasi, waktu: e.rekamWaktu },
-        }
-      : {}),
+    rekamKoordinat:
+      e.rekamLat === null || e.rekamLon === null
+        ? null
+        : { lat: e.rekamLat, lon: e.rekamLon, akurasi: e.rekamAkurasi, waktu: e.rekamWaktu },
   };
 }
 
