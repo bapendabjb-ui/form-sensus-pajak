@@ -204,6 +204,7 @@ export function cocokkanRute(pathname) {
     return { nama: "masuk", tab: null, judul: "Masuk Admin", kembali: "/", fokus: true };
   }
   if (b.length === 1 && b[0] === "akun") return { nama: "akun", tab: null, judul: "Akun Admin", kembali: "/" };
+  if (b.length === 1 && b[0] === "peta") return { nama: "peta", tab: "peta", judul: "Peta Sensus" };
   if (b.length === 1 && b[0] === "petugas") return { nama: "petugas", tab: "petugas", judul: "Petugas" };
   if (b.length === 1 && b[0] === "formulir") return { nama: "formulir", tab: "formulir", judul: "Formulir" };
   if (b.length === 1 && b[0] === "ekspor") return { nama: "ekspor", tab: "ekspor", judul: "Ekspor Data" };

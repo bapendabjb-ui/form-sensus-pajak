@@ -86,7 +86,7 @@ export default function Dashboard() {
             })}
           </div>
 
-          <Panel title="Rekap Petugas" sub="5 Petugas Dengan Data Terbanyak.">
+          <Panel title="Rekap Petugas" sub="Top 5 Petugas Dengan Data Terbanyak.">
             {stats.rekapPetugas.length === 0 ? (
               <div className="fk-lt-empty">Belum ada data yang dikerjakan petugas.</div>
             ) : (

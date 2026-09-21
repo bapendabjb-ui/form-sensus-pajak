@@ -49,6 +49,7 @@ app.use("/api/kertas-kerja", require("./src/routes/kertasKerja"));
 app.use("/api/entri", require("./src/routes/entri"));
 app.use("/api/foto", require("./src/routes/foto"));
 app.use("/api/dashboard", require("./src/routes/dashboard"));
+app.use("/api/peta", require("./src/routes/peta"));
 app.use("/api/nop", require("./src/routes/nop"));
 
 // Data referensi kecamatan & kelurahan untuk pertanyaan bertipe "wilayah".

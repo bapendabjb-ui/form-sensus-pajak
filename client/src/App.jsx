@@ -3,7 +3,7 @@ import * as api from "./api.js";
 import { ToastProvider } from "./components/Toast.jsx";
 import { DialogProvider } from "./components/Dialog.jsx";
 import { Empty } from "./components/Ui.jsx";
-import { Lambang, IconKembali, IconGrid, IconDoc, IconUser, IconList, IconLock, IconUnduh } from "./components/Icons.jsx";
+import { Lambang, IconKembali, IconGrid, IconDoc, IconUser, IconList, IconLock, IconUnduh, IconPeta } from "./components/Icons.jsx";
 import LoginAdmin from "./components/LoginAdmin.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import { DaftarKertasKerja, BuatKertasKerja, DetailKertasKerja, IsiData } from "./pages/KertasKerjaPage.jsx";
@@ -11,12 +11,14 @@ import PetugasPage from "./pages/PetugasPage.jsx";
 import FormulirPage from "./pages/FormulirPage.jsx";
 import AkunPage from "./pages/AkunPage.jsx";
 import EksporPage from "./pages/EksporPage.jsx";
+import PetaPage from "./pages/PetaPage.jsx";
 import { AdminContext } from "./lib/admin.js";
 import { useLokasi, navigate, kembali, cocokkanRute } from "./lib/router.js";
 
 const NAV = [
   { tab: "dashboard", path: "/", label: "Dashboard", pendek: "Dashboard", Icon: IconGrid },
   { tab: "kk", path: "/kertas-kerja", label: "Kertas Kerja", pendek: "Kertas Kerja", Icon: IconDoc },
+  { tab: "peta", path: "/peta", label: "Peta Sensus", pendek: "Peta", Icon: IconPeta },
   { tab: "petugas", path: "/petugas", label: "Petugas", pendek: "Petugas", Icon: IconUser },
   { tab: "ekspor", path: "/ekspor", label: "Ekspor", pendek: "Ekspor", Icon: IconUnduh },
   { tab: "formulir", path: "/formulir", label: "Formulir", pendek: "Formulir", Icon: IconList, admin: true },
@@ -102,6 +104,9 @@ function Shell() {
       break;
     case "ubah":
       halaman = <IsiData key={lokasi} kkId={rute.kkId} entriId={rute.entriId} />;
+      break;
+    case "peta":
+      halaman = <PetaPage />;
       break;
     case "petugas":
       halaman = <PetugasPage />;

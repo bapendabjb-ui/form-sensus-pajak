@@ -571,6 +571,29 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 /* position + z-index membuat konteks tumpuk sendiri: panel Leaflet (z 400+) tidak menutupi bilah atas & lembar pilihan. */
 .fk-peta{position:relative; z-index:0; height:300px; border-radius:10px; overflow:hidden; border:1px solid var(--line-soft); background:#E6EAEF;}
 @media (max-width:560px){ .fk-peta{height:260px;} }
+
+/* ---- peta sebaran (halaman Peta Sensus) ---- */
+/* Lebih tinggi dari peta pemilih titik: di sini peta adalah isi halamannya. */
+.fk-peta.is-sebaran{height:min(62vh,560px);}
+@media (max-width:560px){ .fk-peta.is-sebaran{height:min(58vh,420px);} }
+
+/* Titik bulat, bukan pin: sebaran padat lebih terbaca tanpa ekor pin. */
+.fk-titik .fk-titik-isi{display:block; width:16px; height:16px; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.35);}
+.fk-titik.is-selesai .fk-titik-isi{background:var(--brand);}
+.fk-titik.is-draft .fk-titik-isi{background:var(--amber);}
+
+.fk-peta-legenda{display:flex; align-items:center; gap:14px;}
+.fk-legenda{display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--muted);}
+.fk-titik-contoh{width:11px; height:11px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px var(--line);}
+.fk-titik-contoh.is-selesai{background:var(--brand);}
+.fk-titik-contoh.is-draft{background:var(--amber);}
+
+.fk-balon{display:flex; flex-direction:column; gap:3px; min-width:160px;}
+.fk-balon strong{font-size:13.5px; color:var(--ink);}
+.fk-balon-sub{font-size:12px; color:var(--muted);}
+.fk-balon-kurang{font-size:12px; font-weight:600; color:#A5312A;}
+.fk-balon-buka{margin-top:6px; border:1px solid var(--line); background:var(--surface); color:var(--brand-dark); font-size:12px; font-weight:600; padding:6px 10px; border-radius:8px; cursor:pointer;}
+.fk-balon-buka:hover{border-color:var(--brand); background:var(--brand-tint);}
 .fk-pin{background:transparent; border:0;}
 .fk-pin-kepala{display:block; width:28px; height:28px; border-radius:50% 50% 50% 0; background:var(--brand); border:3px solid #fff; transform:rotate(-45deg); box-shadow:0 2px 6px rgba(0,0,0,.35);}
 /* ================= token global =================

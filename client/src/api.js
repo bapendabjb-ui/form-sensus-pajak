@@ -192,6 +192,11 @@ export function unduhFormulir(id, jenis = "xlsx") {
 
 export const getStats = () => request("/dashboard/stats");
 
+/* ---------- peta sensus ---------- */
+
+/** Semua titik hasil sensus, satu titik per data yang punya jawaban koordinat. */
+export const listPeta = () => request("/peta");
+
 /* ---------- cek NOP ke EPBB ---------- */
 
 /** Data objek pajak dari EPBB: { nop, namaWp, letakSp, letakOp, luasTanah, luasBangunan, belumBayar }. */
