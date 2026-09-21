@@ -34,7 +34,6 @@ body {
 .fk-nav-item.is-active{background:var(--brand-tint); color:var(--brand-dark); font-weight:600;}
 .fk-nav-ic{display:grid; place-items:center; color:currentColor;}
 .fk-nav-label{flex:1;}
-.fk-nav-lock{color:var(--faint); display:grid; place-items:center;}
 .fk-side-foot{border-top:1px solid var(--line-soft); padding-top:12px; margin-top:8px;}
 .fk-side-masuk{display:flex; align-items:center; gap:8px; width:100%; border:1px solid var(--line); background:var(--surface); color:var(--muted); font-size:13px; font-weight:500; padding:9px 12px; border-radius:10px; text-align:left;}
 .fk-side-masuk:hover{border-color:var(--brand); color:var(--brand-dark); background:var(--brand-tint);}
@@ -719,7 +718,6 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-tab-ikon{display:grid; place-items:center; width:56px; height:30px; border-radius:15px; transition:background .15s;}
   .fk-tab.is-active .fk-tab-ikon{background:var(--brand-tint);}
   .fk-tab:active .fk-tab-ikon{background:#E6EAEF;}
-  .fk-tab-kunci{position:absolute; top:9px; left:calc(50% + 12px); color:var(--faint); line-height:0;}
 
   /* ---- kerangka isi ---- */
   .fk-main{padding:14px 14px calc(var(--bawah) + 20px); gap:14px;}

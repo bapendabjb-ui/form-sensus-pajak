@@ -20,7 +20,7 @@ const NAV = [
   { tab: "kk", path: "/kertas-kerja", label: "Kertas Kerja", pendek: "Kertas Kerja", Icon: IconDoc },
   { tab: "peta", path: "/peta", label: "Peta Sensus", pendek: "Peta", Icon: IconPeta },
   { tab: "petugas", path: "/petugas", label: "Petugas", pendek: "Petugas", Icon: IconUser },
-  { tab: "ekspor", path: "/ekspor", label: "Ekspor", pendek: "Ekspor", Icon: IconUnduh },
+  { tab: "ekspor", path: "/ekspor", label: "Ekspor", pendek: "Ekspor", Icon: IconUnduh, admin: true },
   { tab: "formulir", path: "/formulir", label: "Formulir", pendek: "Formulir", Icon: IconList, admin: true },
 ];
 
@@ -85,6 +85,12 @@ function Shell() {
 
   const masuk = () => navigate("/masuk");
 
+  // Menu khusus admin disembunyikan seluruhnya sebelum login, bukan ditampilkan
+  // bergembok: petugas tidak perlu tahu ada layar yang tidak bisa mereka buka.
+  // Halamannya sendiri tetap dijaga masing-masing, karena alamatnya bisa
+  // diketik langsung.
+  const menu = NAV.filter((m) => !m.admin || admin);
+
   let halaman;
   switch (rute.nama) {
     case "dashboard":
@@ -112,7 +118,7 @@ function Shell() {
       halaman = <PetugasPage />;
       break;
     case "ekspor":
-      halaman = <EksporPage />;
+      halaman = <EksporPage admin={admin} onAuthChanged={() => setAdmin(api.isLoggedIn())} />;
       break;
     case "formulir":
       halaman = <FormulirPage admin={admin} onAuthChanged={() => setAdmin(api.isLoggedIn())} />;
@@ -149,7 +155,7 @@ function Shell() {
         </a>
 
         <nav className="fk-nav" aria-label="Navigasi utama">
-          {NAV.map(({ tab, path, label, Icon, admin: perluAdmin }) => (
+          {menu.map(({ tab, path, label, Icon }) => (
             <a
               key={tab}
               href={path}
@@ -161,11 +167,6 @@ function Shell() {
                 <Icon />
               </span>
               <span className="fk-nav-label">{label}</span>
-              {perluAdmin && !admin && (
-                <span className="fk-nav-lock" title="Perlu login admin">
-                  <IconLock />
-                </span>
-              )}
             </a>
           ))}
         </nav>
@@ -228,7 +229,7 @@ function Shell() {
       {/* ---------- HP: bilah tab bawah ---------- */}
       {!rute.fokus && (
         <nav className="fk-tabbar" aria-label="Navigasi utama">
-          {NAV.map(({ tab, path, pendek, Icon, admin: perluAdmin }) => (
+          {menu.map(({ tab, path, pendek, Icon }) => (
             <a
               key={tab}
               href={path}
@@ -240,11 +241,6 @@ function Shell() {
                 <Icon />
               </span>
               <span>{pendek}</span>
-              {perluAdmin && !admin && (
-                <span className="fk-tab-kunci" aria-label="perlu login admin">
-                  <IconLock />
-                </span>
-              )}
             </a>
           ))}
         </nav>

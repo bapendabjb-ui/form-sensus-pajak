@@ -3,6 +3,7 @@ import * as api from "../api.js";
 import CustomSelect from "../components/CustomSelect.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { PageHead, Panel, Loading, ErrorBox } from "../components/Ui.jsx";
+import LoginAdmin from "../components/LoginAdmin.jsx";
 
 /**
  * Halaman ekspor: satu tempat untuk mengunduh data sebagai Excel atau CSV.
@@ -36,7 +37,7 @@ function TombolUnduh({ onExcel, onCsv, disabled }) {
   );
 }
 
-export default function EksporPage() {
+export default function EksporPage({ admin, onAuthChanged }) {
   const toast = useToast();
   const [kkList, setKkList] = useState([]);
   const [formList, setFormList] = useState([]);
@@ -66,9 +67,10 @@ export default function EksporPage() {
     }
   }, []);
 
+  // Jangan memanggil API sebelum admin: layarnya pun tidak ditampilkan.
   useEffect(() => {
-    muat();
-  }, [muat]);
+    if (admin) muat();
+  }, [admin, muat]);
 
   // Daftar formulir untuk kertas kerja terpilih diambil dari detailnya (hanya yang sudah berisi data).
   useEffect(() => {
@@ -103,6 +105,10 @@ export default function EksporPage() {
   const grupTerpilih = grup.find((g) => g.id === kkFormId) || null;
   const formBerisi = formList.filter((f) => f.jumlahData > 0);
   const formTerpilih = formBerisi.find((f) => f.id === formId) || null;
+
+  // Menunya disembunyikan bagi yang belum login, tetapi alamat /ekspor masih
+  // bisa diketik langsung - jadi layarnya sendiri ikut dijaga.
+  if (!admin) return <LoginAdmin onLoggedIn={onAuthChanged} sub="Ekspor Data Hanya Untuk Admin." />;
 
   return (
     <>
