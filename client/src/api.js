@@ -111,6 +111,38 @@ export const updatePetugas = (id, nama, nip) =>
   request(`/petugas/${id}`, { method: "PUT", body: { nama, nip }, auth: true });
 export const deletePetugas = (id) => request(`/petugas/${id}`, { method: "DELETE", auth: true });
 
+/** Unduh daftar petugas. jenis: "xlsx" | "csv". Khusus admin. */
+export const unduhPetugas = (jenis = "xlsx") =>
+  unduhBerkas(`/petugas/export${jenis === "xlsx" ? "/xlsx" : ""}`, `daftar-petugas.${jenis === "xlsx" ? "xlsx" : "csv"}`);
+
+/**
+ * Impor daftar petugas dari .xlsx / .csv. Khusus admin.
+ * Mengembalikan { dibaca, ditambahkan, dilewati[], ditolak[] }.
+ */
+export async function imporPetugas(file) {
+  const data = new FormData();
+  data.append("berkas", file, file.name || "petugas.xlsx");
+
+  let res;
+  try {
+    res = await fetch(`${BASE}/petugas/impor`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: data,
+    });
+  } catch {
+    throw new ApiError(0, "Tidak dapat menghubungi server. Periksa koneksi Anda.");
+  }
+
+  if (res.status === 401) {
+    clearToken();
+    throw new ApiError(401, "Sesi admin sudah berakhir. Silakan login kembali.");
+  }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, body.error || `Impor gagal (${res.status}).`, body);
+  return body;
+}
+
 /* ---------- formulir ---------- */
 
 export const listFormulir = () => request("/formulir");

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "../api.js";
 import { useToast } from "../components/Toast.jsx";
 import { useDialog } from "../components/Dialog.jsx";
@@ -29,6 +29,55 @@ function RekapPetugas({ data = 0, kertasKerja = 0 }) {
   );
 }
 
+/**
+ * Ringkasan hasil impor. Baris yang dilewati & ditolak ditampilkan lengkap
+ * dengan nomor barisnya supaya pengguna bisa langsung membuka berkasnya dan
+ * memperbaiki yang perlu - laporan "12 gagal" tanpa penunjuk tidak menolong.
+ */
+function HasilImpor({ hasil, onTutup }) {
+  if (!hasil) return null;
+  const { dibaca, ditambahkan, dilewati = [], ditolak = [] } = hasil;
+  const masalah = [...ditolak, ...dilewati];
+
+  return (
+    <div className="fk-impor-hasil">
+      <div className="fk-impor-ringkas">
+        <span>
+          <strong>{formatAngka(dibaca)}</strong> baris dibaca
+        </span>
+        <span className="is-tambah">
+          <strong>{formatAngka(ditambahkan)}</strong> ditambahkan
+        </span>
+        {dilewati.length > 0 && (
+          <span>
+            <strong>{formatAngka(dilewati.length)}</strong> sudah terdaftar
+          </span>
+        )}
+        {ditolak.length > 0 && (
+          <span className="is-tolak">
+            <strong>{formatAngka(ditolak.length)}</strong> tidak bisa dibaca
+          </span>
+        )}
+        <button type="button" className="fk-mini" onClick={onTutup}>
+          Tutup
+        </button>
+      </div>
+
+      {masalah.length > 0 && (
+        <ul className="fk-impor-daftar">
+          {masalah.map((m, i) => (
+            <li key={`${m.baris}-${i}`}>
+              <span className="fk-impor-baris">Baris {m.baris}</span>
+              <span className="fk-impor-nama">{m.nama || "(tanpa nama)"}</span>
+              <span className="fk-impor-alasan">{m.alasan}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export default function PetugasPage() {
   const toast = useToast();
   const { konfirmasi } = useDialog();
@@ -40,6 +89,9 @@ export default function PetugasPage() {
   const [menyimpan, setMenyimpan] = useState(false);
   const [edit, setEdit] = useState(null); // { id, nama, nip }
   const [cari, setCari] = useState("");
+  const [mengimpor, setMengimpor] = useState(false);
+  const [hasilImpor, setHasilImpor] = useState(null);
+  const berkasRef = useRef(null);
 
   const muat = useCallback(async () => {
     setLoading(true);
@@ -107,6 +159,34 @@ export default function PetugasPage() {
     }
   };
 
+  const unduh = (jenis) => api.unduhPetugas(jenis).catch((e) => toast(e.message, true));
+
+  const pilihBerkas = () => berkasRef.current?.click();
+
+  const imporBerkas = async (e) => {
+    const file = e.target.files?.[0];
+    // Kosongkan nilainya agar memilih berkas yang SAMA dua kali tetap memicu onChange.
+    e.target.value = "";
+    if (!file) return;
+
+    setMengimpor(true);
+    setHasilImpor(null);
+    try {
+      const hasil = await api.imporPetugas(file);
+      setHasilImpor(hasil);
+      if (hasil.ditambahkan > 0) {
+        await muat();
+        toast(`${hasil.ditambahkan} petugas ditambahkan.`);
+      } else {
+        toast("Tidak ada petugas baru yang ditambahkan.", true);
+      }
+    } catch (err) {
+      toast(err.message, true);
+    } finally {
+      setMengimpor(false);
+    }
+  };
+
   // Cocok bila nama memuat kata kunci, atau NIP memuat angkanya (spasi diabaikan).
   const kata = cari.trim().toLowerCase();
   const angka = kata.replace(/\s/g, "");
@@ -149,6 +229,43 @@ export default function PetugasPage() {
         </Panel>
       ) : (
         <KunciAdmin>Menambah, mengubah, dan menghapus petugas hanya bisa dilakukan admin.</KunciAdmin>
+      )}
+
+      {admin && (
+        <Panel
+          title="Impor & Ekspor"
+          sub="Unduh daftar sebagai Excel/CSV, atau tambahkan banyak petugas sekaligus dari berkas."
+        >
+          <div className="fk-impor-aksi">
+            <button type="button" className="fk-btn-ghost" onClick={() => unduh("xlsx")}>
+              Unduh Excel
+            </button>
+            <button type="button" className="fk-btn-ghost" onClick={() => unduh("csv")}>
+              Unduh CSV
+            </button>
+            <span className="fk-impor-pisah" aria-hidden="true" />
+            <button type="button" className="fk-btn" onClick={pilihBerkas} disabled={mengimpor}>
+              {mengimpor ? "Mengimpor..." : "Impor dari berkas"}
+            </button>
+            {/* Dipicu lewat tombol di atas: input berkas bawaan browser tidak bisa
+                diseragamkan tampilannya dengan tombol lain. */}
+            <input
+              ref={berkasRef}
+              type="file"
+              accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              onChange={imporBerkas}
+              hidden
+            />
+          </div>
+
+          <p className="fk-hint">
+            Berkas perlu punya kolom berjudul <strong>Nama</strong>, dan <strong>NIP</strong> bila ada.
+            Urutan kolom bebas. Petugas yang namanya sudah terdaftar akan dilewati, jadi berkas yang
+            sama aman diimpor ulang.
+          </p>
+
+          <HasilImpor hasil={hasilImpor} onTutup={() => setHasilImpor(null)} />
+        </Panel>
       )}
 
       <Panel
