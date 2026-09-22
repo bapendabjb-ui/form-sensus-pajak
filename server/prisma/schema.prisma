@@ -264,6 +264,8 @@ model Foto {
 model NomorCounter {
   id        Int @id @default(1)
   lastNomor Int @default(0) @map("last_nomor")
+  /// Naik setiap kali seluruh kertas kerja di-reset; browser membuang draf dari periode lain.
+  periode   Int @default(0)
 
   @@map("nomor_counter")
 }

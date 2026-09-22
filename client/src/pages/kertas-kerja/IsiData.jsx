@@ -12,6 +12,7 @@ import { judulEntri } from "../../lib/ringkas.js";
 import { IkonEpbb, CheckIcon } from "../../components/Icons.jsx";
 import { useAdmin } from "../../lib/admin.js";
 import { mulaiRekamPosisi, ambilRekamPosisi } from "../../lib/rekamPosisi.js";
+import { bersihkanDrafLama } from "../../lib/konfigurasi.js";
 import { kembali, pasangPenjaga } from "../../lib/router.js";
 import { urlKk } from "./bersama.js";
 
@@ -127,6 +128,8 @@ export function IsiData({ kkId, formulirId, entriId }) {
         }
         setFormulir(f);
 
+        await bersihkanDrafLama();
+        if (batal) return;
         try {
           const tersimpan = JSON.parse(localStorage.getItem(kunciDraf) || "null");
           if (tersimpan && tersimpan.answers) setDraf(tersimpan);

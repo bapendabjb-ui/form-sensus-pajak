@@ -908,6 +908,15 @@ folder foto dibuat, dan pembersih foto yatim berjalan. Buat URL publik lewat
 
   Tambahkan `[username] [passwordBaru]` untuk menentukan sendiri. Secara lokal:
   `node server/scripts/reset-admin.js`.
+- **Reset kertas kerja** (periode baru, nomor mulai lagi dari 00001) — hapus semua kertas
+  kerja, datanya, dan fotonya; admin, petugas, dan formulir tetap. Draf di perangkat petugas
+  ikut dibuang saat aplikasinya dibuka ulang. Tanpa `--yakin` hanya menghitung:
+
+  ```
+  railway ssh --service <nama-service-aplikasi> node server/scripts/reset-kertas-kerja.js --yakin
+  ```
+
+  Panduan lengkap untuk pemula: [docs/reset-kertas-kerja.md](docs/reset-kertas-kerja.md).
 
 ### Backup
 

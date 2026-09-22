@@ -13,6 +13,7 @@ import AkunPage from "./pages/AkunPage.jsx";
 import EksporPage from "./pages/EksporPage.jsx";
 import PetaPage from "./pages/PetaPage.jsx";
 import { AdminContext } from "./lib/admin.js";
+import { bersihkanDrafLama } from "./lib/konfigurasi.js";
 import { useLokasi, navigate, kembali, cocokkanRute } from "./lib/router.js";
 
 const NAV = [
@@ -59,6 +60,11 @@ function Shell() {
   const [admin, setAdmin] = useState(api.isLoggedIn());
 
   usePenandaKetik();
+
+  // Buang draf isian dari periode data sebelum reset kertas kerja.
+  useEffect(() => {
+    bersihkanDrafLama();
+  }, []);
 
   // Ikuti perubahan status login (termasuk token kedaluwarsa saat request).
   useEffect(() => api.onAuthChange(setAdmin), []);

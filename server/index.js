@@ -61,15 +61,23 @@ app.get("/api/wilayah", (_req, res) => {
 });
 
 // Batas aplikasi yang juga dipakai klien - satu sumber angka untuk keduanya.
-app.get("/api/konfigurasi", (_req, res) => {
-  const batas = require("./src/batas");
-  res.setHeader("Cache-Control", "public, max-age=3600");
-  res.json({
-    petugasMaks: batas.PETUGAS_MAKS,
-    fotoMaksPerPertanyaan: batas.FOTO_MAKS_PER_PERTANYAAN,
-    uploadMaksMb: config.uploadMaxMb,
-    cekNop: require("./src/epbb").aktif(),
-  });
+// periodeData ikut di sini agar browser tahu kapan draf lamanya harus dibuang;
+// karena itu jawabannya tidak boleh disimpan cache browser.
+app.get("/api/konfigurasi", async (_req, res, next) => {
+  try {
+    const batas = require("./src/batas");
+    const counter = await prisma.nomorCounter.findUnique({ where: { id: 1 }, select: { periode: true } });
+    res.setHeader("Cache-Control", "no-cache");
+    res.json({
+      petugasMaks: batas.PETUGAS_MAKS,
+      fotoMaksPerPertanyaan: batas.FOTO_MAKS_PER_PERTANYAAN,
+      uploadMaksMb: config.uploadMaxMb,
+      cekNop: require("./src/epbb").aktif(),
+      periodeData: counter?.periode ?? 0,
+    });
+  } catch (e) {
+    next(e);
+  }
 });
 
 // Route /api yang tidak dikenal -> JSON 404 (jangan jatuh ke index.html).
