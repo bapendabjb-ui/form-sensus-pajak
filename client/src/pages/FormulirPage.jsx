@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "../api.js";
 import { pasangPenjaga } from "../lib/router.js";
 import { useToast } from "../components/Toast.jsx";
 import { useDialog } from "../components/Dialog.jsx";
 import { PageHead, Panel, Loading, ErrorBox, Empty } from "../components/Ui.jsx";
 import LoginAdmin from "../components/LoginAdmin.jsx";
+import HasilImpor from "../components/HasilImpor.jsx";
 import { IkonSeret, IkonFormulir, DAFTAR_IKON_FORMULIR, labelIkonFormulir } from "../components/Icons.jsx";
 import useDragUrut, { pindahkan } from "../lib/useDragUrut.js";
 import { TYPES, TYPE_LABEL, HAS_OPTIONS, defaultOptions } from "../lib/format.js";
@@ -253,6 +254,9 @@ export default function FormulirPage({ admin, onAuthChanged }) {
   const [error, setError] = useState("");
   const [menyimpan, setMenyimpan] = useState(false);
   const [menyusun, setMenyusun] = useState(false);
+  const [mengimpor, setMengimpor] = useState(false);
+  const [hasilImpor, setHasilImpor] = useState(null);
+  const berkasRef = useRef(null);
 
   // Konfirmasi bila meninggalkan halaman saat susunan formulir belum disimpan.
   useEffect(
@@ -505,6 +509,39 @@ export default function FormulirPage({ admin, onAuthChanged }) {
     }
   };
 
+  /* ---- impor & ekspor bank formulir ---- */
+
+  const unduhBank = () =>
+    api.unduhBankFormulir().catch((e) => {
+      if (e.status === 401) onAuthChanged();
+      toast(e.message, true);
+    });
+
+  const imporBerkas = async (e) => {
+    const file = e.target.files?.[0];
+    // Kosongkan nilainya agar memilih berkas yang SAMA dua kali tetap memicu onChange.
+    e.target.value = "";
+    if (!file) return;
+
+    setMengimpor(true);
+    setHasilImpor(null);
+    try {
+      const hasil = await api.imporBankFormulir(file);
+      setHasilImpor(hasil);
+      if (hasil.ditambahkan > 0) {
+        await muatList();
+        toast(`${hasil.ditambahkan} formulir ditambahkan.`);
+      } else {
+        toast("Tidak ada formulir baru yang ditambahkan.", true);
+      }
+    } catch (err) {
+      if (err.status === 401) onAuthChanged();
+      toast(err.message, true);
+    } finally {
+      setMengimpor(false);
+    }
+  };
+
   /* ---- render ---- */
 
   if (!admin) return <LoginAdmin onLoggedIn={onAuthChanged} sub="Penyusunan Bank Formulir Hanya Untuk Admin." />;
@@ -516,6 +553,36 @@ export default function FormulirPage({ admin, onAuthChanged }) {
       </PageHead>
 
       {error && <ErrorBox onRetry={() => muatList()}>{error}</ErrorBox>}
+
+      <Panel
+        title="Impor & Ekspor"
+        sub="Pindahkan susunan formulir antar server, mis. dari server uji ke produksi."
+      >
+        <div className="fk-impor-aksi">
+          <button type="button" className="fk-btn-ghost" onClick={unduhBank} disabled={list.length === 0}>
+            Unduh bank formulir
+          </button>
+          <span className="fk-impor-pisah" aria-hidden="true" />
+          <button type="button" className="fk-btn" onClick={() => berkasRef.current?.click()} disabled={mengimpor}>
+            {mengimpor ? "Mengimpor..." : "Impor dari berkas"}
+          </button>
+          <input ref={berkasRef} type="file" accept=".json,application/json" onChange={imporBerkas} hidden />
+        </div>
+
+        <p className="fk-hint">
+          Berkas <strong>.json</strong> berisi judul, pertanyaan, dan opsi setiap formulir — tanpa data
+          isian. Formulir hasil impor ditambahkan di akhir daftar. Formulir yang judulnya sudah ada
+          dilewati dan tidak diubah, jadi berkas yang sama aman diimpor ulang.
+        </p>
+
+        <HasilImpor
+          hasil={hasilImpor}
+          onTutup={() => setHasilImpor(null)}
+          satuan="formulir"
+          labelLewati="judulnya sudah ada"
+          penanda={(m) => `Formulir ${m.baris}`}
+        />
+      </Panel>
 
       <Panel>
         {loadingList ? (

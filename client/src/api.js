@@ -168,6 +168,23 @@ export const urutkanFormulir = (ids) =>
 export const deleteFormulir = (id, force = false) =>
   request(`/formulir/${id}${force ? "?force=true" : ""}`, { method: "DELETE", auth: true });
 
+/** Unduh seluruh bank formulir (susunan saja, tanpa data) sebagai JSON. Khusus admin. */
+export const unduhBankFormulir = () => unduhBerkas("/formulir/ekspor-bank", "bank-formulir.json");
+
+/**
+ * Impor bank formulir dari berkas JSON hasil unduhBankFormulir. Khusus admin.
+ * Mengembalikan { dibaca, ditambahkan, dilewati[], ditolak[] }.
+ */
+export async function imporBankFormulir(file) {
+  let isi;
+  try {
+    isi = JSON.parse(await file.text());
+  } catch {
+    throw new ApiError(400, "Berkas tidak bisa dibaca. Pilih berkas .json hasil unduhan bank formulir.");
+  }
+  return request("/formulir/impor", { method: "POST", body: isi, auth: true });
+}
+
 /* ---------- kertas kerja ---------- */
 
 /**

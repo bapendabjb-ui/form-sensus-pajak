@@ -5,11 +5,10 @@ const prisma = require("../prisma");
 const config = require("../config");
 const { requireAdmin } = require("../auth");
 const { wrap, badRequest, notFound, conflict, parseId } = require("../http");
-const { TIPE, BERTIPE_OPSI } = require("../answers");
-const { sumberEpbbSah } = require("../epbb");
 const { includePertanyaan, bentukFormulir } = require("../bentuk");
 const { hapusBerkas, sapuFotoYatim } = require("../foto");
 const { susunEkspor, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
+const { bacaPayload, susunBerkasBank, bacaBerkasBank } = require("../bankFormulir");
 
 const router = express.Router();
 
@@ -23,70 +22,6 @@ const URUT_FORMULIR = [{ urutan: "asc" }, { id: "asc" }];
 async function urutanBerikutnya(db) {
   const terakhir = await db.formulir.aggregate({ _max: { urutan: true } });
   return (terakhir._max.urutan ?? 0) + 1;
-}
-
-/* ---------- validasi payload ---------- */
-
-/** Posisi pertanyaan di halaman isi data. "" = lebar penuh. */
-const KOLOM = ["", "kiri", "kanan"];
-
-/** Validasi & normalisasi body {judul, deskripsi, pertanyaan[]} dari editor admin. */
-function bacaPayload(body) {
-  const judul = String(body?.judul ?? "").trim();
-  if (!judul) throw badRequest("Judul formulir wajib diisi.");
-  if (judul.length > 200) throw badRequest("Judul formulir maksimal 200 karakter.");
-
-  const deskripsi = String(body?.deskripsi ?? "").trim();
-
-  // Nama ikon dipilih dari daftar di klien; server hanya memastikan bentuknya aman.
-  const ikonMasuk = String(body?.ikon ?? "").trim();
-  const ikon = /^[a-z0-9-]{1,40}$/.test(ikonMasuk) ? ikonMasuk : "";
-
-  const judulKolom = (v) => String(v ?? "").trim().slice(0, 100);
-  const judulKolomKiri = judulKolom(body?.judulKolomKiri);
-  const judulKolomKanan = judulKolom(body?.judulKolomKanan);
-
-  const masuk = Array.isArray(body?.pertanyaan) ? body.pertanyaan : [];
-  const pertanyaan = masuk.map((q, i) => {
-    const tipe = String(q?.tipe || "");
-    if (!TIPE.includes(tipe)) throw badRequest(`Tipe pertanyaan "${tipe}" tidak dikenal.`);
-
-    const label = String(q?.label ?? "").trim();
-    if (label.length > 300) throw badRequest("Label pertanyaan maksimal 300 karakter.");
-
-    const keterangan = String(q?.keterangan ?? "").trim();
-    if (keterangan.length > 500) throw badRequest("Keterangan pertanyaan maksimal 500 karakter.");
-
-    let opsi = [];
-    if (BERTIPE_OPSI.includes(tipe)) {
-      opsi = (Array.isArray(q?.opsi) ? q.opsi : [])
-        .map((o) => String(o ?? "").trim())
-        .filter((o) => o !== "")
-        .slice(0, 100);
-      if (opsi.length === 0) {
-        throw badRequest(
-          `Pertanyaan "${label || "(tanpa judul)"}" bertipe ${tipe} harus punya minimal satu opsi.`
-        );
-      }
-    }
-
-    const id = Number(q?.id);
-
-    return {
-      id: Number.isInteger(id) && id > 0 ? id : null,
-      tipe,
-      label,
-      keterangan,
-      wajib: Boolean(q?.wajib),
-      rangeHarga: tipe === "linetariff" ? Boolean(q?.rangeHarga) : false,
-      isiEpbb: sumberEpbbSah(tipe, q?.isiEpbb) ? String(q.isiEpbb) : "",
-      kolom: KOLOM.includes(q?.kolom) ? q.kolom : "",
-      urutan: i,
-      opsi,
-    };
-  });
-
-  return { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan, pertanyaan };
 }
 
 /**
@@ -173,6 +108,62 @@ router.get(
         jumlahData: f._count.entri,
       }))
     );
+  })
+);
+
+/* ---------- impor & ekspor bank formulir (khusus admin) ---------- */
+
+/**
+ * GET /api/formulir/ekspor-bank -> berkas JSON seluruh bank formulir (susunan
+ * saja, tanpa data isian). Didaftarkan sebelum GET /:id agar "ekspor-bank"
+ * tidak terbaca sebagai id.
+ */
+router.get(
+  "/ekspor-bank",
+  requireAdmin,
+  wrap(async (_req, res) => {
+    const list = await prisma.formulir.findMany({ orderBy: URUT_FORMULIR, include: includePertanyaan });
+    const berkas = susunBerkasBank(list.map(bentukFormulir));
+    const tanggal = berkas.diekspor.slice(0, 10);
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="bank-formulir-${tanggal}.json"`);
+    res.send(JSON.stringify(berkas, null, 2));
+  })
+);
+
+/**
+ * POST /api/formulir/impor  (body = isi berkas hasil ekspor-bank)
+ * Tambahkan formulir dari berkas ke ujung bank formulir. Formulir yang
+ * judulnya sudah ada dilewati, yang tidak sah ditolak; sisanya ditambahkan
+ * dalam satu transaksi. Formulir yang sudah ada tidak pernah diubah.
+ * -> { dibaca, ditambahkan, dilewati[], ditolak[] }
+ */
+router.post(
+  "/impor",
+  requireAdmin,
+  wrap(async (req, res) => {
+    const ada = await prisma.formulir.findMany({ select: { judul: true } });
+    const hasil = bacaBerkasBank(req.body, ada.map((f) => f.judul));
+    if (hasil.galat) throw badRequest(hasil.galat);
+
+    if (hasil.tambah.length) {
+      await prisma.$transaction(async (tx) => {
+        let urutan = await urutanBerikutnya(tx);
+        for (const f of hasil.tambah) {
+          const { pertanyaan, ...data } = f;
+          const baru = await tx.formulir.create({ data: { ...data, urutan: urutan++ } });
+          await tulisPertanyaan(tx, baru.id, pertanyaan);
+        }
+        // Satu query per pertanyaan; bank formulir penuh bisa melewati batas bawaan 5 detik.
+      }, { timeout: 60000 });
+    }
+
+    res.json({
+      dibaca: hasil.dibaca,
+      ditambahkan: hasil.tambah.length,
+      dilewati: hasil.dilewati,
+      ditolak: hasil.ditolak,
+    });
   })
 );
 

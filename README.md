@@ -657,6 +657,22 @@ atas/bawah**. Daftar pertanyaan juga masih punya tombol ▲ ▼ seperti sebelumn
 Urutan formulir dipakai konsisten di seluruh aplikasi: daftar bank formulir, daftar formulir di
 halaman kertas kerja, pengelompokan data terkumpul, dan urutan kolom pada ekspor CSV.
 
+### Impor & ekspor bank formulir
+
+Untuk memindahkan susunan formulir antar server (mis. disusun di server uji, lalu dipasang di
+produksi): halaman **Bank Formulir** → panel **Impor & Ekspor**.
+
+1. Di server asal, klik **Unduh bank formulir**. Hasilnya berkas `bank-formulir-TANGGAL.json`
+   berisi judul, deskripsi, ikon, judul kolom, serta pertanyaan & opsi tiap formulir, urut
+   sesuai bank formulir. Data isian, foto, dan id database **tidak** ikut.
+2. Di server tujuan, login admin → **Impor dari berkas** → pilih berkas tadi.
+
+Formulir hasil impor ditambahkan di akhir daftar, masing-masing sebagai formulir baru.
+Formulir yang **judulnya sudah ada** (huruf besar/kecil diabaikan) dilewati dan **tidak
+diubah**, jadi berkas yang sama aman diimpor ulang. Formulir yang tidak sah (mis. dropdown
+tanpa opsi) ditolak; sisanya tetap masuk. Hasilnya dilaporkan per formulir. Untuk mengganti
+formulir yang sudah ada dengan versi dari berkas, hapus dulu formulir itu, lalu impor ulang.
+
 ---
 
 ## Penomoran anti-duplikat
@@ -720,6 +736,8 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | `DELETE` | `/formulir/:id` | 🔒 **409** bila sudah diisi; `?force=true` tetap menghapus   |
 | `GET`    | `/formulir/:id/export`      | Unduh CSV seluruh data formulir ini dari semua kertas kerja |
 | `GET`    | `/formulir/:id/export/xlsx` | Idem, format Excel (.xlsx)                                  |
+| `GET`    | `/formulir/ekspor-bank`     | 🔒 Unduh seluruh bank formulir sebagai JSON (susunan saja, tanpa data) |
+| `POST`   | `/formulir/impor`           | 🔒 Body = isi berkas ekspor-bank. Tambah formulir di akhir daftar; judul yang sudah ada dilewati → `{ dibaca, ditambahkan, dilewati[], ditolak[] }` |
 
 ### Kertas kerja
 
