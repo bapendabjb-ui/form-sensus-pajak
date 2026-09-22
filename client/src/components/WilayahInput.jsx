@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import * as api from "../api.js";
 import CustomSelect from "./CustomSelect.jsx";
+import { kapitalTiapKata, ubahDengan } from "../lib/kapital.js";
 
 const PEMISAH = " — Kec. ";
 
@@ -9,8 +10,9 @@ const PEMISAH = " — Kec. ";
  *   - Setelah kecamatan dipilih, daftar kelurahan hanya berisi kelurahan kecamatan itu.
  *   - Bila kelurahan dipilih lebih dulu, kecamatannya terisi otomatis.
  *   - Mengganti kecamatan mengosongkan kelurahan yang tidak lagi cocok.
+ *   - Alamat di luar Banjarbaru (mis. KTP subjek pajak dari daerah lain) bisa diketik manual.
  *
- * value : { kecamatan, kelurahan }
+ * value : { kecamatan, kelurahan, manual? }
  */
 export default function WilayahInput({ value, onChange, invalid }) {
   const [data, setData] = useState(null);
@@ -27,10 +29,56 @@ export default function WilayahInput({ value, onChange, invalid }) {
     };
   }, []);
 
-  if (galat) return <span className="fk-err">Data wilayah gagal dimuat: {galat}</span>;
+  const v = value && typeof value === "object" ? value : { kecamatan: "", kelurahan: "" };
+
+  if (v.manual || galat) {
+    const ubah = (patch) => onChange({ kecamatan: v.kecamatan, kelurahan: v.kelurahan, ...patch, manual: true });
+    return (
+      <div className="fk-wilayah">
+        <label className="fk-wilayah-kolom">
+          <span className="fk-wilayah-cap">Kecamatan</span>
+          <input
+            className={`fk-input${invalid && !v.kecamatan ? " is-invalid" : ""}`}
+            value={v.kecamatan}
+            maxLength={100}
+            placeholder="Ketik kecamatan"
+            autoCapitalize="words"
+            onChange={ubahDengan(kapitalTiapKata, (kecamatan) => ubah({ kecamatan }))}
+          />
+        </label>
+        <label className="fk-wilayah-kolom">
+          <span className="fk-wilayah-cap">Kelurahan / Desa</span>
+          <input
+            className={`fk-input${invalid && !v.kelurahan ? " is-invalid" : ""}`}
+            value={v.kelurahan}
+            maxLength={100}
+            placeholder="Ketik kelurahan / desa"
+            autoCapitalize="words"
+            onChange={ubahDengan(kapitalTiapKata, (kelurahan) => ubah({ kelurahan }))}
+          />
+        </label>
+        <span className="fk-hint-kecil fk-wilayah-hint">
+          {galat ? (
+            <span className="fk-err">Data wilayah gagal dimuat ({galat}) — silakan ketik manual.</span>
+          ) : (
+            <>
+              Diketik manual untuk alamat di luar Kota Banjarbaru.{" "}
+              <button
+                type="button"
+                className="fk-textbtn fk-wilayah-alih"
+                onClick={() => onChange({ kecamatan: "", kelurahan: "" })}
+              >
+                Pilih dari daftar Banjarbaru
+              </button>
+            </>
+          )}
+        </span>
+      </div>
+    );
+  }
+
   if (!data) return <span className="fk-hint-kecil">Memuat data wilayah...</span>;
 
-  const v = value && typeof value === "object" ? value : { kecamatan: "", kelurahan: "" };
   const kec = data.find((k) => k.nama === v.kecamatan) || null;
 
   const opsiKelurahan = kec
@@ -74,11 +122,17 @@ export default function WilayahInput({ value, onChange, invalid }) {
           onChange={pilihKelurahan}
         />
       </div>
-      {!kec && (
-        <span className="fk-hint-kecil fk-wilayah-hint">
-          Pilih kecamatan dulu, atau langsung pilih kelurahan — kecamatannya terisi otomatis.
-        </span>
-      )}
+      <span className="fk-hint-kecil fk-wilayah-hint">
+        {!kec && "Pilih kecamatan dulu, atau langsung pilih kelurahan — kecamatannya terisi otomatis. "}
+        Alamat di luar Banjarbaru?{" "}
+        <button
+          type="button"
+          className="fk-textbtn fk-wilayah-alih"
+          onClick={() => onChange({ kecamatan: v.kecamatan, kelurahan: v.kelurahan, manual: true })}
+        >
+          Ketik manual
+        </button>
+      </span>
     </div>
   );
 }

@@ -45,6 +45,26 @@ test("normalizeNilai menolak luas negatif", () => {
   assert.deepEqual(normalizeNilai("luas", { tanah: 0, bangunan: 0 }), { tanah: 0, bangunan: 0 });
 });
 
+test("wilayah: di luar Banjarbaru hanya disimpan bila diketik manual", () => {
+  assert.deepEqual(normalizeNilai("wilayah", { kecamatan: "Menteng", kelurahan: "Gondangdia", manual: true }), {
+    kecamatan: "Menteng",
+    kode_kecamatan: "",
+    kelurahan: "Gondangdia",
+    kode_kelurahan: "",
+    manual: true,
+  });
+  assert.equal(
+    normalizeNilai("wilayah", { kecamatan: "banjarmasin selatan", kelurahan: "KELAYAN", manual: true }).kecamatan,
+    "Banjarmasin Selatan"
+  );
+  // Ketikan manual yang ternyata ada di data Banjarbaru disimpan lengkap dengan kodenya.
+  const cocok = normalizeNilai("wilayah", { kecamatan: "banjarbaru utara", kelurahan: "loktabat utara", manual: true });
+  assert.equal(cocok.kode_kelurahan, "001");
+  assert.equal(cocok.manual, undefined);
+  // Tanpa tanda manual, nama yang tidak dikenal tetap ditolak.
+  assert.equal(normalizeNilai("wilayah", { kecamatan: "Menteng", kelurahan: "Gondangdia" }).kecamatan, "");
+});
+
 test("nilaiTerisi memahami arti 'kosong' tiap tipe", () => {
   // Bangunan 0 sah (tanah kosong), tetapi harus ada nilainya.
   assert.equal(nilaiTerisi("luas", { tanah: 120, bangunan: 0 }), true);

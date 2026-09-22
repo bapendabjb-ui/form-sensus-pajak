@@ -185,9 +185,10 @@ function normalizeNilai(tipe, raw) {
     }
 
     case "wilayah": {
-      // { kecamatan, kode_kecamatan, kelurahan, kode_kelurahan } — dicocokkan ke data wilayah.
+      // { kecamatan, kode_kecamatan, kelurahan, kode_kelurahan[, manual] } — dicocokkan ke data wilayah,
+      // kecuali diketik manual (alamat di luar Banjarbaru).
       const obj = raw && typeof raw === "object" ? raw : {};
-      return normalWilayah(toTrimmedString(obj.kecamatan), toTrimmedString(obj.kelurahan));
+      return normalWilayah(toTrimmedString(obj.kecamatan), toTrimmedString(obj.kelurahan), obj.manual === true);
     }
 
     case "lokasi": {

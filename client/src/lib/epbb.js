@@ -8,6 +8,7 @@
  */
 
 import { PANJANG_RTRW } from "./format.js";
+import { kapitalTiapKata } from "./kapital.js";
 
 export const SUMBER_EPBB = [
   { kunci: "nama_wp", label: "Nama WP", tipe: ["text", "paragraph"] },
@@ -95,9 +96,9 @@ export function nilaiDariEpbb(sumber, data, wilayah = []) {
       break;
     case "wilayah_sp": {
       // Subjek pajak hanya punya nama kelurahan: kecamatan dicari dari data wilayah Banjarbaru.
-      // Kelurahan di luar Banjarbaru tidak bisa dipilih, jadi dilewati.
+      // Kelurahan di luar Banjarbaru diisi sebagai ketikan manual; kecamatannya dilengkapi petugas.
       const cari = namaKelurahan(rinciSp.kelurahan);
-      let hasil;
+      let hasil = rinciSp.kelurahan ? { kecamatan: "", kelurahan: kapitalTiapKata(rinciSp.kelurahan), manual: true } : undefined;
       for (const k of cari ? wilayah : []) {
         const kel = k.kelurahan.find((l) => namaKelurahan(l.nama) === cari);
         if (kel) {

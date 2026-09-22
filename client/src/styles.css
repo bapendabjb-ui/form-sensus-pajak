@@ -513,6 +513,7 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-wilayah-kolom{display:flex; flex-direction:column; gap:5px; min-width:0;}
 .fk-wilayah-cap{font-size:12px; font-weight:600; color:var(--muted);}
 .fk-wilayah-hint{grid-column:1 / -1;}
+.fk-wilayah-alih{display:inline; padding:0; color:var(--brand); font-size:12px; text-decoration:underline;}
 
 /* NIK / NPWP: dua kolom selebar isian, bertumpuk di layar sempit. */
 .fk-niknpwp-wadah{display:flex; flex-direction:column; gap:10px;}

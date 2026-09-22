@@ -59,6 +59,10 @@ const KECAMATAN = [
   },
 ];
 
+const { kapitalTiapKata } = require("./nama");
+
+const MAKS_NAMA = 100;
+
 const sama = (a, b) => a.toLowerCase() === b.toLowerCase();
 
 /**
@@ -66,8 +70,22 @@ const sama = (a, b) => a.toLowerCase() === b.toLowerCase();
  *   - kecamatan tidak dikenal          -> kosong seluruhnya
  *   - kelurahan bukan milik kecamatan  -> kelurahan dikosongkan
  *   - hanya kelurahan yang dikirim     -> kecamatan diisi otomatis
+ *   - `manual` (alamat di luar Banjarbaru, mis. subjek pajak ber-KTP daerah lain):
+ *     nama yang tidak cocok dengan data disimpan apa adanya, tanpa kode.
  */
-function normalWilayah(namaKecamatan, namaKelurahan) {
+function normalWilayah(namaKecamatan, namaKelurahan, manual = false) {
+  if (manual) {
+    const cocok = normalWilayah(namaKecamatan, namaKelurahan);
+    if (cocok.kecamatan && cocok.kelurahan) return cocok;
+    return {
+      kecamatan: kapitalTiapKata(namaKecamatan.slice(0, MAKS_NAMA)),
+      kode_kecamatan: "",
+      kelurahan: kapitalTiapKata(namaKelurahan.slice(0, MAKS_NAMA)),
+      kode_kelurahan: "",
+      manual: true,
+    };
+  }
+
   const kosong = { kecamatan: "", kode_kecamatan: "", kelurahan: "", kode_kelurahan: "" };
   let kec = namaKecamatan ? KECAMATAN.find((k) => sama(k.nama, namaKecamatan)) || null : null;
   let kel = null;

@@ -82,7 +82,9 @@ const lokasiDari = (v) => {
 
 const wilayahDari = (v) => {
   const o = v && typeof v === "object" ? v : {};
-  return { kecamatan: asString(o.kecamatan).trim(), kelurahan: asString(o.kelurahan).trim() };
+  const w = { kecamatan: asString(o.kecamatan).trim(), kelurahan: asString(o.kelurahan).trim() };
+  // Diketik manual: alamat di luar Banjarbaru (mis. KTP subjek pajak dari daerah lain).
+  return o.manual === true ? { ...w, manual: true } : w;
 };
 
 /** { rt, rw } dengan angka saja, maksimal 3 digit masing-masing. */

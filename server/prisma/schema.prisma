@@ -196,7 +196,7 @@ model Entri {
 ///   range                                     : { min, max }
 ///   linetariff                                : array { layanan, jenis, harga_min, harga_max }
 ///   foto                                      : array { id, nama }
-///   wilayah                                   : { kecamatan, kode_kecamatan, kelurahan, kode_kelurahan }
+///   wilayah                                   : { kecamatan, kode_kecamatan, kelurahan, kode_kelurahan[, manual] }
 ///   lokasi                                    : { lat, lon, akurasi, ketinggian, waktu }
 ///   rtrw                                      : { rt, rw }  (masing-masing 3 digit)
 ///   nik / npwp / nop                          : string digit (16 / 15-17 / 18 digit)
