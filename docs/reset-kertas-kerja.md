@@ -225,7 +225,9 @@ belum berjalan. Biasanya karena deployment gagal; periksa log di tab *Deployment
 kertas kerja dihapus"*, database tidak berubah sama sekali: penghapusannya berjalan sebagai
 satu transaksi (semua atau tidak sama sekali). Salin pesannya dan periksa sebelum mencoba
 lagi. Menjalankan ulang skrip setelah reset berhasil juga aman — hanya menghapus yang masih
-tersisa.
+tersisa. Bila pesannya muncul **sesudah** baris itu, database sudah bersih dan yang gagal
+hanya pengosongan folder foto; berkas yang tersisa dibersihkan otomatis oleh aplikasi saat
+server start dan setiap 6 jam.
 
 **`railway ssh` masuk ke service yang salah** — keluar dengan `exit`, lalu jalankan
 `railway ssh --service <nama-service-aplikasi>`.
