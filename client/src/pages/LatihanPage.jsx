@@ -39,7 +39,7 @@ export default function LatihanPage() {
     <>
       <PageHead
         title="Latihan Petugas"
-        sub="Berlatih mengisi formulir sungguhan tanpa menyimpan data. Aman untuk dicoba berulang kali."
+        sub="Latihan mengisi formulir tanpa menyimpan data. Aman dicoba berulang kali."
       />
 
       {error && <ErrorBox onRetry={muat}>{error}</ErrorBox>}
