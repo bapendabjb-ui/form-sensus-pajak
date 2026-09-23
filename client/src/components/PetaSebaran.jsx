@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { LAPISAN, pasangUbin } from "../lib/ubinPeta";
 
 /**
  * Peta sebaran hasil sensus: banyak titik sekaligus, hanya untuk dilihat.
@@ -16,19 +17,6 @@ import "leaflet/dist/leaflet.css";
 
 /** Pusat Kota Banjarbaru - dipakai bila belum ada satu titik pun. */
 const PUSAT_AWAL = [-3.4572, 114.8105];
-
-const LAPISAN = {
-  peta: {
-    label: "Peta",
-    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    opsi: { maxZoom: 19, attribution: "&copy; OpenStreetMap" },
-  },
-  satelit: {
-    label: "Satelit",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    opsi: { maxZoom: 19, attribution: "&copy; Esri" },
-  },
-};
 
 /**
  * Warna = status kertas kerja. Titik dari koordinat yang terekam otomatis
@@ -95,13 +83,13 @@ export default function PetaSebaran({ titik = [], onBuka }) {
     };
   }, []);
 
-  // Ganti lapisan peta jalan / satelit.
+  // Ganti lapisan peta jalan / satelit. Sumber ubin dipilih di lib/ubinPeta.js:
+  // pemasangan bisa tertunda sesaat saat sumber peta jalan diuji lebih dulu.
   useEffect(() => {
     const m = peta.current;
     if (!m) return;
-    if (ubin.current) m.removeLayer(ubin.current);
-    const l = LAPISAN[jenis];
-    ubin.current = L.tileLayer(l.url, l.opsi).addTo(m);
+    const batalkan = pasangUbin(L, m, jenis, (l) => (ubin.current = l), ubin.current);
+    return batalkan;
   }, [jenis]);
 
   // Gambar ulang titik setiap daftarnya berubah (mis. saringan diganti).

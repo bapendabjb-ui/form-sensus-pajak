@@ -17,9 +17,10 @@ const config = require("./config");
  * jadi script-src boleh ketat. Yang tidak bisa diketatkan adalah style: Leaflet
  * memasang posisi ubin peta lewat atribut style inline.
  *
- * Dua host ubin peta berasal dari client/src/components/PetaLokasi.jsx dan
- * PetaSebaran.jsx - bila daftar ubin di sana bertambah, tambahkan juga di sini,
- * kalau tidak petanya akan kosong tanpa pesan galat yang jelas.
+ * Dua host ubin peta berasal dari client/src/lib/ubinPeta.js - bila daftar ubin
+ * di sana bertambah, tambahkan juga di sini, kalau tidak petanya akan kosong
+ * tanpa pesan galat yang jelas. Host OSM juga ada di connect-src karena klien
+ * menguji sendiri apakah ubinnya masih boleh dipakai sebelum memasang lapisan.
  */
 const CSP = [
   "default-src 'self'",
@@ -30,7 +31,7 @@ const CSP = [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://tile.openstreetmap.org https://server.arcgisonline.com",
-  "connect-src 'self'",
+  "connect-src 'self' https://tile.openstreetmap.org",
   "font-src 'self' data:",
   "manifest-src 'self'",
 ].join("; ");
@@ -45,7 +46,12 @@ function headerKeamanan(_req, res, next) {
   res.setHeader("Content-Security-Policy", CSP);
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Referrer-Policy", "same-origin");
+  // strict-origin-when-cross-origin, bukan same-origin: penyedia ubin peta
+  // (OpenStreetMap) mewajibkan aplikasi mengenalkan diri, dan di peramban satu-
+  // satunya identitas itu adalah Referer. same-origin tidak mengirim Referer
+  // sama sekali ke luar, sehingga ubin kita diblokir. Nilai ini hanya
+  // membocorkan asal (https://host), tidak pernah jalur atau kueri halaman.
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
   res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
   res.setHeader("Permissions-Policy", "camera=(self), geolocation=(self), microphone=()");

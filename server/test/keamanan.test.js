@@ -51,11 +51,23 @@ test("headerKeamanan memasang CSP dan pencegah clickjacking", () => {
 });
 
 test("CSP mengizinkan host ubin peta yang benar-benar dipakai klien", () => {
-  // Bila daftar ubin di PetaLokasi.jsx / PetaSebaran.jsx berubah, tes ini gagal
-  // lebih dulu daripada peta yang diam-diam kosong di produksi.
+  // Bila daftar ubin di client/src/lib/ubinPeta.js berubah, tes ini gagal lebih
+  // dulu daripada peta yang diam-diam kosong di produksi.
   assert.ok(CSP.includes("https://tile.openstreetmap.org"));
   assert.ok(CSP.includes("https://server.arcgisonline.com"));
   assert.ok(CSP.includes("img-src 'self' data: blob:"));
+  // Klien menguji sendiri apakah ubin OSM masih boleh dipakai; tanpa host ini
+  // di connect-src, ujinya selalu gagal dan peta jalan selamanya memakai cadangan.
+  assert.ok(CSP.includes("connect-src 'self' https://tile.openstreetmap.org"));
+});
+
+test("Referrer-Policy masih mengirim asal ke penyedia ubin peta", () => {
+  // same-origin akan menghapus Referer ke luar; OpenStreetMap memakai Referer
+  // untuk mengenali aplikasi dan memblokir yang tidak mengenalkan diri.
+  const res = buatRes();
+  lewat(headerKeamanan, buatReq(), res);
+
+  assert.equal(res.header["Referrer-Policy"], "strict-origin-when-cross-origin");
 });
 
 test("HSTS tidak dipasang di luar produksi", () => {

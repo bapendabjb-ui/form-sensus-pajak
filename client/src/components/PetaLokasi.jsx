@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { LAPISAN, pasangUbin } from "../lib/ubinPeta";
 
 /**
  * Peta untuk memilih titik lokasi: ketuk peta atau geser penanda.
@@ -15,19 +16,6 @@ import "leaflet/dist/leaflet.css";
 
 /** Pusat Kota Banjarbaru — titik awal bila belum ada koordinat. */
 const PUSAT_AWAL = [-3.4572, 114.8105];
-
-const LAPISAN = {
-  peta: {
-    label: "Peta",
-    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    opsi: { maxZoom: 19, attribution: "&copy; OpenStreetMap" },
-  },
-  satelit: {
-    label: "Satelit",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    opsi: { maxZoom: 19, attribution: "&copy; Esri" },
-  },
-};
 
 // Ikon HTML biasa: ikon gambar bawaan Leaflet tidak ikut terbawa oleh Vite.
 const IKON_PIN = L.divIcon({
@@ -83,13 +71,13 @@ export default function PetaLokasi({ titik, onPilih }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Ganti lapisan peta jalan / satelit.
+  // Ganti lapisan peta jalan / satelit. Sumber ubin dipilih di lib/ubinPeta.js:
+  // pemasangan bisa tertunda sesaat saat sumber peta jalan diuji lebih dulu.
   useEffect(() => {
     const m = peta.current;
     if (!m) return;
-    if (ubin.current) m.removeLayer(ubin.current);
-    const l = LAPISAN[jenis];
-    ubin.current = L.tileLayer(l.url, l.opsi).addTo(m);
+    const batalkan = pasangUbin(L, m, jenis, (l) => (ubin.current = l), ubin.current);
+    return batalkan;
   }, [jenis]);
 
   // Titik berubah dari luar (mis. GPS diambil saat peta terbuka, atau dihapus).

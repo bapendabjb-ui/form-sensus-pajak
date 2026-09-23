@@ -510,6 +510,28 @@ mengetuk titik atau menggeser penanda. Tersedia peta jalan (OpenStreetMap) dan c
 - Petugas bisa mengambil GPS dulu lalu membetulkannya di peta — penanda ikut pindah ke titik GPS.
 - Potongan peta diambil dari internet, jadi **peta butuh koneksi**; Ambil lokasi (GPS) tetap jalan tanpanya.
 
+#### Sumber potongan peta dan cadangannya
+
+`client/src/lib/ubinPeta.js` memegang daftar sumber ubin untuk kedua peta (pemilih titik dan
+sebaran). Peta jalan memakai OpenStreetMap, satelit memakai Esri World Imagery.
+
+Server ubin OpenStreetMap dijalankan sukarelawan dan **memblokir aplikasi yang tidak mengenalkan
+diri** — yang tampil bukan peta melainkan gambar bertuliskan *"Access blocked"*. Dua hal menjaga
+peta tetap hidup:
+
+- **Aplikasi mengenalkan diri.** Di peramban, identitas itu adalah header `Referer`, jadi
+  `Referrer-Policy` di `server/src/keamanan.js` bernilai `strict-origin-when-cross-origin`
+  (bukan `same-origin`, yang tidak mengirim `Referer` ke luar sama sekali). Yang terkirim hanya
+  asal — `https://host` — tidak pernah jalur atau isi kueri halaman.
+- **Cadangan otomatis.** Sebelum lapisan peta jalan dipasang, klien menguji satu ubin OSM dan
+  membaca status HTTP-nya; bila ditolak, peta jalan langsung memakai **Esri World Street Map**.
+  Hasil ujinya disimpan di `sessionStorage`, jadi pengujian hanya sekali per sesi. Pemeriksaan
+  status ini perlu karena ubin "Access blocked" **tetap tergambar** sebagai gambar yang sah —
+  `tileerror` Leaflet tidak pernah menyala untuk blokir semacam itu.
+
+Bila daftar sumber ubin berubah, tambahkan hostnya ke `img-src` (dan `connect-src` bila ikut
+diuji) pada `server/src/keamanan.js`; `keamanan.test.js` akan gagal lebih dulu bila terlewat.
+
 Akurasi diperoleh dengan **mengamati** posisi, bukan sekali ambil. Pembacaan pertama sebuah
 perangkat biasanya berasal dari jaringan seluler/Wi-Fi dan bisa meleset ratusan meter; setelah
 beberapa detik GPS mengunci lebih banyak satelit dan angkanya membaik. Karena itu petugas menekan
