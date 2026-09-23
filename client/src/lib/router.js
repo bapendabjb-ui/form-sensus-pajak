@@ -200,6 +200,16 @@ export function cocokkanRute(pathname) {
     }
   }
 
+  if (b[0] === "latihan") {
+    if (b.length === 1) {
+      return { nama: "latihan", tab: "latihan", judul: "Latihan Petugas" };
+    }
+    const id = angka(b[1]);
+    if (id && b.length === 2) {
+      return { nama: "latihan-isi", tab: "latihan", formulirId: id, judul: "Latihan Isi Data", kembali: "/latihan", fokus: true };
+    }
+  }
+
   if (b.length === 1 && b[0] === "masuk") {
     return { nama: "masuk", tab: null, judul: "Masuk Admin", kembali: "/", fokus: true };
   }

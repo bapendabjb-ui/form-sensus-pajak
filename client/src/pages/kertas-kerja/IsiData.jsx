@@ -1,4 +1,11 @@
-/* Layar isi & ubah satu data lewat formulir, berikut draf otomatisnya. */
+/*
+ * Layar isi & ubah satu data lewat formulir, berikut draf otomatisnya.
+ *
+ * Layar yang sama dipakai untuk latihan petugas (`latihan`): formulirnya asli,
+ * validasinya asli, hanya penyimpanannya yang tidak dijalankan. Latihan sengaja
+ * memakai layar ini, bukan tiruannya, supaya apa yang dilatih persis sama
+ * dengan yang nanti dipakai di lapangan.
+ */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "../../api.js";
@@ -9,6 +16,7 @@ import FieldInput from "../../components/Fields.jsx";
 import { fromApi, emptyValue, buildPayload, validateRequired, statusFoto, isFilled } from "../../lib/answers.js";
 import { nilaiDariEpbb } from "../../lib/epbb.js";
 import { judulEntri } from "../../lib/ringkas.js";
+import RingkasanLatihan from "../../components/RingkasanLatihan.jsx";
 import { IkonEpbb, CheckIcon } from "../../components/Icons.jsx";
 import { useAdmin } from "../../lib/admin.js";
 import { mulaiRekamPosisi, ambilRekamPosisi } from "../../lib/rekamPosisi.js";
@@ -53,7 +61,7 @@ function jawabanUntukDraf(pertanyaan, answers) {
   return hasil;
 }
 
-export function IsiData({ kkId, formulirId, entriId }) {
+export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
   const toast = useToast();
   const { konfirmasi } = useDialog();
   const admin = useAdmin();
@@ -68,6 +76,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
   const [error, setError] = useState("");
   const [menyimpan, setMenyimpan] = useState(null); // "simpan" | "lagi" | null
   const [draf, setDraf] = useState(null); // draf tersimpan yang belum dipulihkan
+  const [hasilLatihan, setHasilLatihan] = useState(null); // ringkasan setelah latihan "disimpan"
   const wadah = useRef(null);
   const berubah = useRef(false);
   // Perekaman posisi otomatis untuk peta cakupan. Dimulai begitu layar dibuka
@@ -75,14 +84,21 @@ export function IsiData({ kkId, formulirId, entriId }) {
   // pernah ditampilkan di sini, dan server hanya membukanya untuk admin.
   const posisi = useRef(null);
 
-  const urlKembali = urlKk(kkId);
-  const kunciDraf = entriId ? `sensus-pajak:draf:data-${entriId}` : `sensus-pajak:draf:kk${kkId}-f${formulirId}`;
+  const urlKembali = latihan ? "/latihan" : urlKk(kkId);
+  // Latihan tidak menulis draf: isian coba-coba akan tertawarkan lagi saat
+  // petugas mengisi data sungguhan dari formulir yang sama.
+  const kunciDraf = latihan
+    ? ""
+    : entriId
+      ? `sensus-pajak:draf:data-${entriId}`
+      : `sensus-pajak:draf:kk${kkId}-f${formulirId}`;
 
   useEffect(() => {
     posisi.current = mulaiRekamPosisi();
   }, []);
 
   const hapusDraf = useCallback(() => {
+    if (!kunciDraf) return;
     try {
       localStorage.removeItem(kunciDraf);
     } catch {
@@ -107,7 +123,12 @@ export function IsiData({ kkId, formulirId, entriId }) {
     (async () => {
       try {
         let f;
-        if (entriId) {
+        if (latihan) {
+          const form = await api.getFormulir(formulirId);
+          if (batal) return;
+          f = form;
+          kosongkan(form);
+        } else if (entriId) {
           const e = await api.getEntri(entriId);
           if (batal) return;
           f = e.formulir;
@@ -130,11 +151,13 @@ export function IsiData({ kkId, formulirId, entriId }) {
 
         await bersihkanDrafLama();
         if (batal) return;
-        try {
-          const tersimpan = JSON.parse(localStorage.getItem(kunciDraf) || "null");
-          if (tersimpan && tersimpan.answers) setDraf(tersimpan);
-        } catch {
-          /* draf rusak atau penyimpanan tidak tersedia */
+        if (kunciDraf) {
+          try {
+            const tersimpan = JSON.parse(localStorage.getItem(kunciDraf) || "null");
+            if (tersimpan && tersimpan.answers) setDraf(tersimpan);
+          } catch {
+            /* draf rusak atau penyimpanan tidak tersedia */
+          }
         }
       } catch (e) {
         if (!batal) setError(e.message);
@@ -145,11 +168,11 @@ export function IsiData({ kkId, formulirId, entriId }) {
     return () => {
       batal = true;
     };
-  }, [entriId, formulirId, kkId, kosongkan, kunciDraf]);
+  }, [entriId, formulirId, kkId, kosongkan, kunciDraf, latihan]);
 
   // Simpan draf ke perangkat setiap kali isian berubah (tidak saat tawaran draf lama masih tampil).
   useEffect(() => {
-    if (!formulir || !berubah.current || draf) return undefined;
+    if (!formulir || !berubah.current || draf || !kunciDraf) return undefined;
     const t = setTimeout(() => {
       try {
         localStorage.setItem(
@@ -269,6 +292,24 @@ export function IsiData({ kkId, formulirId, entriId }) {
       return;
     }
 
+    // Latihan berhenti di sini. Pemeriksaan di atas sudah dijalankan seluruhnya —
+    // yang dilewati hanya pengiriman ke server.
+    if (latihan) {
+      setMenyimpan(lanjut ? "lagi" : "simpan");
+      const rekam = await ambilRekamPosisi(posisi.current);
+      setMenyimpan(null);
+      berubah.current = false;
+      if (lanjut) {
+        toast("Isian sudah lengkap. Latihan tidak menyimpan data.");
+        kosongkan(formulir);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      setHasilLatihan({ jawaban: buildPayload(pertanyaan, answers), rekam });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     setMenyimpan(lanjut ? "lagi" : "simpan");
     try {
       const payload = buildPayload(pertanyaan, answers);
@@ -323,7 +364,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
 
   const tombolKembali = (
     <button type="button" className="fk-textbtn hanya-desktop" onClick={() => kembali(urlKembali)}>
-      ‹ Kembali ke kertas kerja{nomor ? ` ${nomor}` : ""}
+      {latihan ? "‹ Kembali ke pilihan formulir" : `‹ Kembali ke kertas kerja${nomor ? ` ${nomor}` : ""}`}
     </button>
   );
 
@@ -336,6 +377,23 @@ export function IsiData({ kkId, formulirId, entriId }) {
       </>
     );
   if (!formulir) return null;
+
+  if (hasilLatihan) {
+    return (
+      <RingkasanLatihan
+        formulir={formulir}
+        jawaban={hasilLatihan.jawaban}
+        rekam={hasilLatihan.rekam}
+        berkas={berkas}
+        onUlang={() => {
+          setHasilLatihan(null);
+          kosongkan(formulir);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        onSelesai={() => kembali(urlKembali)}
+      />
+    );
+  }
 
   const { unggah } = statusFoto(formulir.pertanyaan, answers);
   const sibuk = menyimpan !== null;
@@ -369,6 +427,13 @@ export function IsiData({ kkId, formulirId, entriId }) {
     <div ref={wadah} className={"fk-fill" + (adaKolom ? " is-dua-kolom" : "")}>
       {tombolKembali}
 
+      {latihan && (
+        <div className="fk-latihan-bar" role="note">
+          <span className="fk-latihan-tag">Latihan</span>
+          <span>Isilah seperti di lapangan. Tidak ada yang tersimpan — silakan coba sampai terbiasa.</span>
+        </div>
+      )}
+
       {draf && (
         <div className="fk-draf" role="status">
           <span>
@@ -387,7 +452,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
       <section className="fk-panel fk-form fk-form-kepala">
         <div className="fk-form-accent" />
         <span className="fk-opts-cap">
-          Kertas kerja {nomor} · {entriId ? "ubah data" : "data baru"}
+          {latihan ? "Mode latihan · isian tidak disimpan" : `Kertas kerja ${nomor} · ${entriId ? "ubah data" : "data baru"}`}
         </span>
         <h2 className="fk-kk-title-top" style={{ marginTop: 6 }}>
           {formulir.judul}

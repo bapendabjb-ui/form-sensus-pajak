@@ -16,7 +16,7 @@ berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengeksporny
 
 ## Daftar isi
 
-1. [Alur pemakaian](#alur-pemakaian) · [Pemakaian di HP](#pemakaian-di-hp)
+1. [Alur pemakaian](#alur-pemakaian) · [Pemakaian di HP](#pemakaian-di-hp) · [Latihan petugas](#latihan-petugas)
 2. [Struktur repo](#struktur-repo)
 3. [Menjalankan secara lokal](#menjalankan-secara-lokal)
 4. [Variabel environment](#variabel-environment)
@@ -64,7 +64,7 @@ Aplikasi terutama dipakai petugas di lapangan lewat smartphone, jadi tampilannya
 untuk HP lebih dulu (desktop tetap memakai sidebar).
 
 - **Navigasi seperti aplikasi** — bilah judul di atas dengan tombol kembali, bilah tab di bawah
-  (Dashboard, Kertas Kerja, Petugas, Formulir). Layar pengisian menyembunyikan bilah tab supaya
+  (Dashboard, Kertas Kerja, Peta, Petugas, Latihan, dan — untuk admin — Ekspor & Formulir). Layar pengisian menyembunyikan bilah tab supaya
   lega, dan bilah tab juga tersembunyi saat papan ketik terbuka.
 - **Tombol Kembali HP berfungsi** — tombol/gestur kembali berpindah antar-layar, bukan menutup
   aplikasi. Setiap layar punya alamat sendiri (mis. `/kertas-kerja/12/isi/3`), jadi bisa dimuat
@@ -88,6 +88,30 @@ untuk HP lebih dulu (desktop tetap memakai sidebar).
 
 > Belum ada mode offline penuh: **menyimpan ke server tetap membutuhkan koneksi**. Tanpa koneksi,
 > isian aman sebagai draf di perangkat dan bisa disimpan setelah sinyal kembali.
+
+---
+
+## Latihan petugas
+
+Menu **Latihan** (alamat `/latihan`) adalah halaman tersendiri di bilah tab / sidebar: petugas
+memilih satu formulir dari bank formulir, lalu mengisinya persis seperti di lapangan — **tanpa ada
+yang tersimpan**. Tidak perlu kertas kerja, tidak perlu login.
+
+Latihan memakai layar pengisian yang sama (`IsiData` dengan properti `latihan`), bukan tiruannya,
+supaya yang dilatih tidak pernah berbeda dari yang dipakai bertugas:
+
+- Semua tipe pertanyaan, pemeriksaan kolom wajib, dan panjang digit NIK/NPWP/NOP berlaku sama.
+- **Cek NOP ke EPBB** dan pengisian otomatis kolom bersumber EPBB tetap berjalan.
+- Foto benar-benar diunggah supaya kamera & koneksi ikut teruji. Karena tidak tertaut ke data mana
+  pun, berkasnya dibersihkan server dalam 24 jam.
+- Izin lokasi tetap diminta, dan ringkasan hasilnya menyebutkan apakah titik GPS berhasil terekam —
+  sekaligus cara memastikan GPS perangkat petugas bekerja sebelum turun ke lapangan.
+
+Yang berbeda hanya tiga: tombol **Simpan** tidak mengirim apa pun ke server, latihan tidak menulis
+draf ke perangkat (supaya tidak tertawarkan saat mengisi data sungguhan), dan setelah Simpan muncul
+**ringkasan seluruh jawaban** untuk dicocokkan sendiri, dengan tombol **Ulangi latihan**.
+
+Tidak ada jejak latihan di kertas kerja, rekap petugas, Peta Sensus, maupun ekspor.
 
 ---
 
@@ -126,6 +150,7 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── LokasiInput.jsx     titik GPS + akurasi
 │       │   ├── Dialog.jsx          dialog konfirmasi aplikasi (pengganti window.confirm)
 │       │   ├── Fields.jsx          semua 16 tipe input pengisian (termasuk NIK, NPWP, NOP, RT & RW)
+│       │   ├── RingkasanLatihan.jsx  hasil & ringkasan jawaban setelah latihan
 │       │   └── Toast.jsx, Ui.jsx
 │       └── pages/
 │           ├── Dashboard.jsx
@@ -134,9 +159,10 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │           │   ├── Daftar.jsx      daftar + pencarian + penyaringan
 │           │   ├── Buat.jsx        wizard nomor + tim petugas
 │           │   ├── Detail.jsx      tim, kemajuan, daftar data, ekspor
-│           │   ├── IsiData.jsx     isi & ubah satu data + draf otomatis
+│           │   ├── IsiData.jsx     isi & ubah satu data + draf otomatis (juga mode latihan)
 │           │   └── bersama.js      perkakas kecil yang dipakai keempatnya
 │           ├── PetugasPage.jsx
+│           ├── LatihanPage.jsx     pilih formulir untuk latihan petugas (tanpa simpan)
 │           └── FormulirPage.jsx    login admin + penyusun formulir
 │
 ├── server/                         Express + Prisma

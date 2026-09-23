@@ -715,6 +715,26 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-kunci-ikon{display:grid; place-items:center; color:var(--faint); flex:none;}
 .fk-kunci-teks{flex:1; min-width:170px;}
 
+/* ---------- latihan petugas ---------- */
+.fk-latihan-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--brand-tint); border:1px solid #BFE0DC; color:var(--brand-dark); border-radius:12px; padding:11px 14px; font-size:13.5px;}
+.fk-latihan-bar span:last-child{flex:1 1 220px;}
+.fk-latihan-tag{font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:#fff; background:var(--brand); border-radius:6px; padding:3px 8px; flex:none;}
+.fk-latihan-catatan{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:7px; font-size:13.5px; color:var(--muted);}
+.fk-latihan-catatan li{padding-left:2px;}
+
+/* hasil latihan */
+.fk-hasil-kepala{text-align:center;}
+.fk-hasil-lencana{display:grid; place-items:center; width:42px; height:42px; margin:0 auto 10px; border-radius:50%; background:var(--brand-tint); color:var(--brand-dark);}
+.fk-hasil-kepala .fk-form-desc{max-width:52ch; margin:6px auto 0;}
+.fk-hasil-judul{font-weight:600; font-size:15px; padding:10px 0 2px;}
+.fk-hasil-baris{display:flex; align-items:baseline; gap:12px; padding:10px 0; border-bottom:1px solid var(--line-soft);}
+.fk-hasil-baris:last-child{border-bottom:0;}
+.fk-hasil-label{flex:1 1 40%; min-width:0; font-size:13px; color:var(--muted);}
+.fk-hasil-nilai{flex:1 1 55%; min-width:0; font-size:14px; overflow-wrap:anywhere;}
+.fk-hasil-baris.is-kosong .fk-hasil-nilai{color:var(--faint); font-style:italic;}
+.fk-hasil-gps.is-gagal{border-color:#EFD9AE; background:#FBF0DC;}
+.fk-hasil-gps.is-gagal .fk-q-ket{color:#6F4705;}
+
 /* ================= responsif: HP & tablet kecil ================= */
 @media (max-width:820px){
   :root{--bawah:calc(64px + env(safe-area-inset-bottom));}
@@ -822,6 +842,10 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-baris-judul{font-size:15px;}
   .fk-baris-ket{font-size:13px;}
   .fk-baris-foto img{width:46px; height:46px;}
+  .fk-hasil-baris{flex-direction:column; gap:3px; padding:11px 0;}
+  .fk-hasil-label{flex:none;}
+  .fk-hasil-nilai{flex:none; font-size:15px;}
+  .fk-latihan-bar{font-size:13px;}
   .fk-zona-bahaya{justify-content:stretch;}
   .fk-zona-bahaya .fk-btn-danger{width:100%;}
   /* dialog menempel di dasar layar: sasaran sentuh dekat ibu jari */
@@ -900,4 +924,12 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-q-list{gap:14px;}
   .fk-page-title{font-size:21px;}
   .fk-nomor-big{font-size:36px;}
+}
+
+/* Bilah tab HP memuat tujuh menu pada tampilan admin. Di layar paling sempit
+   labelnya dikecilkan sedikit supaya tetap terbaca utuh, bukan terpotong. */
+@media (max-width:430px){
+  .fk-tab{font-size:10.5px; letter-spacing:-.01em;}
+  .fk-tab-ikon{width:46px;}
+  .fk-tab > span:last-child{max-width:100%; padding:0 1px;}
 }
