@@ -719,8 +719,6 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-latihan-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--brand-tint); border:1px solid #BFE0DC; color:var(--brand-dark); border-radius:12px; padding:11px 14px; font-size:13.5px;}
 .fk-latihan-bar span:last-child{flex:1 1 220px;}
 .fk-latihan-tag{font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:#fff; background:var(--brand); border-radius:6px; padding:3px 8px; flex:none;}
-.fk-latihan-catatan{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:7px; font-size:13.5px; color:var(--muted);}
-.fk-latihan-catatan li{padding-left:2px;}
 
 /* hasil latihan */
 .fk-hasil-kepala{text-align:center;}

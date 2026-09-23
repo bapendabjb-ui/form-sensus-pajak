@@ -10,16 +10,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../api.js";
-import { PageHead, Panel, Loading, ErrorBox, Empty } from "../components/Ui.jsx";
+import { PageHead, Loading, ErrorBox, Empty } from "../components/Ui.jsx";
 import { IkonFormulir } from "../components/Icons.jsx";
 import { navigate } from "../lib/router.js";
-
-const CATATAN = [
-  "Isian, foto, dan cek NOP berjalan persis seperti di lapangan — hanya tombol Simpan yang tidak mengirim apa-apa.",
-  "Tidak ada data latihan yang masuk ke kertas kerja, rekap petugas, maupun Peta Sensus.",
-  "Aplikasi akan meminta izin lokasi. Izinkan saja: latihan ini sekaligus memastikan GPS perangkat Anda bekerja.",
-  "Foto yang diunggah selama latihan tidak tertaut ke data mana pun, jadi terhapus sendiri dari server dalam 24 jam.",
-];
 
 export default function LatihanPage() {
   const [bank, setBank] = useState([]);
@@ -48,14 +41,6 @@ export default function LatihanPage() {
         title="Latihan Petugas"
         sub="Berlatih mengisi formulir sungguhan tanpa menyimpan data. Aman untuk dicoba berulang kali."
       />
-
-      <Panel title="Sebelum mulai">
-        <ul className="fk-latihan-catatan">
-          {CATATAN.map((t) => (
-            <li key={t}>{t}</li>
-          ))}
-        </ul>
-      </Panel>
 
       {error && <ErrorBox onRetry={muat}>{error}</ErrorBox>}
       {loading && <Loading label="Memuat formulir..." />}
