@@ -976,6 +976,11 @@ tidak dijalankan dari root repo.
 
 **`Can't reach database server`** — MySQL belum berjalan atau kredensial salah.
 
+**`Error validating datasource db: the URL must start with the protocol mysql://` di
+Railway** — `DATABASE_URL` terkirim kosong, biasanya karena service MySQL yang dirujuk
+`${{MySQL.…}}` sudah dihapus atau namanya berubah. Panduan pemulihannya:
+[docs/pulihkan-database-railway.md](docs/pulihkan-database-railway.md).
+
 **`Build frontend belum tersedia` di port 4000** — jalankan `npm run build`, atau pakai
 `npm run dev` dan buka port 5173.
 
