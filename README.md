@@ -922,6 +922,7 @@ agar data wajib pajak tersimpan di Indonesia. Berkas pendukungnya ada di [`deplo
 
 | Berkas                                                    | Fungsi                                                   |
 | --------------------------------------------------------- | -------------------------------------------------------- |
+| [`deploy/pasang.sh`](deploy/pasang.sh)                     | Pemasangan pertama sekali jalan: `.env`, build, database, PM2 |
 | [`deploy/buat-database.sh`](deploy/buat-database.sh)       | Membuat database, user, dan tabel dari nol; menulis `DATABASE_URL` |
 | [`deploy/ecosystem.config.js`](deploy/ecosystem.config.js) | Cara PM2 menjalankan proses aplikasi                      |
 | [`deploy/perbarui.sh`](deploy/perbarui.sh)               | Pembaruan: pull → install → build → migrasi → reload      |

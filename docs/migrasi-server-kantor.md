@@ -75,7 +75,7 @@ Sudah diperiksa pada 25 September 2026:
 | Pemeriksaan    | Hasil                  | Keterangan                                   |
 | -------------- | ---------------------- | -------------------------------------------- |
 | Sistem operasi | Ubuntu 24.04.3 LTS     | Didukung                                     |
-| glibc          | 2.39                   | Node.js 20 bisa berjalan                     |
+| glibc          | 2.39                   | Node.js 24 bisa berjalan                     |
 | Database       | MariaDB 10.11.10       | Didukung; semua migrasi aplikasi sudah diuji di MariaDB |
 | Port 4000      | Kosong                 | Dipakai aplikasi ini (`PORT=4000`)           |
 | Disk `/www`    | Sisa 149 GB            | Cukup                                        |
@@ -92,35 +92,92 @@ ss -ltnp | grep -E ':(4000|4100) '; df -h /www
 
 ---
 
-## Langkah 2 — Pasang Node.js 20 dan PM2
+## Langkah 2 — Pasang Node.js 24 dan PM2
 
 Node.js dipasang lewat Terminal dari repositori resmi NodeSource. Jangan pakai App Store
-aaPanel, karena di server kantor cara itu gagal. Pasang versi **20**, sama dengan Railway:
+aaPanel, karena di server kantor cara itu gagal.
+
+Pasang versi **24**, versi LTS yang didukung sampai April 2028. Jangan pakai Node 20, yang
+sudah tidak mendapat perbaikan keamanan sejak April 2026. Bila Node 20 terlanjur terpasang,
+perintah di bawah sekaligus memperbaruinya.
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
 apt install -y nodejs
-node -v          # harus v20.x
+node -v          # harus v24.x
 
-npm install -g pm2
+npm install -g pm2@latest
 pm2 -v
 pm2 startup      # ikuti perintah yang dicetaknya, agar PM2 ikut hidup setelah server reboot
 ```
 
 **Bila perintah di atas gagal**, pasang dari berkas biner resmi. Cara ini tidak bergantung pada
-repositori paket:
+repositori paket, dan otomatis mengambil rilis Node 24 terbaru:
 
 ```bash
 cd /opt
-curl -fsSLO https://nodejs.org/dist/v20.18.1/node-v20.18.1-linux-x64.tar.xz
-tar -xJf node-v20.18.1-linux-x64.tar.xz
-for b in node npm npx; do ln -sf /opt/node-v20.18.1-linux-x64/bin/$b /usr/local/bin/$b; done
+BERKAS=$(curl -fsSL https://nodejs.org/dist/latest-v24.x/SHASUMS256.txt | grep -o 'node-v24[^ ]*-linux-x64.tar.xz')
+curl -fsSLO "https://nodejs.org/dist/latest-v24.x/$BERKAS"
+tar -xJf "$BERKAS"
+DIR="/opt/${BERKAS%.tar.xz}"
+for b in node npm npx; do ln -sf "$DIR/bin/$b" /usr/local/bin/$b; done
 node -v
 
-npm install -g pm2
-ln -sf /opt/node-v20.18.1-linux-x64/bin/pm2 /usr/local/bin/pm2
+npm install -g pm2@latest
+ln -sf "$DIR/bin/pm2" /usr/local/bin/pm2
 pm2 startup
 ```
+
+Memeriksa pembaruan di kemudian hari:
+
+| Keperluan                           | Perintah                                           |
+| ----------------------------------- | -------------------------------------------------- |
+| Perbarui Node (masih di jalur 24)   | `apt update && apt install --only-upgrade nodejs`  |
+| Perbarui PM2                        | `npm install -g pm2@latest && pm2 update`          |
+
+---
+
+## Cara cepat: Langkah 3–5 dengan satu perintah
+
+Salin satu baris ini ke Terminal server:
+
+```bash
+cd /www/wwwroot && { [ -d sensus-pajak ] || git clone https://github.com/bapendabjb-ui/form-sensus-pajak.git sensus-pajak; } && cd sensus-pajak && git pull --ff-only && bash deploy/pasang.sh
+```
+
+Skrip [`deploy/pasang.sh`](../deploy/pasang.sh) hanya menanyakan tiga hal:
+
+| Pertanyaan           | Isi dengan                                                                  |
+| -------------------- | --------------------------------------------------------------------------- |
+| `EPBB_API_URL`       | Salin dari Railway → service aplikasi → Variables. Boleh kosong.            |
+| `EPBB_API_KEY`       | Idem. Boleh kosong. Bila salah satu kosong, tombol cek NOP tidak tampil.     |
+| Password root MySQL  | aaPanel → Databases → Root password. Saat diketik, tidak ada yang tampil.   |
+
+Sisanya dikerjakan sendiri: membuat `.env` (termasuk `JWT_SECRET` dan password admin acak),
+install, build, membuat database, lalu menjalankan aplikasi dengan PM2. Hasil akhirnya seperti
+ini:
+
+```
+==============================================================
+ Sensus Pajak berjalan di http://127.0.0.1:4000
+
+ Login admin
+   Username : admin
+   Password : xxxxxxxxxxxxxxxx
+
+ CATAT password ini sekarang. ...
+==============================================================
+```
+
+**Catat password admin itu.** Setelah itu lanjutkan ke bagian *Uji dari laptop* di Langkah 5,
+lalu Langkah 6.
+
+Bila skrip berhenti karena galat, perbaiki penyebabnya lalu salin baris yang sama sekali lagi.
+Langkah yang sudah selesai tidak diulang dengan cara yang merusak: `.env` yang sudah ada dipakai
+apa adanya, dan database yang sudah dibuat tidak dibuat ulang.
+
+Langkah 3–5 di bawah menjelaskan hal yang sama secara manual, untuk dibaca bila ada yang perlu
+diperiksa satu per satu.
 
 ---
 
