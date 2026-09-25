@@ -31,7 +31,7 @@ berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengeksporny
 13. [Menyusun urutan formulir & pertanyaan](#menyusun-urutan-formulir--pertanyaan)
 14. [Batas aplikasi](#batas-aplikasi)
 15. [Referensi API](#referensi-api)
-16. [Deploy ke Railway](#deploy-ke-railway)
+16. [Deploy ke server kantor](#deploy-ke-server-kantor) · [Deploy ke Railway](#deploy-ke-railway)
 17. [Pemecahan masalah](#pemecahan-masalah)
 
 ---
@@ -271,6 +271,7 @@ contoh (termasuk pertanyaan foto dan kecamatan & kelurahan) dan 3 petugas. Manua
 | `ADMIN_USERNAME` |       | `admin`         | Akun admin yang di-seed saat start pertama                              |
 | `ADMIN_PASSWORD` |       | `admin123`      | Password admin saat akun pertama dibuat (disimpan sebagai hash bcrypt). **Di produksi server menolak start bila akunnya belum ada dan nilainya lemah** — kosong, < 8 karakter, atau nilai contoh seperti `admin123` |
 | `PORT`           |       | `4000`          | Port HTTP. **Railway meng-inject ini** — jangan di-hardcode             |
+| `HOST`           |       | `0.0.0.0`       | Alamat yang didengarkan. **Di server kantor isi `127.0.0.1`** agar hanya bisa dicapai lewat reverse proxy |
 | `UPLOAD_DIR`     |       | `./uploads`     | Folder foto. **Di Railway arahkan ke mount path volume.**               |
 | `UPLOAD_MAX_MB`  |       | `8`             | Batas ukuran satu foto yang diterima server                             |
 | `APP_TIMEZONE`   |       | `Asia/Makassar` | Zona waktu kolom "Waktu input" pada CSV                                 |
@@ -911,6 +912,23 @@ kolom). Sel milik formulir lain dibiarkan kosong; pertanyaan foto berisi tautan 
   TAB, atau CR diberi apostrof di depan; angka negatif dikecualikan supaya
   kolomnya tetap bisa dijumlah. Berkas `.xlsx` tidak terpengaruh karena ExcelJS
   menulis teks sebagai teks, bukan rumus.
+
+---
+
+## Deploy ke server kantor
+
+Aplikasi dipindahkan dari Railway ke server kantor (aaPanel, satu server dengan SIP dan EPBB)
+agar data wajib pajak tersimpan di Indonesia. Berkas pendukungnya ada di [`deploy/`](deploy/):
+
+| Berkas                                                    | Fungsi                                                   |
+| --------------------------------------------------------- | -------------------------------------------------------- |
+| [`deploy/buat-database.sh`](deploy/buat-database.sh)       | Membuat database, user, dan tabel dari nol; menulis `DATABASE_URL` |
+| [`deploy/ecosystem.config.js`](deploy/ecosystem.config.js) | Cara PM2 menjalankan proses aplikasi                      |
+| [`deploy/perbarui.sh`](deploy/perbarui.sh)               | Pembaruan: pull → install → build → migrasi → reload      |
+| [`server/scripts/tarik-foto.js`](server/scripts/tarik-foto.js) | Menyalin foto dari server lama lewat `/api/foto/:id`   |
+
+Panduan langkah demi langkah, termasuk pemindahan data dan hari pindah:
+[docs/migrasi-server-kantor.md](docs/migrasi-server-kantor.md).
 
 ---
 

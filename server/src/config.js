@@ -9,6 +9,9 @@ dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const config = {
   port: Number(process.env.PORT) || 4000,
+  // Alamat yang didengarkan. Di server kantor isi 127.0.0.1 agar aplikasi hanya
+  // bisa dicapai lewat reverse proxy aaPanel, bukan langsung dari luar.
+  host: (process.env.HOST || "0.0.0.0").trim(),
   nodeEnv: process.env.NODE_ENV || "development",
   jwtSecret: process.env.JWT_SECRET || "",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "12h",

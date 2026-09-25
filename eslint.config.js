@@ -21,7 +21,7 @@ module.exports = [
 
   // ---------- server: CommonJS, berjalan di Node ----------
   {
-    files: ["server/**/*.js", "eslint.config.js"],
+    files: ["server/**/*.js", "deploy/**/*.js", "eslint.config.js"],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "commonjs",

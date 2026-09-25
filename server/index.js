@@ -181,7 +181,7 @@ async function start() {
   }
 
   // Railway meng-inject PORT; wajib memakai nilai tersebut.
-  const server = app.listen(config.port, "0.0.0.0", () => {
+  const server = app.listen(config.port, config.host, () => {
     console.log(`[Sensus Pajak] siap di http://localhost:${config.port} (${config.nodeEnv})`);
     if (!adaBuild) console.log("[Sensus Pajak] client/dist belum ada - hanya API yang dilayani.");
   });
