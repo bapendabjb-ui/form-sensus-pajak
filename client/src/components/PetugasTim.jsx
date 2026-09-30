@@ -77,7 +77,7 @@ export default function PetugasTim({ petugas, value, onChange, onPetugasBaru, ga
               <CustomSelect
                 value={dipilih ? labelPetugas(dipilih) : ""}
                 options={tersedia.map(labelPetugas)}
-                placeholder={i === 0 ? "Pilih penanggung jawab" : "Pilih petugas"}
+                placeholder="Tambah petugas"
                 emptyText="Belum ada petugas — daftarkan di bawah"
                 invalid={Boolean(galat) && i === 0 && !id}
                 onChange={(label) => {
