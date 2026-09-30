@@ -124,6 +124,34 @@ hari dari sekarang.
 > gagal per jam. Kalau batas itu kena, Anda harus menunggu sekitar satu jam. Baca pesan
 > galatnya, cocokkan dengan tabel *Pemecahan masalah* di bawah, perbaiki, baru coba lagi.
 
+### Catatan: server kantor berada di balik NAT
+
+Server kantor memakai IP dalam `10.10.10.5`, sedangkan IP publik `36.91.46.42` dipegang router
+kantor. Router meneruskan kunjungan dari internet dengan benar, tetapi **tidak** bila yang
+berkunjung adalah server itu sendiri.
+
+Akibatnya, sebelum menghubungi Let's Encrypt, aaPanel mencoba membuka berkas verifikasi lewat
+domain (*self-check*) dan tertahan sekitar 15 menit per percobaan. Log berhenti di
+`Self-check attempt number: 1`, lalu muncul `Recv failure: Connection timed out`. Status di
+Let's Encrypt tetap *pending*, karena pemeriksaannya belum pernah diminta.
+
+Jalan keluarnya: arahkan domain ke server itu sendiri, **khusus untuk server ini**. Pengunjung
+dari luar tidak terpengaruh. Jalankan di Terminal server **sebelum** klik Apply:
+
+```bash
+grep -q 'sensuspajak.banjarbarukota.go.id' /etc/hosts || echo '127.0.0.1 sensuspajak.banjarbarukota.go.id' >> /etc/hosts
+```
+
+Bila Apply terlanjur macet, hentikan self-check yang tertahan, lalu klik **Apply** sekali lagi:
+
+```bash
+pkill -f 'curl.*sensuspajak.banjarbarukota.go.id/.well-known'
+```
+
+**Jangan hapus baris itu dari `/etc/hosts`.** Perpanjangan otomatis setiap ±60 hari menjalankan
+self-check yang sama. Bila nanti ada subdomain baru di server ini, tambahkan baris serupa untuk
+subdomain itu.
+
 ---
 
 ## Langkah 5 — Nyalakan Force HTTPS dan reverse proxy
@@ -211,6 +239,7 @@ berkas baru ke Diskominfo lalu ulangi langkah di atas. Catat tanggalnya di kalen
 | `Timeout during connect` / `Connection refused`                        | Port 80 tertutup dari internet: firewall aaPanel, router kantor, atau ISP. Ulangi Langkah 2.                         |
 | `Invalid response from …/.well-known/acme-challenge/…` (404 atau 502)   | Reverse proxy menyala saat verifikasi. Matikan reverse proxy, Apply lagi, lalu nyalakan kembali (Langkah 3–5).        |
 | `CAA record … prevents issuance`                                        | DNS `banjarbarukota.go.id` hanya mengizinkan penerbit sertifikat tertentu. Minta Diskominfo menambah record **CAA** untuk `letsencrypt.org`, atau pakai sertifikat Diskominfo. |
+| Log berhenti lama di `Self-check attempt number: 1`, lalu `Connection timed out` | Server di balik NAT tidak bisa membuka domainnya sendiri. Lihat *Catatan: server kantor berada di balik NAT* di Langkah 4. |
 | `too many failed authorizations` / `rateLimited`                        | Terlalu sering gagal. Tunggu 1 jam, perbaiki penyebabnya dulu, baru coba lagi.                                        |
 | Gembok ada, tapi `502 Bad Gateway`                                      | HTTPS sudah beres; aplikasinya yang mati. Cek `pm2 status` dan port reverse proxy.                                    |
 | Di laptop kantor sudah HTTPS, di HP data seluler tidak bisa dibuka       | DNS/port hanya beres di jaringan dalam. Pastikan record A memakai IP **publik** dan port diteruskan dari internet.   |
