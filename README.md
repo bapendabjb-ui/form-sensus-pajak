@@ -864,7 +864,7 @@ Body `jawaban` berbentuk `{ "<pertanyaanId>": nilai }` (lihat format di atas). K
 
 | Method | Endpoint           | Keterangan                                                                        |
 | ------ | ------------------ | --------------------------------------------------------------------------------- |
-| `GET`  | `/dashboard/stats` | Kertas kerja, selesai, data, data berkas tidak lengkap (`tidakLengkap`), foto, formulir, petugas + 5 kertas kerja terbaru |
+| `GET`  | `/dashboard/stats` | Kertas kerja, selesai, data, data berkas tidak lengkap (`tidakLengkap`), foto, formulir, petugas + 5 petugas dengan kertas kerja terbanyak (`rekapPetugas`) |
 | `GET`  | `/health`          | Health check (dipakai Railway)                                                    |
 | `GET`  | `/konfigurasi`     | Batas aplikasi: `petugasMaks`, `fotoMaksPerPertanyaan`, `uploadMaksMb`, `cekNop`  |
 | `GET`  | `/wilayah`         | Kecamatan & kelurahan Kota Banjarbaru                                             |

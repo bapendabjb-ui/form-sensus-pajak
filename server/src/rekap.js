@@ -40,8 +40,9 @@ async function rekapPetugas() {
 const rekapKosong = () => ({ jumlahKertasKerja: 0, jumlahData: 0 });
 
 /**
- * Petugas paling produktif, urut dari data terbanyak. Petugas tanpa data
- * dilewati supaya panel dashboard tidak terisi baris nol.
+ * Petugas paling produktif, urut dari kertas kerja terbanyak; bila sama, yang
+ * datanya lebih banyak di atas. Petugas yang belum masuk tim mana pun dilewati
+ * supaya panel dashboard tidak terisi baris nol.
  *
  * @param {number} batas Jumlah maksimal baris.
  */
@@ -53,8 +54,8 @@ async function peringkatPetugas(batas = 5) {
 
   return petugas
     .map((p) => ({ ...p, ...(rekap.get(p.id) || rekapKosong()) }))
-    .filter((p) => p.jumlahData > 0)
-    .sort((a, b) => b.jumlahData - a.jumlahData || b.jumlahKertasKerja - a.jumlahKertasKerja || a.nama.localeCompare(b.nama, "id"))
+    .filter((p) => p.jumlahKertasKerja > 0)
+    .sort((a, b) => b.jumlahKertasKerja - a.jumlahKertasKerja || b.jumlahData - a.jumlahData || a.nama.localeCompare(b.nama, "id"))
     .slice(0, batas);
 }
 

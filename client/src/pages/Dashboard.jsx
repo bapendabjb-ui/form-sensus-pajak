@@ -1,15 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../api.js";
-import { Panel, PageHead, Loading, ErrorBox, StatusPill, BerkasPill } from "../components/Ui.jsx";
+import { Panel, PageHead, Loading, ErrorBox } from "../components/Ui.jsx";
 import { navigate } from "../lib/router.js";
 import { simpanFilterKk } from "../lib/filterKk.js";
-
-/** "Andi Saputra" atau "Andi Saputra +2" - cukup pendek untuk baris keterangan. */
-const ringkasTim = (petugas = []) => {
-  if (!petugas.length) return "—";
-  const lain = petugas.length - 1;
-  return lain > 0 ? `${petugas[0].nama} +${lain}` : petugas[0].nama;
-};
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -86,9 +79,9 @@ export default function Dashboard() {
             })}
           </div>
 
-          <Panel title="Rekap Petugas" sub="Top 5 Petugas Dengan Data Terbanyak.">
+          <Panel title="Rekap Petugas" sub="Top 5 Petugas Dengan Kertas Kerja Terbanyak.">
             {stats.rekapPetugas.length === 0 ? (
-              <div className="fk-lt-empty">Belum ada data yang dikerjakan petugas.</div>
+              <div className="fk-lt-empty">Belum ada petugas yang mengerjakan kertas kerja.</div>
             ) : (
               <div className="fk-lib-list">
                 {stats.rekapPetugas.map((p, i) => (
@@ -96,42 +89,15 @@ export default function Dashboard() {
                     <span className="fk-peringkat">{i + 1}</span>
                     <div>
                       <div className="fk-lib-title fk-ellipsis">{p.nama}</div>
-                      <div className="fk-lib-sub">
-                        {Number(p.jumlahKertasKerja).toLocaleString("id-ID")} kertas kerja
-                      </div>
+                      <div className="fk-lib-sub">{Number(p.jumlahData).toLocaleString("id-ID")} data</div>
                     </div>
                     <div className="fk-rekap">
                       <span className="fk-rekap-num">
-                        {Number(p.jumlahData).toLocaleString("id-ID")}
+                        {Number(p.jumlahKertasKerja).toLocaleString("id-ID")}
                       </span>
-                      <span className="fk-rekap-label">data</span>
+                      <span className="fk-rekap-label">kertas kerja</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </Panel>
-
-          <Panel title="Kertas Kerja Terbaru">
-            {stats.terbaru.length === 0 ? (
-              <div className="fk-lt-empty">Belum ada kertas kerja.</div>
-            ) : (
-              <div className="fk-kk-list">
-                {stats.terbaru.map((k) => (
-                  <button
-                    type="button"
-                    className="fk-kk-card is-clickable"
-                    key={k.id}
-                    onClick={() => navigate(`/kertas-kerja/${k.id}`)}
-                  >
-                    <span className="fk-nomor">{k.nomor}</span>
-                    <div className="fk-kk-card-body">
-                      <div className="fk-lib-title fk-ellipsis">{ringkasTim(k.petugas)}</div>
-                      <div className="fk-lib-sub">{k.jumlahData} data</div>
-                    </div>
-                    <BerkasPill jumlah={k.jumlahTidakLengkap} />
-                    <StatusPill status={k.status} />
-                  </button>
                 ))}
               </div>
             )}
