@@ -17,6 +17,17 @@ const PER = 20;
 /** Jeda sebelum ketikan pencarian dikirim ke server. */
 const JEDA_CARI_MS = 300;
 
+/**
+ * Kartu hanya menyebut anggota pertama ("Budi +2"). Saat mencari nama, anggota
+ * yang cocok ditaruh di depan supaya terlihat mengapa kartu itu muncul.
+ */
+function timDepanCocok(petugas, cari) {
+  const kata = cari.toLowerCase().split(/\s+/).filter((w) => /\p{L}/u.test(w));
+  if (kata.length === 0) return petugas;
+  const cocok = (p) => kata.some((w) => p.nama.toLowerCase().includes(w));
+  return [...petugas.filter(cocok), ...petugas.filter((p) => !cocok(p))];
+}
+
 const KOSONG = {
   baris: [],
   hal: 1,
@@ -148,17 +159,14 @@ export function DaftarKertasKerja() {
         </Empty>
       ) : (
         <>
-          {/* Angka saja: nomor kertas kerja memang hanya angka, dan menyaring di
-              sini membuat isi kotak selalu persis sama dengan yang dicari. */}
           <input
             type="search"
             className="fk-input fk-cari"
-            placeholder="Cari nomor kertas kerja..."
+            placeholder="Cari nomor atau nama petugas..."
             value={cari}
-            onChange={(e) => setCari(e.target.value.replace(/\D/g, ""))}
-            inputMode="numeric"
+            onChange={(e) => setCari(e.target.value)}
             enterKeyHint="search"
-            aria-label="Cari nomor kertas kerja"
+            aria-label="Cari nomor atau nama petugas"
           />
           <div className="fk-filter" role="tablist" aria-label="Saring kertas kerja">
             {FILTER_KK.map(([kunci, label]) => (
@@ -183,9 +191,9 @@ export function DaftarKertasKerja() {
           {baris.length === 0 ? (
             <Empty>
               {kata && jumlah.semua === 0
-                ? `Tidak ada kertas kerja bernomor "${kata}".`
+                ? `Tidak ada kertas kerja yang cocok dengan "${kata}".`
                 : kata
-                  ? `Nomor "${kata}" tidak ada pada saringan ini.`
+                  ? `Tidak ada hasil "${kata}" pada saringan ini.`
                   : filter === "kurang"
                     ? "Tidak ada kertas kerja dengan berkas tidak lengkap."
                     : "Tidak ada kertas kerja pada saringan ini."}
@@ -204,7 +212,7 @@ export function DaftarKertasKerja() {
                   >
                     <span className="fk-nomor">{k.nomor}</span>
                     <div className="fk-kk-card-body">
-                      <div className="fk-lib-title fk-ellipsis">{ringkasTim(k.petugas)}</div>
+                      <div className="fk-lib-title fk-ellipsis">{ringkasTim(timDepanCocok(k.petugas, cariKirim))}</div>
                       <div className="fk-lib-sub fk-ellipsis">
                         {k.jumlahData} data · {formatTimestamp(k.createdAt)}
                       </div>

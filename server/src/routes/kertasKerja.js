@@ -105,16 +105,36 @@ const PER_HALAMAN_MAKS = 100;
 
 const SARINGAN = new Set(["semua", "draft", "selesai", "kurang"]);
 
+/** Kata kunci lebih panjang dari ini dipotong; nama petugas pun paling 150 huruf. */
+const CARI_MAKS = 100;
+
 /**
- * Syarat WHERE dari kata kunci pencarian.
+ * Syarat WHERE dari kata kunci pencarian: nomor kertas kerja atau nama petugas
+ * di timnya.
  *
- * Nomor kertas kerja hanya angka, jadi karakter lain dibuang lebih dulu -
- * mengetik "4" cukup untuk menemukan "00004" tanpa perlu menghitung nolnya,
- * sama seperti pencarian sebelumnya yang berjalan di sisi klien.
+ * Kata kunci dipecah per kata dan setiap kata harus cocok. Kata yang memuat
+ * huruf dicari di nama anggota tim - tidak harus anggota yang sama, jadi
+ * "budi ani" menemukan tim yang berisi Budi dan Ani. Huruf besar-kecil tidak
+ * dibedakan karena kolasi tabelnya utf8mb4_unicode_ci.
+ *
+ * Kata tanpa huruf dianggap nomor: selain angka dibuang, dan mengetik "4"
+ * cukup untuk menemukan "00004" tanpa perlu menghitung nolnya.
+ *
+ * NIP sengaja tidak ikut dicari: NIP 18 digit hampir pasti memuat angka pendek
+ * apa pun, sehingga mengetik "12" akan menarik kertas kerja yang tidak dicari.
  */
 function syaratCari(cari) {
-  const q = String(cari || "").replace(/\D/g, "");
-  return q ? { nomor: { contains: q } } : {};
+  const syarat = [];
+  for (const kata of String(cari || "").slice(0, CARI_MAKS).split(/\s+/)) {
+    if (/\p{L}/u.test(kata)) {
+      syarat.push({ petugas: { some: { petugas: { nama: { contains: kata } } } } });
+    } else {
+      const angka = kata.replace(/\D/g, "");
+      if (angka) syarat.push({ nomor: { contains: angka } });
+    }
+  }
+  if (syarat.length === 0) return {};
+  return syarat.length === 1 ? syarat[0] : { AND: syarat };
 }
 
 /** Syarat WHERE dari saringan status / kelengkapan berkas. */

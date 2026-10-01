@@ -52,18 +52,35 @@ test("bacaPaginasi hanya menerima saringan yang dikenal", () => {
  * Aturannya harus tetap sama persis, kalau tidak hasil pencarian berubah diam-diam.
  */
 
-test("syaratCari hanya memakai angka dari kata kunci", () => {
+const cariNama = (kata) => ({ petugas: { some: { petugas: { nama: { contains: kata } } } } });
+
+test("syaratCari mencocokkan angka ke nomor kertas kerja", () => {
   // Mengetik "4" harus menemukan "00004" tanpa perlu menghitung nolnya.
   assert.deepEqual(syaratCari("4"), { nomor: { contains: "4" } });
   assert.deepEqual(syaratCari(" 00012 "), { nomor: { contains: "00012" } });
-  assert.deepEqual(syaratCari("kk-12"), { nomor: { contains: "12" } });
+  assert.deepEqual(syaratCari("#12"), { nomor: { contains: "12" } }, "tanda baca dibuang");
+});
+
+test("syaratCari mencocokkan kata berhuruf ke nama petugas di tim", () => {
+  assert.deepEqual(syaratCari("budi"), cariNama("budi"));
+  assert.deepEqual(syaratCari("  S.Kom "), cariNama("S.Kom"));
+});
+
+test("syaratCari mewajibkan setiap kata cocok", () => {
+  assert.deepEqual(syaratCari("budi  ani"), { AND: [cariNama("budi"), cariNama("ani")] });
+  assert.deepEqual(syaratCari("budi 12"), { AND: [cariNama("budi"), { nomor: { contains: "12" } }] });
 });
 
 test("syaratCari tidak menyaring apa pun bila kata kunci kosong", () => {
   assert.deepEqual(syaratCari(""), {});
   assert.deepEqual(syaratCari("   "), {});
-  assert.deepEqual(syaratCari("abc"), {}, "huruf saja sama dengan tidak mencari");
+  assert.deepEqual(syaratCari("- #"), {}, "tanda baca saja sama dengan tidak mencari");
   assert.deepEqual(syaratCari(undefined), {});
+});
+
+test("syaratCari memotong kata kunci yang terlalu panjang", () => {
+  const syarat = syaratCari("a ".repeat(500));
+  assert.equal(syarat.AND.length, 50);
 });
 
 test("syaratSaring memetakan saringan ke syarat database", () => {
