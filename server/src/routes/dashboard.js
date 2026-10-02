@@ -7,7 +7,7 @@ const { peringkatPetugas } = require("../rekap");
 
 const router = express.Router();
 
-/** GET /api/dashboard/stats -> angka ringkasan + 5 petugas dengan kertas kerja terbanyak. */
+/** GET /api/dashboard/stats -> angka ringkasan + 10 petugas dengan kertas kerja terbanyak. */
 router.get(
   "/stats",
   wrap(async (_req, res) => {
@@ -15,7 +15,7 @@ router.get(
       prisma.kertasKerja.count(),
       prisma.kertasKerja.count({ where: { status: "selesai" } }),
       prisma.entri.count({ where: { berkasLengkap: false } }),
-      peringkatPetugas(5),
+      peringkatPetugas(10),
     ]);
 
     res.json({

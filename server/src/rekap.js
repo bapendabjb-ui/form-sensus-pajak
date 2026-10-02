@@ -46,7 +46,7 @@ const rekapKosong = () => ({ jumlahKertasKerja: 0, jumlahData: 0 });
  *
  * @param {number} batas Jumlah maksimal baris.
  */
-async function peringkatPetugas(batas = 5) {
+async function peringkatPetugas(batas = 10) {
   const [rekap, petugas] = await Promise.all([
     rekapPetugas(),
     prisma.petugas.findMany({ select: { id: true, nama: true, nip: true } }),
