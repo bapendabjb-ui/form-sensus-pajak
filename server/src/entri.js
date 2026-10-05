@@ -13,6 +13,7 @@ const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require(".
 const { includePengajuanTerakhir, bentukPengajuanTerakhir } = require("./pengajuan");
 const { notFound } = require("./http");
 const { SUMBER_EPBB } = require("./epbb");
+const { jawabanLokasiPertama, ringkasLokasi } = require("./cekLokasi");
 
 /** Tipe pertanyaan yang bisa diisi dari EPBB - hanya ini yang boleh bertanda "dari EPBB". */
 const TIPE_EPBB = new Set(Object.values(SUMBER_EPBB).flat());
@@ -112,16 +113,22 @@ function bacaBerkas(body) {
  * tidak boleh terhalang urusan GPS.
  */
 function bacaRekamKoordinat(body) {
-  const r = body?.rekamKoordinat;
-  if (!r || typeof r !== "object") return {};
+  const k = bacaKoordinat(body?.rekamKoordinat);
+  if (!k) return {};
+  return { rekamLat: k.lat, rekamLon: k.lon, rekamAkurasi: k.akurasi, rekamWaktu: new Date() };
+}
+
+/** { lat, lon, akurasi } dari kiriman klien, atau null bila tidak masuk akal. */
+function bacaKoordinat(r) {
+  if (!r || typeof r !== "object") return null;
 
   const lat = typeof r.lat === "number" ? r.lat : null;
   const lon = typeof r.lon === "number" ? r.lon : null;
-  if (lat === null || lon === null) return {};
-  if (!(lat >= -90 && lat <= 90) || !(lon >= -180 && lon <= 180)) return {};
+  if (lat === null || lon === null) return null;
+  if (!(lat >= -90 && lat <= 90) || !(lon >= -180 && lon <= 180)) return null;
 
   const akurasi = typeof r.akurasi === "number" && r.akurasi >= 0 ? r.akurasi : null;
-  return { rekamLat: lat, rekamLon: lon, rekamAkurasi: akurasi, rekamWaktu: new Date() };
+  return { lat, lon, akurasi };
 }
 
 /** Pesan untuk kolom wajib yang masih kosong - sama dengan client/src/lib/answers.js. */
@@ -178,6 +185,8 @@ async function muatEntri(id) {
     },
   });
   if (!e) throw notFound("Data tidak ditemukan.");
+  const jawaban = petaJawaban(e.jawaban);
+  const qidLokasi = e.formulir.pertanyaan.filter((q) => q.tipe === "lokasi").map((q) => q.id);
   return {
     id: e.id,
     kertasKerja: {
@@ -188,7 +197,7 @@ async function muatEntri(id) {
     },
     pengajuanHapus: bentukPengajuanTerakhir(e.pengajuanHapus),
     formulir: bentukFormulir(e.formulir),
-    jawaban: petaJawaban(e.jawaban),
+    jawaban,
     dariEpbb: e.jawaban.filter((j) => j.dariEpbb).map((j) => j.pertanyaanId),
     berkasLengkap: e.berkasLengkap,
     catatanBerkas: e.catatanBerkas,
@@ -198,6 +207,11 @@ async function muatEntri(id) {
       e.rekamLat === null || e.rekamLon === null
         ? null
         : { lat: e.rekamLat, lon: e.rekamLon, akurasi: e.rekamAkurasi, waktu: e.rekamWaktu },
+    koreksiTitik:
+      e.koreksiLat === null || e.koreksiLon === null
+        ? null
+        : { lat: e.koreksiLat, lon: e.koreksiLon, waktu: e.koreksiWaktu, oleh: e.koreksiOleh },
+    lokasi: ringkasLokasi(e, jawabanLokasiPertama(qidLokasi, jawaban)),
   };
 }
 
@@ -218,5 +232,6 @@ module.exports = {
   muatEntri,
   bacaBerkas,
   bacaRekamKoordinat,
+  bacaKoordinat,
   hitungTidakLengkap,
 };

@@ -9,7 +9,9 @@ import * as api from "../api.js";
  * server tanpa berkedip. Angka sebenarnya tetap satu, yaitu milik server
  * (server/src/batas.js).
  */
-const SEMENTARA = { petugasMaks: 8, fotoMaksPerPertanyaan: 10, uploadMaksMb: 8 };
+// lokasi null = titik kantor & batas akurasi belum diketahui; pemeriksaan
+// lokasi di layar isi data menunggu sampai angkanya tiba.
+const SEMENTARA = { petugasMaks: 8, fotoMaksPerPertanyaan: 10, uploadMaksMb: 8, lokasi: null };
 
 let terakhir = SEMENTARA;
 

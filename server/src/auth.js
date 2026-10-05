@@ -80,6 +80,29 @@ async function requireAdmin(req, _res, next) {
 }
 
 /**
+ * Admin yang sedang login, atau null - untuk aksi yang terbuka bagi semua tetapi
+ * mencatat pelakunya. Token yang tidak sah dianggap tidak ada, bukan ditolak.
+ * @returns {Promise<{ id: number, username: string } | null>}
+ */
+async function bacaAdmin(req) {
+  const token = readToken(req);
+  if (!token) return null;
+  let payload;
+  try {
+    payload = jwt.verify(token, config.jwtSecret);
+  } catch {
+    return null;
+  }
+  if (payload.role !== "admin") return null;
+  const admin = await prisma.admin.findUnique({
+    where: { id: Number(payload.sub) },
+    select: { id: true, username: true, tokenVersi: true },
+  });
+  if (!admin || (payload.ver ?? 0) !== admin.tokenVersi) return null;
+  return { id: admin.id, username: admin.username };
+}
+
+/**
  * Seed akun admin dari ADMIN_USERNAME / ADMIN_PASSWORD bila belum ada.
  * Dijalankan setiap start, idempoten.
  *
@@ -125,5 +148,6 @@ module.exports = {
   verifyPassword,
   signAdminToken,
   requireAdmin,
+  bacaAdmin,
   ensureAdminSeed,
 };

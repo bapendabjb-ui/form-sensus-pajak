@@ -627,6 +627,14 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-balon-rekam{font-size:11.5px; color:var(--faint); font-style:italic;}
 .fk-balon-buka{margin-top:6px; border:1px solid var(--line); background:var(--surface); color:var(--brand-dark); font-size:12px; font-weight:600; padding:6px 10px; border-radius:8px; cursor:pointer;}
 .fk-balon-buka:hover{border-color:var(--brand); background:var(--brand-tint);}
+/* Peta Google digambar di kanvas tersendiri supaya lapisan "memuat" milik React tidak bertabrakan dengannya. */
+.fk-peta-kanvas{position:absolute; inset:0;}
+.fk-peta-memuat{position:absolute; inset:0; z-index:1; display:flex; align-items:center; justify-content:center; gap:10px; background:#E6EAEF; color:var(--muted); font-size:13px;}
+/* tempel koordinat dari Google Maps */
+.fk-tempel{display:flex; flex-direction:column; gap:6px;}
+.fk-tempel-label{font-size:12.5px; font-weight:600; color:var(--ink);}
+.fk-tempel-baris{display:flex; gap:8px;}
+.fk-tempel-baris .fk-input{flex:1; min-width:0;}
 .fk-pin{background:transparent; border:0;}
 .fk-pin-kepala{display:block; width:28px; height:28px; border-radius:50% 50% 50% 0; background:var(--brand); border:3px solid #fff; transform:rotate(-45deg); box-shadow:0 2px 6px rgba(0,0,0,.35);}
 /* ================= token global =================
@@ -742,6 +750,28 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-pengajuan-ringkas.is-ada{background:#FBF0DC; border-color:#EFD9AE; color:#6F4705;}
 .fk-pengajuan-ringkas-teks{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; font-size:13px;}
 .fk-pengajuan-ringkas-teks b{font-size:14px;}
+
+/* ---------- pemeriksaan lokasi ---------- */
+.fk-pill.is-lokasi{background:#FBF0DC; color:#8A5306;}
+.fk-filter-btn.is-lokasi.is-on{background:#FBF0DC; border-color:#E2BE7C; color:#8A5306;}
+.fk-saring-data{display:flex; gap:6px; flex-wrap:wrap;}
+/* status GPS di atas tombol Simpan (data baru & latihan) */
+.fk-gps-status{display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px solid var(--line); border-radius:12px; padding:11px 14px; font-size:13.5px; background:var(--surface); color:var(--muted);}
+.fk-gps-status.is-baik{background:var(--brand-tint); border-color:#BFE0DC; color:var(--brand-dark);}
+.fk-gps-status.is-waspada{background:#FBF0DC; border-color:#EFD9AE; color:#6F4705;}
+.fk-gps-ikon{display:grid; place-items:center; width:22px; height:22px; border-radius:50%; font-weight:700; font-size:13px; line-height:1; flex:none;}
+.fk-gps-status.is-baik .fk-gps-ikon{background:var(--brand); color:#fff;}
+.fk-gps-status.is-waspada .fk-gps-ikon{background:var(--amber); color:#fff;}
+.fk-gps-teks{flex:1 1 200px; min-width:0;}
+/* panel lokasi di layar ubah data */
+.fk-lokasi-data.is-waspada{border-color:#EFD9AE;}
+.fk-lokasi-data .fk-field{display:flex; flex-direction:column; gap:10px; border-bottom:0;}
+.fk-lokasi-data .fk-q-name{margin-bottom:0;}
+.fk-lokasi-data-peringatan{margin:0; background:#FBF0DC; border:1px solid #EFD9AE; color:#6F4705; border-radius:10px; padding:10px 12px; font-size:13px; line-height:1.45;}
+.fk-lokasi-data-rinci{display:grid; grid-template-columns:max-content 1fr; gap:6px 14px; margin:0; font-size:13px;}
+.fk-lokasi-data-rinci dt{color:var(--muted);}
+.fk-lokasi-data-rinci dd{margin:0; min-width:0; overflow-wrap:anywhere;}
+.fk-lokasi-data-rinci .fk-pill{margin-left:6px;}
 
 /* ---------- latihan petugas ---------- */
 .fk-latihan-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--brand-tint); border:1px solid #BFE0DC; color:var(--brand-dark); border-radius:12px; padding:11px 14px; font-size:13.5px;}
@@ -879,6 +909,10 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-pengajuan-kartu .fk-pengajuan-aksi > :first-child:nth-last-child(3){grid-column:1 / -1;}
   .fk-ajukan-aksi{padding-bottom:16px;}
   .fk-pengajuan-ringkas{min-height:60px;}
+  .fk-lokasi-data-rinci{grid-template-columns:1fr; gap:2px;}
+  .fk-lokasi-data-rinci dd{margin-bottom:8px;}
+  .fk-lokasi-data .fk-lokasi-aksi .fk-btn,
+  .fk-lokasi-data .fk-lokasi-aksi .fk-btn-ghost{flex:1 1 140px;}
   /* dialog menempel di dasar layar: sasaran sentuh dekat ibu jari */
   .fk-dialog-latar{align-items:flex-end; padding:0;}
   .fk-dialog,

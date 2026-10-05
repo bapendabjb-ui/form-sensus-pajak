@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import { keDMS, urlPeta } from "../lib/format.js";
+import TempelKoordinat from "./TempelKoordinat.jsx";
 
 // Leaflet cukup besar: unduh hanya saat petugas membuka peta.
 const PetaLokasi = lazy(() => import("./PetaLokasi.jsx"));
@@ -254,6 +255,7 @@ export default function LokasiInput({ value, onChange, invalid }) {
           <PetaLokasi titik={punyaTitik ? { lat: value.lat, lon: value.lon } : null} onPilih={pilihDariPeta} />
         </Suspense>
       )}
+      {petaTerbuka && <TempelKoordinat onDapat={pilihDariPeta} />}
 
       {mencari && (
         <div className="fk-lokasi-cari" role="status">

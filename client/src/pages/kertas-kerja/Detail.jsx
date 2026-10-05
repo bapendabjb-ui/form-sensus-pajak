@@ -9,6 +9,7 @@ import PetugasTim from "../../components/PetugasTim.jsx";
 import { PitaPengajuan, AjukanHapus } from "../../components/PengajuanHapus.jsx";
 import { judulEntri, ringkasEntri, fotoEntri } from "../../lib/ringkas.js";
 import { formatTimestamp } from "../../lib/format.js";
+import { LABEL_STATUS, formatJarak } from "../../lib/cekLokasi.js";
 import { IkonFormulir } from "../../components/Icons.jsx";
 import { bacaFilterKk } from "../../lib/filterKk.js";
 import { useAdmin } from "../../lib/admin.js";
@@ -28,7 +29,8 @@ export function DetailKertasKerja({ id }) {
   const [petugas, setPetugas] = useState([]);
   const [galatTim, setGalatTim] = useState("");
   const [sibuk, setSibuk] = useState(false);
-  const [hanyaKurang, setHanyaKurang] = useState(() => bacaFilterKk() === "kurang");
+  // Saringan daftar data: "kurang" = berkas tidak lengkap, "lokasi" = lokasi perlu dicek.
+  const [saring, setSaring] = useState(() => (bacaFilterKk() === "kurang" ? "kurang" : null));
 
   const muat = useCallback(async () => {
     setLoading(true);
@@ -99,6 +101,34 @@ export function DetailKertasKerja({ id }) {
 
   const ubahStatus = async () => {
     const tujuan = kk.status === "selesai" ? "draft" : "selesai";
+
+    // Sebelum selesai: data yang lokasinya perlu dicek ditunjukkan dulu. Hanya
+    // konfirmasi, bukan larangan - GPS bisa gagal karena alasan yang wajar.
+    const perluCek = kk.entri.filter((e) => e.lokasi.status !== "baik");
+    if (tujuan === "selesai" && perluCek.length) {
+      const hitung = (st) => perluCek.filter((e) => e.lokasi.status === st).length;
+      const rincian = [
+        [hitung("kantor"), "terekam di kantor"],
+        [hitung("tanpa"), "tanpa koordinat"],
+        [hitung("kasar"), "kurang akurat"],
+      ]
+        .filter(([n]) => n > 0)
+        .map(([n, teks]) => `${n} ${teks}`)
+        .join(", ");
+      const ya = await konfirmasi({
+        judul: `${perluCek.length} data lokasinya perlu dicek`,
+        pesan:
+          `Rinciannya: ${rincian}. Buka datanya lalu koreksi titik objek lewat peta, ` +
+          "atau rekam ulang saat berada di lokasi objek.",
+        ya: "Tetap tandai selesai",
+        tidak: "Periksa dulu",
+      });
+      if (!ya) {
+        setSaring("lokasi");
+        return;
+      }
+    }
+
     setSibuk(true);
     try {
       setKk(await api.setStatusKertasKerja(id, tujuan));
@@ -161,12 +191,30 @@ export function DetailKertasKerja({ id }) {
   const persen = bank.length ? Math.round((terisi / bank.length) * 100) : 0;
   const selesai = kk.status === "selesai";
   const jumlahKurang = kk.entri.filter((e) => !e.berkasLengkap).length;
-  const saringKurang = hanyaKurang && jumlahKurang > 0;
-  const kelompokTampil = saringKurang
+  const jumlahLokasi = kk.entri.filter((e) => e.lokasi.status !== "baik").length;
+  const SARING = {
+    kurang: { jumlah: jumlahKurang, cocok: (e) => !e.berkasLengkap },
+    lokasi: { jumlah: jumlahLokasi, cocok: (e) => e.lokasi.status !== "baik" },
+  };
+  // Saringan yang hasilnya kosong (mis. semua sudah diperbaiki) tidak berlaku.
+  const saringAktif = saring && SARING[saring].jumlah > 0 ? saring : null;
+  const kelompokTampil = saringAktif
     ? kelompok
-        .map((g) => ({ ...g, entri: g.entri.filter((e) => !e.berkasLengkap) }))
+        .map((g) => ({ ...g, entri: g.entri.filter(SARING[saringAktif].cocok) }))
         .filter((g) => g.entri.length)
     : kelompok;
+  const tombolSaring = (kunci, label, kelas) =>
+    SARING[kunci].jumlah > 0 && (
+      <button
+        type="button"
+        className={`fk-filter-btn ${kelas}` + (saringAktif === kunci ? " is-on" : "")}
+        aria-pressed={saringAktif === kunci}
+        onClick={() => setSaring((v) => (v === kunci ? null : kunci))}
+      >
+        {label}
+        <span className="fk-filter-jumlah">{SARING[kunci].jumlah}</span>
+      </button>
+    );
 
   return (
     <div className="fk-fill">
@@ -314,17 +362,10 @@ export function DetailKertasKerja({ id }) {
 
       <div className="fk-bagian-baris">
         <div className="fk-bagian">Data terkumpul{totalData ? ` · ${totalData}` : ""}</div>
-        {jumlahKurang > 0 && (
-          <button
-            type="button"
-            className={"fk-filter-btn is-kurang" + (saringKurang ? " is-on" : "")}
-            aria-pressed={saringKurang}
-            onClick={() => setHanyaKurang((v) => !v)}
-          >
-            Hanya berkas tidak lengkap
-            <span className="fk-filter-jumlah">{jumlahKurang}</span>
-          </button>
-        )}
+        <span className="fk-saring-data">
+          {tombolSaring("kurang", "Hanya berkas tidak lengkap", "is-kurang")}
+          {tombolSaring("lokasi", "Lokasi perlu dicek", "is-lokasi")}
+        </span>
       </div>
       {totalData === 0 ? (
         <Empty>Belum ada data. Pilih salah satu formulir di atas untuk mulai mengisi.</Empty>
@@ -374,6 +415,18 @@ export function DetailKertasKerja({ id }) {
                       <span className="fk-baris-kurang">
                         <BerkasPill />
                         {e.catatanBerkas && <span className="fk-baris-catatan">{e.catatanBerkas}</span>}
+                      </span>
+                    )}
+                    {(e.lokasi.status !== "baik" || e.lokasi.sumber === "koreksi") && (
+                      <span className="fk-baris-kurang">
+                        {e.lokasi.status !== "baik" ? (
+                          <span className="fk-pill is-lokasi">{LABEL_STATUS[e.lokasi.status]}</span>
+                        ) : (
+                          <span className="fk-pill is-netral">Dikoreksi di peta</span>
+                        )}
+                        {e.lokasi.jauh && (
+                          <span className="fk-baris-catatan">{formatJarak(e.lokasi.jarakM)} dari GPS saat pendataan</span>
+                        )}
                       </span>
                     )}
                     {e.diajukanHapus && (

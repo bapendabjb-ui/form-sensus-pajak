@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { CSP, headerKeamanan } = require("../src/keamanan");
+const { CSP, susunCsp, headerKeamanan } = require("../src/keamanan");
 
 /* ---------- perkakas tiruan ---------- */
 
@@ -59,6 +59,27 @@ test("CSP mengizinkan host ubin peta yang benar-benar dipakai klien", () => {
   // Klien menguji sendiri apakah ubin OSM masih boleh dipakai; tanpa host ini
   // di connect-src, ujinya selalu gagal dan peta jalan selamanya memakai cadangan.
   assert.ok(CSP.includes("connect-src 'self' https://tile.openstreetmap.org"));
+});
+
+test("CSP tanpa kunci Google tetap ketat", () => {
+  const csp = susunCsp(false);
+  assert.ok(csp.includes("script-src 'self';"), "script-src hanya 'self'");
+  assert.ok(!csp.includes("googleapis"));
+  assert.ok(!csp.includes("unsafe-eval"));
+});
+
+test("CSP dengan kunci Google mengizinkan host Maps JavaScript API, tanpa unsafe-inline di script-src", () => {
+  const csp = susunCsp(true);
+  const arahan = (nama) => csp.split("; ").find((d) => d.startsWith(`${nama} `)) || "";
+
+  assert.ok(arahan("script-src").includes("https://*.googleapis.com"));
+  assert.ok(arahan("script-src").includes("'unsafe-eval'"), "dibutuhkan Maps JavaScript API");
+  assert.ok(!arahan("script-src").includes("'unsafe-inline'"), "skrip Google dimuat lewat src, bukan inline");
+  assert.ok(arahan("img-src").includes("https://*.gstatic.com"));
+  assert.ok(arahan("connect-src").includes("https://*.googleapis.com"));
+  // Peta cadangan harus tetap jalan bila Google gagal.
+  assert.ok(arahan("img-src").includes("https://tile.openstreetmap.org"));
+  assert.ok(arahan("img-src").includes("https://server.arcgisonline.com"));
 });
 
 test("Referrer-Policy masih mengirim asal ke penyedia ubin peta", () => {

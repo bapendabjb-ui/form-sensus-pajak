@@ -21,20 +21,34 @@ const config = require("./config");
  * di sana bertambah, tambahkan juga di sini, kalau tidak petanya akan kosong
  * tanpa pesan galat yang jelas. Host OSM juga ada di connect-src karena klien
  * menguji sendiri apakah ubinnya masih boleh dipakai sebelum memasang lapisan.
+ *
+ * Host Google Maps hanya ditambahkan bila GOOGLE_MAPS_API_KEY diisi, mengikuti
+ * daftar izin resmi Google (developers.google.com/maps/documentation/javascript/
+ * content-security-policy). Maps JavaScript API membutuhkan 'unsafe-eval';
+ * 'unsafe-inline' yang juga tercantum di sana sengaja TIDAK ikut, karena skrip
+ * Google dimuat lewat elemen <script src> dari host yang diizinkan, bukan inline.
  */
-const CSP = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "object-src 'none'",
-  "frame-ancestors 'none'",
-  "form-action 'self'",
-  "script-src 'self'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://tile.openstreetmap.org https://server.arcgisonline.com",
-  "connect-src 'self' https://tile.openstreetmap.org",
-  "font-src 'self' data:",
-  "manifest-src 'self'",
-].join("; ");
+function susunCsp(googleMaps) {
+  const g = (...host) => (googleMaps ? ` ${host.join(" ")}` : "");
+  return [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "script-src 'self'" +
+      g("'unsafe-eval'", "https://*.googleapis.com", "https://*.gstatic.com", "*.google.com", "https://*.ggpht.com", "*.googleusercontent.com", "blob:"),
+    "style-src 'self' 'unsafe-inline'" + g("https://fonts.googleapis.com"),
+    "img-src 'self' data: blob: https://tile.openstreetmap.org https://server.arcgisonline.com" +
+      g("https://*.googleapis.com", "https://*.gstatic.com", "*.google.com", "*.googleusercontent.com"),
+    "connect-src 'self' https://tile.openstreetmap.org" + g("https://*.googleapis.com", "*.google.com", "https://*.gstatic.com", "data:", "blob:"),
+    "font-src 'self' data:" + g("https://fonts.gstatic.com"),
+    ...(googleMaps ? ["frame-src *.google.com", "worker-src blob:"] : []),
+    "manifest-src 'self'",
+  ].join("; ");
+}
+
+const CSP = susunCsp(Boolean(config.googleMapsKey));
 
 /**
  * Header yang dipasang di setiap respons.
@@ -63,5 +77,6 @@ function headerKeamanan(_req, res, next) {
 
 module.exports = {
   CSP,
+  susunCsp,
   headerKeamanan,
 };

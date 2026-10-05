@@ -293,6 +293,7 @@ contoh (termasuk pertanyaan foto dan kecamatan & kelurahan) dan 3 petugas. Manua
 | `EPBB_API_KEY`   |       | —               | Kunci API EPBB — sama dengan `api_nop_key` di EPBB                       |
 | `EPBB_TIMEOUT_MS`|       | `10000`         | Batas tunggu respons EPBB                                               |
 | `APP_URL`        |       | —               | Alamat publik aplikasi, mis. `https://sensus.contoh.go.id`. Dipakai menyusun tautan foto di berkas ekspor; kosong = diambil dari header `Host` permintaan |
+| `GOOGLE_MAPS_API_KEY` |  | —               | Kunci Maps JavaScript API. Kosong = peta memakai OpenStreetMap / Esri saja. Lihat [Peta Google](#peta-google) |
 
 ---
 
@@ -520,11 +521,15 @@ Tipe pertanyaan **Lokasi (GPS / peta)** menyimpan satu titik koordinat beserta a
 
 ### Memilih titik lewat peta
 
-Selain **Ambil lokasi**, petugas bisa menekan **Pilih di peta** (`PetaLokasi.jsx`, Leaflet) lalu
-mengetuk titik atau menggeser penanda. Tersedia peta jalan (OpenStreetMap) dan citra **satelit**
-(Esri World Imagery) — berguna untuk menunjuk bangunan yang sinyal GPS-nya buruk.
+Selain **Ambil lokasi**, petugas bisa menekan **Pilih di peta** (`PetaLokasi.jsx`) lalu
+mengetuk titik atau menggeser penanda. Tersedia peta jalan dan citra **satelit** — berguna untuk
+menunjuk bangunan yang sinyal GPS-nya buruk. Petanya Google bila `GOOGLE_MAPS_API_KEY` diisi,
+dengan OpenStreetMap / Esri World Imagery sebagai cadangan (lihat [Peta Google](#peta-google)).
 
-- Peta dimuat terpisah (`React.lazy`), jadi Leaflet hanya diunduh saat peta dibuka.
+- Di bawah peta ada kolom **Tempel dari Google Maps**: koordinat hasil tekan lama di aplikasi
+  Google Maps (`-3.439325, 114.829525`), derajat-menit-detik, tautan lengkap, atau tautan
+  **Bagikan** (`maps.app.goo.gl`, dibuka lewat server). Cara ini gratis dan tidak memakai kuota.
+- Peta dimuat terpisah (`React.lazy`), jadi pustaka peta hanya diunduh saat peta dibuka.
 - Peta dibuka di titik yang sudah ada; bila masih kosong, di pusat Kota Banjarbaru.
 - Titik dari peta tersimpan dengan `sumber: "peta"` dan `akurasi: null`; tampil berlencana
   **Dipilih di peta**, dan di CSV/Excel sebagai `-3.44, 114.84 (dipilih di peta)`.
@@ -595,6 +600,71 @@ menganggapnya kosong, sehingga pertanyaan wajib akan gagal validasi. Di CSV, sel
 
 > Geolocation hanya berjalan di **konteks aman**: HTTPS atau `localhost`. Di Railway sudah HTTPS.
 > Petugas juga harus mengizinkan akses lokasi saat browser bertanya.
+
+### Koordinat otomatis & pemeriksaan lokasi
+
+Selain pertanyaan Lokasi, setiap data **baru** merekam posisi perangkat petugas saat disimpan
+(kolom `rekam_*`), termasuk data dari formulir yang tidak punya pertanyaan Lokasi. Posisi ini
+disebut **GPS asli** dan berfungsi sebagai bukti petugas datang ke lokasi objek. Karena itu GPS
+asli tidak bisa digeser lewat peta.
+
+Letak objek yang dipakai Peta Sensus disebut **titik objek**. Sumbernya, berurutan: koreksi lewat
+peta → jawaban pertanyaan Lokasi → GPS asli.
+
+| Kapan | Yang terjadi |
+| ----- | ------------ |
+| Mengisi data baru | Posisi dipantau sejak layar dibuka, dan statusnya tampil di atas tombol **Simpan**: ✓ terekam, belum terekam, kurang akurat (> 100 m), atau **di area kantor BPPRD** (radius 150 m). Selain ✓, petugas diminta konfirmasi sebelum menyimpan. |
+| Mengubah data | Posisi **tidak** direkam. Dulu GPS yang masih kosong diisi saat data disimpan ulang, sehingga data yang diperbaiki di kantor mendapat titik kantor. |
+| Layar ubah data | Panel **Lokasi data** menampilkan GPS asli dan titik objek. Tombol **Koreksi di peta** (petugas maupun admin; pelakunya dicatat) dan **Rekam ulang di sini** (hanya diterima bila akurasinya ≤ 50 m dan di luar area kantor). |
+| Halaman kertas kerja | Label **Lokasi di kantor / belum ada / kurang akurat** per data, saringan **Lokasi perlu dicek**, dan label **Dikoreksi di peta**. |
+| Tandai selesai | Bila ada data yang lokasinya perlu dicek, muncul konfirmasi berisi rinciannya: **Periksa dulu** (menyaring daftar) atau **Tetap tandai selesai**. |
+
+Titik kantor dan ambang akurasinya ada di `server/src/batas.js` (`KANTOR`, `AKURASI_KASAR_M`,
+`AKURASI_REKAM_ULANG_M`, `JARAK_JAUH_M`) dan dikirim ke klien lewat `/api/konfigurasi`. Aturan
+penilaiannya ada di `server/src/cekLokasi.js`, dengan salinan di `client/src/lib/cekLokasi.js`.
+
+Titik yang ditunjuk di peta tidak diperiksa terhadap area kantor, supaya objek yang bertetangga
+dengan kantor tetap bisa ditandai. Admin tetap bisa membandingkannya dengan GPS asli: jaraknya
+tampil di panel, dan koreksi yang berjarak lebih dari 500 m dari GPS asli yang baik ditandai
+**Jauh dari GPS**. Aplikasi web tidak bisa mendeteksi aplikasi pemalsu GPS (*fake GPS*).
+
+### Peta Google
+
+Bila `GOOGLE_MAPS_API_KEY` diisi, pemilih titik dan Peta Sensus memakai **Maps JavaScript API**.
+Bila kosong, atau Google gagal, keduanya memakai peta cadangan (Leaflet + OpenStreetMap / Esri)
+tanpa tindakan petugas. Di bawah peta cadangan tampil keterangan *Peta Google sedang tidak
+tersedia*.
+
+**Yang dianggap gagal** (`client/src/lib/googleMaps.js`): skrip tidak termuat atau lebih dari 12
+detik; `gm_authFailure` (kunci ditolak, domain tidak diizinkan); dan galat yang dicetak Google ke
+konsol (`Google Maps JavaScript API error: ...`), misalnya `OverQuotaMapError` saat kuota harian
+habis atau `BillingNotEnabledMapError`. Setelah gagal, peta cadangan dipakai sampai tab atau
+aplikasi ditutup.
+
+**Biaya.** Maps JavaScript API dihitung per *map load*, yaitu setiap kali peta dibuka. Geser dan
+zoom tidak dihitung. Kuota gratisnya **10.000 map load per bulan**; setelah itu $7 per 1.000.
+Kolom **Tempel dari Google Maps** tidak memakai kuota sama sekali.
+
+**Membuat kuncinya** (Google Cloud Console, akun dengan penagihan aktif):
+
+1. Buat project, lalu aktifkan **Maps JavaScript API** (APIs & Services → Library).
+2. APIs & Services → Credentials → **Create credentials → API key**.
+3. Batasi kuncinya:
+   - *Application restrictions* → **Websites** → `https://sensuspajak.banjarbarukota.go.id/*`
+     (tambahkan `http://localhost:5173/*` bila ingin mencoba saat pengembangan).
+   - *API restrictions* → **Restrict key** → hanya **Maps JavaScript API**.
+4. **Kunci biaya di Rp 0:** APIs & Services → Maps JavaScript API → **Quotas** → *Map loads per
+   day* → isi **300**. Batas ini menjaga pemakaian tetap di bawah kuota gratis bulanan
+   (300 × 31 = 9.300). Bila tercapai, peta hari itu memakai cadangan.
+5. Opsional: Billing → **Budgets & alerts** → anggaran Rp 0 dengan pemberitahuan email.
+6. Isi `GOOGLE_MAPS_API_KEY=` di `.env` server, lalu `pm2 reload sensus-pajak`.
+
+Kunci ini memang terbaca browser, karena begitulah Maps JavaScript API bekerja. Pengamannya
+adalah pembatasan domain dan kuota harian di langkah 3–4.
+
+**CSP.** Host Google hanya masuk Content-Security-Policy bila kuncinya diisi
+(`server/src/keamanan.js`), mengikuti daftar resmi Google. Daftar itu juga memuat `'unsafe-eval'`,
+yang dibutuhkan Maps JavaScript API. `'unsafe-inline'` sengaja tidak dipakai di `script-src`.
 
 ---
 
@@ -867,6 +937,8 @@ yang keduanya tidak dipakai di layar itu.
 | -------- | ------------ | --------------------------------------------- |
 | `GET`    | `/entri/:id` | Satu data + formulirnya + nomor kertas kerja  |
 | `PUT`    | `/entri/:id` | `{ jawaban, berkasLengkap?, catatanBerkas? }` — ubah data (tanpa `berkasLengkap` penanda tidak berubah) |
+| `PUT`    | `/entri/:id/titik` | `{ lat, lon }` atau `{ hapus: true }` — koreksi titik objek lewat peta. Terbuka; admin yang login tercatat namanya |
+| `PUT`    | `/entri/:id/rekam` | `{ lat, lon, akurasi }` — rekam ulang GPS asli di lokasi. **422** bila akurasi > 50 m / tidak diketahui, atau posisinya di area kantor |
 | `DELETE` | `/entri/:id` | 🔒 Hapus data beserta fotonya                 |
 
 Body `jawaban` berbentuk `{ "<pertanyaanId>": nilai }` (lihat format di atas). Kolom wajib
@@ -902,7 +974,8 @@ Memutuskan pengajuan yang sudah diputuskan dijawab **409**.
 | ------ | ------------------ | --------------------------------------------------------------------------------- |
 | `GET`  | `/dashboard/stats` | Kertas kerja, selesai, data, data berkas tidak lengkap (`tidakLengkap`), pengajuan hapus menunggu (`pengajuanHapus`), foto, formulir, petugas + 10 petugas dengan kertas kerja terbanyak (`rekapPetugas`) |
 | `GET`  | `/health`          | Health check (dipakai Railway)                                                    |
-| `GET`  | `/konfigurasi`     | Batas aplikasi: `petugasMaks`, `fotoMaksPerPertanyaan`, `uploadMaksMb`, `cekNop`  |
+| `GET`  | `/konfigurasi`     | Batas aplikasi: `petugasMaks`, `fotoMaksPerPertanyaan`, `uploadMaksMb`, `cekNop`, `lokasi` (titik kantor & batas akurasi), `googleMapsKey` |
+| `POST` | `/tautan-peta`     | `{ teks }` → `{ lat, lon }` dari koordinat / tautan Google Maps; tautan `maps.app.goo.gl` diikuti pengalihannya (hanya ke host Google). Dibatasi 60 per 10 menit per IP |
 | `GET`  | `/wilayah`         | Kecamatan & kelurahan Kota Banjarbaru                                             |
 
 ### Cek NOP

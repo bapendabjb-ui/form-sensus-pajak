@@ -54,6 +54,7 @@ app.use("/api/foto", require("./src/routes/foto"));
 app.use("/api/dashboard", require("./src/routes/dashboard"));
 app.use("/api/peta", require("./src/routes/peta"));
 app.use("/api/nop", require("./src/routes/nop"));
+app.use("/api/tautan-peta", require("./src/routes/tautanPeta"));
 
 // Data referensi kecamatan & kelurahan untuk pertanyaan bertipe "wilayah".
 app.get("/api/wilayah", (_req, res) => {
@@ -74,6 +75,15 @@ app.get("/api/konfigurasi", async (_req, res, next) => {
       fotoMaksPerPertanyaan: batas.FOTO_MAKS_PER_PERTANYAAN,
       uploadMaksMb: config.uploadMaxMb,
       cekNop: require("./src/epbb").aktif(),
+      // Kosong = klien langsung memakai peta OpenStreetMap / Esri.
+      googleMapsKey: config.googleMapsKey,
+      // Pemeriksaan lokasi saat mengisi data - angka yang sama dengan server/src/cekLokasi.js.
+      lokasi: {
+        kantor: batas.KANTOR,
+        akurasiKasarM: batas.AKURASI_KASAR_M,
+        akurasiRekamUlangM: batas.AKURASI_REKAM_ULANG_M,
+        jarakJauhM: batas.JARAK_JAUH_M,
+      },
       periodeData: counter?.periode ?? 0,
     });
   } catch (e) {

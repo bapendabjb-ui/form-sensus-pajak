@@ -17,6 +17,7 @@ const {
 const { hapusBerkas } = require("../foto");
 const { hapusKertasKerja } = require("../hapus");
 const { includePengajuanTerakhir, bentukPengajuanTerakhir } = require("../pengajuan");
+const { jawabanLokasiPertama, ringkasLokasi } = require("../cekLokasi");
 const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require("../bentuk");
 const { susunEkspor, barisTanpaData, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
 
@@ -77,6 +78,10 @@ async function muatDetail(id) {
 }
 
 function bentukDetail({ kk, formulir }) {
+  // Pertanyaan Lokasi per formulir, urut seperti di formulir - sumber titik objek.
+  const qidLokasi = new Map(
+    formulir.map((f) => [f.id, f.pertanyaan.filter((q) => q.tipe === "lokasi").map((q) => q.id)])
+  );
   return {
     id: kk.id,
     nomor: kk.nomor,
@@ -85,16 +90,20 @@ function bentukDetail({ kk, formulir }) {
     petugas: bentukTim(kk.petugas),
     pengajuanHapus: bentukPengajuanTerakhir(kk.pengajuanHapus),
     formulir: formulir.map(bentukFormulir),
-    entri: kk.entri.map((e) => ({
-      id: e.id,
-      formulirId: e.formulirId,
-      berkasLengkap: e.berkasLengkap,
-      catatanBerkas: e.catatanBerkas,
-      diajukanHapus: e.pengajuanHapus.length > 0,
-      createdAt: e.createdAt,
-      updatedAt: e.updatedAt,
-      jawaban: petaJawaban(e.jawaban),
-    })),
+    entri: kk.entri.map((e) => {
+      const jawaban = petaJawaban(e.jawaban);
+      return {
+        id: e.id,
+        formulirId: e.formulirId,
+        berkasLengkap: e.berkasLengkap,
+        catatanBerkas: e.catatanBerkas,
+        diajukanHapus: e.pengajuanHapus.length > 0,
+        lokasi: ringkasLokasi(e, jawabanLokasiPertama(qidLokasi.get(e.formulirId) || [], jawaban)),
+        createdAt: e.createdAt,
+        updatedAt: e.updatedAt,
+        jawaban,
+      };
+    }),
   };
 }
 

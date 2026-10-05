@@ -29,6 +29,10 @@ const config = {
   epbbApiUrl: (process.env.EPBB_API_URL || "").trim(),
   epbbApiKey: (process.env.EPBB_API_KEY || "").trim(),
   epbbTimeoutMs: Number(process.env.EPBB_TIMEOUT_MS) || 10000,
+  // Kunci Maps JavaScript API. Kosong = peta memakai OpenStreetMap / Esri saja.
+  // Kunci ini memang terbaca browser; pengamannya adalah pembatasan domain
+  // (HTTP referrer) dan kuota harian di Google Cloud Console.
+  googleMapsKey: (process.env.GOOGLE_MAPS_API_KEY || "").trim(),
   // Alamat publik aplikasi, dipakai menyusun tautan foto di berkas ekspor.
   // Kosong = disusun dari header Host permintaan.
   appUrl: (process.env.APP_URL || "").trim().replace(/\/+$/, ""),

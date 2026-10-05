@@ -20,14 +20,52 @@ import { judulEntri } from "../../lib/ringkas.js";
 import RingkasanLatihan from "../../components/RingkasanLatihan.jsx";
 import { IkonEpbb, CheckIcon } from "../../components/Icons.jsx";
 import { useAdmin } from "../../lib/admin.js";
-import { mulaiRekamPosisi, ambilRekamPosisi } from "../../lib/rekamPosisi.js";
-import { bersihkanDrafLama } from "../../lib/konfigurasi.js";
+import { pantauPosisi, ambilPosisi } from "../../lib/rekamPosisi.js";
+import { nilaiTitik } from "../../lib/cekLokasi.js";
+import { StatusGps, LokasiData } from "../../components/LokasiData.jsx";
+import { bersihkanDrafLama, useKonfigurasi } from "../../lib/konfigurasi.js";
 import { kembali, pasangPenjaga } from "../../lib/router.js";
 import { urlKk } from "./bersama.js";
 
 const UMUR_FOTO_DRAF_MS = 20 * 3600 * 1000; // unggahan yang tak disimpan dibersihkan server setelah 24 jam
 const BERKAS_LENGKAP = { berkasLengkap: true, catatanBerkas: "" };
 const PESAN_HAPUS = "Data beserta fotonya dihapus dari kertas kerja. Tindakan ini tidak dapat dibatalkan.";
+
+/** Jawaban pertanyaan Lokasi pertama yang terisi - titik objek bila tidak dikoreksi. */
+function titikDariFormulir(pertanyaan, answers) {
+  for (const q of pertanyaan) {
+    const v = answers[q.id];
+    if (q.tipe === "lokasi" && v && typeof v.lat === "number" && typeof v.lon === "number") return v;
+  }
+  return null;
+}
+
+/** Konfirmasi saat data baru akan tersimpan dengan lokasi yang perlu diperiksa. */
+function dialogLokasi(nilai, titik, aturan) {
+  const nanti = "Setelah disimpan, titik objeknya bisa dikoreksi lewat peta di layar ubah data.";
+  if (nilai === "kantor") {
+    return {
+      judul: `Anda berada di area ${aturan?.kantor?.nama || "kantor"}`,
+      pesan: `Koordinat data ini akan tercatat di kantor dan ditandai untuk diperiksa. ${nanti}`,
+      ya: "Tetap simpan",
+      tidak: "Kembali",
+    };
+  }
+  if (nilai === "kasar") {
+    return {
+      judul: `Lokasi kurang akurat (±${Math.round(titik.akurasi)} m)`,
+      pesan: `Biasanya karena GPS HP mati atau berada di dalam ruangan. Tunggu sebentar di tempat terbuka, atau tetap simpan. ${nanti}`,
+      ya: "Tetap simpan",
+      tidak: "Kembali",
+    };
+  }
+  return {
+    judul: "Lokasi belum terekam",
+    pesan: `Data akan tersimpan tanpa koordinat dan ditandai untuk diperiksa. Pastikan izin lokasi dan GPS HP aktif. ${nanti}`,
+    ya: "Simpan tanpa lokasi",
+    tidak: "Kembali",
+  };
+}
 
 /** Salin jawaban untuk disimpan sebagai draf: foto hanya yang sudah terunggah. */
 /**
@@ -82,12 +120,18 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
   const [menyimpan, setMenyimpan] = useState(null); // "simpan" | "lagi" | null
   const [draf, setDraf] = useState(null); // draf tersimpan yang belum dipulihkan
   const [hasilLatihan, setHasilLatihan] = useState(null); // ringkasan setelah latihan "disimpan"
+  // Hanya saat mengubah data: GPS asli, koreksi titik, dan ringkasan lokasinya dari server.
+  const [dataLokasi, setDataLokasi] = useState(null);
   const wadah = useRef(null);
   const berubah = useRef(false);
-  // Perekaman posisi otomatis untuk peta cakupan. Dimulai begitu layar dibuka
-  // supaya GPS sempat mengunci sebelum petugas menekan Simpan; hasilnya tidak
-  // pernah ditampilkan di sini, dan server hanya membukanya untuk admin.
-  const posisi = useRef(null);
+  const aturanLokasi = useKonfigurasi().lokasi || null;
+  // Posisi perangkat untuk data BARU (dan latihan), dipantau sejak layar dibuka
+  // supaya GPS sempat mengunci sebelum Simpan dan statusnya terlihat petugas.
+  // Mengubah data tidak merekam posisi: GPS asli hanya berganti lewat
+  // "Rekam ulang di sini" di panel lokasi.
+  const [gps, setGps] = useState({ status: "mencari", posisi: null, galat: "" });
+  const gpsRef = useRef(gps);
+  const [ulangGps, setUlangGps] = useState(0);
 
   const urlKembali = latihan ? "/latihan" : urlKk(kkId);
   // Latihan tidak menulis draf: isian coba-coba akan tertawarkan lagi saat
@@ -99,8 +143,12 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
       : `sensus-pajak:draf:kk${kkId}-f${formulirId}`;
 
   useEffect(() => {
-    posisi.current = mulaiRekamPosisi();
-  }, []);
+    if (entriId) return undefined;
+    return pantauPosisi((k) => {
+      gpsRef.current = k;
+      setGps(k);
+    });
+  }, [entriId, ulangGps]);
 
   const hapusDraf = useCallback(() => {
     if (!kunciDraf) return;
@@ -140,6 +188,7 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
           setNomor(e.kertasKerja.nomor);
           setTim(e.kertasKerja.petugas || []);
           setPengajuan(e.pengajuanHapus || null);
+          setDataLokasi(e);
           const awal = {};
           for (const q of f.pertanyaan) {
             awal[q.id] = e.jawaban[q.id] === undefined ? emptyValue(q.tipe) : fromApi(q.tipe, e.jawaban[q.id]);
@@ -303,7 +352,7 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
     // yang dilewati hanya pengiriman ke server.
     if (latihan) {
       setMenyimpan(lanjut ? "lagi" : "simpan");
-      const rekam = await ambilRekamPosisi(posisi.current);
+      const rekam = await ambilPosisi(() => gpsRef.current);
       setMenyimpan(null);
       berubah.current = false;
       if (lanjut) {
@@ -318,13 +367,28 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
     }
 
     setMenyimpan(lanjut ? "lagi" : "simpan");
+
+    // Data baru: periksa titik objeknya - jawaban Lokasi bila diisi, selain itu
+    // posisi perangkat - lalu minta konfirmasi bila perlu diperiksa. Tidak
+    // memblokir: GPS bisa gagal karena alasan yang wajar.
+    let rekam = null;
+    if (!entriId) {
+      rekam = await ambilPosisi(() => gpsRef.current);
+      const dariForm = titikDariFormulir(pertanyaan, answers);
+      const objek = dariForm ? { ...dariForm, manual: dariForm.sumber === "peta" } : rekam;
+      const nilai = nilaiTitik(objek, aturanLokasi);
+      if (nilai !== "baik") {
+        setMenyimpan(null);
+        if (!(await konfirmasi(dialogLokasi(nilai, objek, aturanLokasi)))) return;
+        setMenyimpan(lanjut ? "lagi" : "simpan");
+      }
+    }
+
     try {
       const payload = buildPayload(pertanyaan, answers);
       const idDariEpbb = pertanyaan.filter((q) => dariEpbb[q.id]).map((q) => q.id);
-      // null bila izin ditolak / GPS gagal / belum mengunci - penyimpanan jalan terus.
-      const rekam = await ambilRekamPosisi(posisi.current);
       const hasil = entriId
-        ? await api.updateEntri(entriId, payload, idDariEpbb, berkas, rekam)
+        ? await api.updateEntri(entriId, payload, idDariEpbb, berkas)
         : await api.createEntri(kkId, formulirId, payload, idDariEpbb, berkas, rekam);
       berubah.current = false;
       hapusDraf();
@@ -526,6 +590,18 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
           )}
         </div>
       </section>
+
+      {entriId && dataLokasi && (
+        <LokasiData
+          entri={dataLokasi}
+          titikFormulir={titikDariFormulir(formulir.pertanyaan, answers)}
+          aturan={aturanLokasi}
+          onBerubah={setDataLokasi}
+        />
+      )}
+
+      {/* Dekat tombol Simpan: petugas melihat status lokasi sebelum menyimpan. */}
+      {!entriId && <StatusGps gps={gps} aturan={aturanLokasi} onUlangi={() => setUlangGps((n) => n + 1)} />}
 
       {entriId &&
         (admin ? (

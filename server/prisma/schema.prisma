@@ -174,6 +174,14 @@ model Entri {
   /// Perkiraan simpangan dalam meter, apa adanya dari perangkat.
   rekamAkurasi  Float?    @map("rekam_akurasi")
   rekamWaktu    DateTime? @map("rekam_waktu")
+  /// Letak objek yang ditunjuk petugas / admin lewat peta saat pemeriksaan.
+  /// Menggantikan GPS asli sebagai titik objek tanpa menghapusnya - GPS asli
+  /// tetap disimpan sebagai bukti kunjungan. Null = belum pernah dikoreksi.
+  koreksiLat    Float?    @map("koreksi_lat")
+  koreksiLon    Float?    @map("koreksi_lon")
+  koreksiWaktu  DateTime? @map("koreksi_waktu")
+  /// Username admin yang mengoreksi, atau "petugas" bila tanpa login.
+  koreksiOleh   String    @default("") @map("koreksi_oleh") @db.VarChar(64)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
