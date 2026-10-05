@@ -34,7 +34,7 @@ const KOSONG = {
   hal: 1,
   total: 0,
   adaLagi: false,
-  jumlah: { semua: 0, draft: 0, selesai: 0, kurang: 0, lokasi: 0 },
+  jumlah: { semua: 0, draft: 0, selesai: 0, kurang: 0, lokasi: 0, belumdicek: 0 },
 };
 
 export function DaftarKertasKerja() {
@@ -108,6 +108,12 @@ export function DaftarKertasKerja() {
     simpanFilterKk(f);
   };
 
+  // Saringan khusus admin tidak boleh tertinggal setelah admin keluar: tombolnya
+  // hilang, tetapi daftarnya masih tersaring tanpa petugas tahu sebabnya.
+  useEffect(() => {
+    if (!admin && filter === "belumdicek") pilihFilter("semua");
+  }, [admin, filter]);
+
   const hapus = async (k) => {
     const ya = await konfirmasi({
       judul: `Hapus kertas kerja ${k.nomor}?`,
@@ -170,7 +176,7 @@ export function DaftarKertasKerja() {
             aria-label="Cari nomor atau nama petugas"
           />
           <div className="fk-filter" role="tablist" aria-label="Saring kertas kerja">
-            {FILTER_KK.map(([kunci, label]) => (
+            {FILTER_KK.filter(([, , opsi]) => admin || !opsi?.admin).map(([kunci, label]) => (
               <button
                 type="button"
                 role="tab"
@@ -179,7 +185,7 @@ export function DaftarKertasKerja() {
                 className={
                   "fk-filter-btn" +
                   (filter === kunci ? " is-on" : "") +
-                  (kunci === "kurang" ? " is-kurang" : kunci === "lokasi" ? " is-lokasi" : "")
+                  (kunci === "kurang" ? " is-kurang" : kunci === "lokasi" || kunci === "belumdicek" ? " is-lokasi" : "")
                 }
                 onClick={() => pilihFilter(kunci)}
               >
@@ -201,6 +207,8 @@ export function DaftarKertasKerja() {
                     ? "Tidak ada kertas kerja dengan berkas tidak lengkap."
                     : filter === "lokasi"
                       ? "Semua kertas kerja sudah punya titik lokasi yang baik."
+                      : filter === "belumdicek"
+                        ? "Semua lokasi sensus sudah dicek."
                       : "Tidak ada kertas kerja pada saringan ini."}
             </Empty>
           ) : (
@@ -223,6 +231,11 @@ export function DaftarKertasKerja() {
                       </div>
                     </div>
                     {lokasiPerluCek(k) && <span className="fk-pill is-lokasi">{LABEL_STATUS[k.lokasiStatus]}</span>}
+                    {k.lokasiDicek && (
+                      <span className="fk-pill is-done" title="Lokasi sensus sudah dicek admin">
+                        ✓ Dicek
+                      </span>
+                    )}
                     <BerkasPill jumlah={k.jumlahTidakLengkap} />
                     <StatusPill status={k.status} />
                     {/* Aksi tambahan hanya di desktop; di HP semuanya ada di halaman kertas kerja.

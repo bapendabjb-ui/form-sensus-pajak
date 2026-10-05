@@ -2,12 +2,28 @@
 
 const express = require("express");
 const prisma = require("../prisma");
-const { requireAdmin } = require("../auth");
+const { requireAdmin, bacaAdmin } = require("../auth");
 const { wrap, notFound, parseId, ApiError } = require("../http");
 const { siapkanJawaban, tulisJawaban, muatEntri, bacaBerkas } = require("../entri");
 const { hapusBerkas } = require("../foto");
 const { hapusEntri } = require("../hapus");
-const { includePertanyaan } = require("../bentuk");
+const { includePertanyaan, petaJawaban } = require("../bentuk");
+const { adaTitik } = require("../cekLokasi");
+
+/**
+ * Koordinat objek yang sudah dicek admin terkunci: kiriman petugas untuk
+ * pertanyaan Lokasi diganti nilai yang tersimpan, apa pun isinya. Admin boleh
+ * menyesuaikan, dan tanda sudah dicek tetap.
+ */
+function kunciKoordinat(formulir, masuk, tersimpan) {
+  const hasil = { ...(masuk && typeof masuk === "object" ? masuk : {}) };
+  for (const q of formulir.pertanyaan) {
+    if (q.tipe !== "lokasi") continue;
+    if (tersimpan[q.id] === undefined) delete hasil[q.id];
+    else hasil[q.id] = tersimpan[q.id];
+  }
+  return hasil;
+}
 
 const router = express.Router();
 
@@ -26,11 +42,16 @@ router.put(
     const id = parseId(req.params.id);
     const entri = await prisma.entri.findUnique({
       where: { id },
-      include: { formulir: { include: includePertanyaan } },
+      include: { formulir: { include: includePertanyaan }, jawaban: true },
     });
     if (!entri) throw notFound("Data tidak ditemukan.");
 
-    const siap = await siapkanJawaban(entri.formulir, req.body?.jawaban, id, req.body?.dariEpbb);
+    let jawaban = req.body?.jawaban;
+    if (entri.koordinatDicekAt && !(await bacaAdmin(req))) {
+      jawaban = kunciKoordinat(entri.formulir, jawaban, petaJawaban(entri.jawaban));
+    }
+
+    const siap = await siapkanJawaban(entri.formulir, jawaban, id, req.body?.dariEpbb);
     if (Object.keys(siap.errors).length) {
       throw new ApiError(422, "Periksa kembali isian yang ditandai merah.", { errors: siap.errors });
     }
@@ -54,6 +75,35 @@ router.put(
   })
 );
 
+/**
+ * PUT /api/entri/:id/koordinat-dicek  { dicek: boolean } -> tandai koordinat objek
+ * (jawaban pertanyaan Lokasi) sudah dicek. Khusus admin. Sudah dicek = terkunci untuk petugas.
+ */
+router.put(
+  "/:id/koordinat-dicek",
+  requireAdmin,
+  wrap(async (req, res) => {
+    const id = parseId(req.params.id);
+    const entri = await prisma.entri.findUnique({
+      where: { id },
+      select: { id: true, jawaban: { where: { pertanyaan: { tipe: "lokasi" } }, select: { nilai: true } } },
+    });
+    if (!entri) throw notFound("Data tidak ditemukan.");
+
+    const dicek = req.body?.dicek === true;
+    if (dicek && !entri.jawaban.some((j) => adaTitik(j.nilai))) {
+      throw new ApiError(422, "Data ini belum punya koordinat objek untuk dicek.");
+    }
+    await prisma.entri.update({
+      where: { id },
+      data: dicek
+        ? { koordinatDicekAt: new Date(), koordinatDicekOleh: req.admin.username }
+        : { koordinatDicekAt: null, koordinatDicekOleh: "" },
+    });
+    res.json(await muatEntri(id));
+  })
+);
+
 /** DELETE /api/entri/:id -> hapus satu data beserta fotonya. Khusus admin. */
 router.delete(
   "/:id",
@@ -65,3 +115,5 @@ router.delete(
 );
 
 module.exports = router;
+// Diekspor untuk diuji terpisah: murni dan menentukan apa yang boleh diubah petugas.
+module.exports.kunciKoordinat = kunciKoordinat;

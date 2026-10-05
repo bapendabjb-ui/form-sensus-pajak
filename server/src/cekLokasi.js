@@ -16,6 +16,9 @@
  *   - pertanyaan Lokasi  : koordinat objek lain yang berbeda tempat, mis. rumah
  *                          kedua pada formulir PBB-P2. Dinilai per data.
  *
+ * Titik yang sudah dicek admin (lokasi_dicek_at / koordinat_dicek_at) dianggap
+ * terverifikasi: nilainya "baik" walau, mis., letaknya dekat kantor.
+ *
  * Salinan aturan nilaiTitik untuk klien: client/src/lib/cekLokasi.js.
  */
 
@@ -89,24 +92,31 @@ function gpsTerbaik(entri = []) {
   return terbaik;
 }
 
+/** titik_sumber yang tersimpan -> sumber yang ditampilkan. */
+const SUMBER_TITIK = { peta: "koreksi", gps: "rekam", data: "gps" };
+
 /**
  * Titik objek sebuah kertas kerja.
  * @returns {{ lat, lon, akurasi, manual, sumber: "koreksi"|"rekam"|"gps" } | null}
  */
 function titikKk(kk, entri = []) {
+  const dicek = Boolean(kk && kk.lokasiDicekAt);
   if (kk && typeof kk.titikLat === "number" && typeof kk.titikLon === "number") {
-    const rekam = kk.titikSumber === "gps";
+    const sumber = SUMBER_TITIK[kk.titikSumber] || "koreksi";
     return {
       lat: kk.titikLat,
       lon: kk.titikLon,
-      akurasi: rekam ? kk.titikAkurasi ?? null : null,
-      manual: !rekam,
-      sumber: rekam ? "rekam" : "koreksi",
+      akurasi: sumber === "koreksi" ? null : kk.titikAkurasi ?? null,
+      manual: sumber === "koreksi" || dicek,
+      sumber,
     };
   }
   const gps = gpsTerbaik(entri);
-  return gps ? { lat: gps.lat, lon: gps.lon, akurasi: gps.akurasi, manual: false, sumber: "gps" } : null;
+  return gps ? { lat: gps.lat, lon: gps.lon, akurasi: gps.akurasi, manual: dicek, sumber: "gps" } : null;
 }
+
+/** { oleh, waktu } bila sudah dicek admin, null bila belum. */
+const tandaDicek = (waktu, oleh) => (waktu ? { oleh: oleh || "", waktu } : null);
 
 /**
  * Ringkasan lokasi sebuah kertas kerja untuk tampilan.
@@ -132,6 +142,7 @@ function ringkasLokasiKk(kk, entri = []) {
     titik: titik ? { lat: titik.lat, lon: titik.lon, akurasi: titik.akurasi } : null,
     waktu: titik && titik.sumber !== "gps" ? kk.titikWaktu ?? null : null,
     oleh: titik && titik.sumber !== "gps" ? kk.titikOleh || "" : "",
+    dicek: tandaDicek(kk && kk.lokasiDicekAt, kk && kk.lokasiDicekOleh),
     gps,
     jarakM,
     jauh: jarakM !== null && jarakM > JARAK_JAUH_M,
@@ -150,11 +161,16 @@ function jawabanLokasiPertama(qids, jawaban = {}) {
  * Ringkasan lokasi satu data.
  *   gps   : nilai GPS asli data ini
  *   objek : nilai koordinat dari pertanyaan Lokasi (objek lain), null bila tidak diisi
+ *   dicek : { oleh, waktu } bila koordinat objeknya sudah dicek admin (terkunci)
  */
 function ringkasLokasiEntri(e, jawabanLokasi) {
+  const dicek = tandaDicek(e && e.koordinatDicekAt, e && e.koordinatDicekOleh);
   return {
     gps: nilaiTitik(titikGps(e)),
-    objek: adaTitik(jawabanLokasi) ? nilaiTitik({ ...jawabanLokasi, manual: jawabanLokasi.sumber === "peta" }) : null,
+    objek: adaTitik(jawabanLokasi)
+      ? nilaiTitik({ ...jawabanLokasi, manual: jawabanLokasi.sumber === "peta" || Boolean(dicek) })
+      : null,
+    dicek,
   };
 }
 

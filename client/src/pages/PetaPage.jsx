@@ -1,6 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import * as api from "../api.js";
 import { PageHead, Loading, ErrorBox, Empty } from "../components/Ui.jsx";
+import { useToast } from "../components/Toast.jsx";
+import { useAdmin } from "../lib/admin.js";
 import { navigate } from "../lib/router.js";
 
 // Leaflet berat; hanya diunduh saat halaman peta benar-benar dibuka.
@@ -11,6 +13,8 @@ const SARING = [
   ["draft", "Draft"],
   ["selesai", "Selesai"],
   ["kurang", "Berkas tidak lengkap"],
+  ["belumdicek", "Belum dicek"],
+  ["dicek", "Sudah dicek"],
 ];
 
 /**
@@ -39,10 +43,14 @@ function bacaTampilan() {
 const cocok = (t, f) => {
   if (f === "draft" || f === "selesai") return t.status === f;
   if (f === "kurang") return !t.berkasLengkap;
+  if (f === "belumdicek") return !t.dicek;
+  if (f === "dicek") return t.dicek;
   return true;
 };
 
 export default function PetaPage() {
+  const toast = useToast();
+  const admin = useAdmin();
   const [titik, setTitik] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -84,6 +92,23 @@ export default function PetaPage() {
   // titik objek lain dari pertanyaan Lokasi membuka datanya.
   const bukaData = (t) =>
     navigate(t.entriId ? `/kertas-kerja/${t.kertasKerjaId}/data/${t.entriId}` : `/kertas-kerja/${t.kertasKerjaId}`);
+
+  /**
+   * Admin: tandai / buka "sudah dicek" langsung dari balon. Titik lokasi sensus
+   * mengubah tanda kertas kerjanya, titik koordinat objek mengubah tanda datanya.
+   */
+  const ubahDicek = async (t) => {
+    try {
+      const hasil =
+        t.jenis === "kk" ? await api.setLokasiDicek(t.kertasKerjaId, !t.dicek) : await api.setKoordinatDicek(t.entriId, !t.dicek);
+      const dicek = Boolean(hasil.lokasi.dicek);
+      const sama = (x) => x.jenis === t.jenis && x.kertasKerjaId === t.kertasKerjaId && x.entriId === t.entriId;
+      setTitik((daftar) => daftar.map((x) => (sama(x) ? { ...x, dicek } : x)));
+      toast(dicek ? "Ditandai sudah dicek dan dikunci." : "Kunci dibuka.");
+    } catch (e) {
+      toast(e.message, true);
+    }
+  };
 
   const jumlahKk = useMemo(() => new Set(tampil.map((t) => t.kertasKerjaId)).size, [tampil]);
 
@@ -130,7 +155,12 @@ export default function PetaPage() {
           titik untuk melihat ringkasannya.
         </p>
         <Suspense fallback={<Loading label="Memuat peta..." />}>
-          <PetaSebaran titik={tampil} onBuka={bukaData} />
+          <PetaSebaran
+            titik={tampil}
+            onBuka={bukaData}
+            onCek={admin ? ubahDicek : null}
+            kunciPandang={`${tampilan}|${saring}`}
+          />
         </Suspense>
       </>
     );

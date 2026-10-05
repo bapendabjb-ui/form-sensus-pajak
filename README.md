@@ -624,6 +624,16 @@ Titik kantor dan ambang akurasinya ada di `server/src/batas.js` (`KANTOR`, `AKUR
 `AKURASI_REKAM_ULANG_M`, `JARAK_JAUH_M`) dan dikirim ke klien lewat `/api/konfigurasi`. Aturan
 penilaiannya ada di `server/src/cekLokasi.js`, dengan salinan di `client/src/lib/cekLokasi.js`.
 
+**Sudah dicek & kunci (admin).** Admin menandai koordinat yang sudah diperiksa: lokasi sensus per
+kertas kerja (centang di panel Lokasi sensus) dan koordinat objek per data (centang di samping baris
+data, di bawah pertanyaan Lokasi pada layar Ubah Data, atau tombol di balon Peta Sensus). Yang
+sudah dicek **terkunci untuk petugas** — tombol peta / GPS disembunyikan, pertanyaan Lokasi hanya
+bisa dilihat, dan server menolak / mengabaikan perubahannya — sementara admin tetap bisa
+menyesuaikan tanpa melepas centang. Lokasi sensus yang masih mengikuti GPS data dibekukan saat
+dicentang (`titik_sumber = "data"`) supaya tidak bergeser oleh data yang ditambah belakangan.
+Saringan pembantu: **Lokasi belum dicek** di daftar kertas kerja (khusus admin) dan **Belum dicek /
+Sudah dicek** di Peta Sensus; titik yang sudah dicek bertanda ✓.
+
 Titik yang ditunjuk di peta tidak diperiksa terhadap area kantor, supaya objek yang bertetangga
 dengan kantor tetap bisa ditandai. Admin tetap bisa membandingkannya dengan GPS asli: jaraknya
 dari GPS lapangan terbaik tampil di panel, dan yang lebih dari 500 m ditandai **Jauh dari GPS**. Aplikasi web tidak bisa mendeteksi aplikasi pemalsu GPS (*fake GPS*).
@@ -890,6 +900,7 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | `PUT`    | `/kertas-kerja/:id/petugas`       | 🔒 `{ petugasIds }` — ganti tim                           |
 | `PUT`    | `/kertas-kerja/:id/status`        | `{ status }` — `selesai` butuh minimal 1 data (**422**)   |
 | `PUT`    | `/kertas-kerja/:id/titik`         | `{ lat, lon }` atau `{ hapus: true }` — tetapkan titik objek lewat peta / kembali ke GPS data. Terbuka; admin yang login tercatat namanya |
+| `PUT`    | `/kertas-kerja/:id/lokasi-dicek`  | 🔒 `{ dicek }` — tandai lokasi sensus sudah dicek (terkunci untuk petugas). **422** bila belum ada titik |
 | `PUT`    | `/kertas-kerja/:id/rekam`         | `{ lat, lon, akurasi }` — titik objek dari GPS di lokasi. **422** bila akurasi > 50 m / tidak diketahui, atau posisinya di area kantor |
 | `POST`   | `/kertas-kerja/:id/entri`         | `{ formulirId, jawaban, berkasLengkap?, catatanBerkas? }` — tambah satu data |
 | `DELETE` | `/kertas-kerja/:id`               | 🔒 Hapus beserta seluruh data & foto                      |
@@ -911,7 +922,7 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | `hal`     | `1`     | Halaman, mulai dari 1                                                       |
 | `per`     | `20`    | Baris per halaman, **dibatasi 100**                                         |
 | `cari`    | —       | Penggalan nomor. Karakter non-angka dibuang, jadi `4` menemukan `00004`     |
-| `saring`  | `semua` | `semua` · `draft` · `selesai` · `kurang` (punya data berkas tidak lengkap) · `lokasi` (punya data, titiknya di kantor / kurang akurat / belum ada) |
+| `saring`  | `semua` | `semua` · `draft` · `selesai` · `kurang` (punya data berkas tidak lengkap) · `lokasi` (punya data, titiknya di kantor / kurang akurat / belum ada) · `belumdicek` (punya data, lokasi sensus belum dicek admin) |
 
 Nilai yang tidak masuk akal dibulatkan ke batasnya, bukan ditolak: `per=100000`
 menjadi 100, `hal=0` menjadi 1, dan saringan yang tidak dikenal menjadi `semua`.
@@ -938,7 +949,8 @@ yang keduanya tidak dipakai di layar itu.
 | Method   | Endpoint     | Keterangan                                    |
 | -------- | ------------ | --------------------------------------------- |
 | `GET`    | `/entri/:id` | Satu data + formulirnya + nomor kertas kerja  |
-| `PUT`    | `/entri/:id` | `{ jawaban, berkasLengkap?, catatanBerkas? }` — ubah data (tanpa `berkasLengkap` penanda tidak berubah) |
+| `PUT`    | `/entri/:id` | `{ jawaban, berkasLengkap?, catatanBerkas? }` — ubah data (tanpa `berkasLengkap` penanda tidak berubah). Koordinat objek yang sudah dicek hanya bisa diubah admin |
+| `PUT`    | `/entri/:id/koordinat-dicek` | 🔒 `{ dicek }` — tandai koordinat objek (pertanyaan Lokasi) sudah dicek. **422** bila belum diisi |
 | `DELETE` | `/entri/:id` | 🔒 Hapus data beserta fotonya                 |
 
 Body `jawaban` berbentuk `{ "<pertanyaanId>": nilai }` (lihat format di atas). Kolom wajib

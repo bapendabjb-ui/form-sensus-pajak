@@ -76,7 +76,7 @@ export function StatusGps({ gps, aturan, titikSudahAda = false, onUlangi }) {
 
 /** Keterangan asal titik objek kertas kerja. */
 function asalTitik(lokasi) {
-  const oleh = !lokasi.oleh || lokasi.oleh === "petugas" ? "petugas" : `admin (${lokasi.oleh})`;
+  const oleh = !lokasi.oleh || lokasi.oleh === "petugas" ? "petugas" : namaAdmin(lokasi.oleh);
   if (lokasi.sumber === "koreksi") return `Ditetapkan di peta oleh ${oleh}, ${formatWaktu(lokasi.waktu)}.`;
   if (lokasi.sumber === "rekam") {
     return `Direkam di lokasi oleh ${oleh} (${meter(lokasi.titik.akurasi)}), ${formatWaktu(lokasi.waktu)}.`;
@@ -100,13 +100,58 @@ function ringkasGps(gps, aturan) {
   return `${total} data: ${bagian.join(", ")}.`;
 }
 
+/** "admin (budi)", atau cukup "admin" bila tidak ada nama lain untuk disebut. */
+export const namaAdmin = (oleh) => (!oleh || oleh.toLowerCase() === "admin" ? "admin" : `admin (${oleh})`);
+
+/**
+ * Tombol centang "sudah dicek" milik admin. Sudah dicek = terkunci untuk petugas.
+ * Dipakai untuk lokasi sensus (panel ini) maupun koordinat objek per data.
+ *
+ * @param {object} props
+ * @param {object|null} props.dicek  { oleh, waktu } atau null
+ * @param {() => Promise<void>} props.onUbah  membalik tanda; melempar galat bila gagal
+ * @param {string} [props.label]
+ */
+export function TombolDicek({ dicek, onUbah, label = "Sudah dicek" }) {
+  const toast = useToast();
+  const [sibuk, setSibuk] = useState(false);
+  const ubah = async (e) => {
+    e.stopPropagation();
+    setSibuk(true);
+    try {
+      await onUbah();
+    } catch (err) {
+      toast(err.message, true);
+    } finally {
+      setSibuk(false);
+    }
+  };
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={Boolean(dicek)}
+      className={"fk-dicek" + (dicek ? " is-on" : "")}
+      onClick={ubah}
+      disabled={sibuk}
+      title={dicek ? `Dicek ${namaAdmin(dicek.oleh)}, ${formatWaktu(dicek.waktu)}. Ketuk untuk membuka kunci.` : "Tandai sudah dicek dan kunci"}
+    >
+      <span className="fk-dicek-kotak" aria-hidden="true">
+        {dicek ? "✓" : ""}
+      </span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
 /**
  * @param {object} props
  * @param {object} props.kk      detail kertas kerja (id, lokasi, entri)
  * @param {object|null} props.aturan  konfigurasi.lokasi dari server
+ * @param {boolean} props.admin
  * @param {(kk: object) => void} props.onBerubah  detail kertas kerja terbaru dari server
  */
-export function LokasiKertasKerja({ kk, aturan, onBerubah }) {
+export function LokasiKertasKerja({ kk, aturan, admin, onBerubah }) {
   const toast = useToast();
   const [peta, setPeta] = useState(false);
   const [pilihan, setPilihan] = useState(null); // titik dari peta / tempel yang belum disimpan
@@ -122,6 +167,14 @@ export function LokasiKertasKerja({ kk, aturan, onBerubah }) {
   const adaData = kk.entri.length > 0;
   const perluCek = adaData && lokasi.status !== "baik";
   const ditetapkan = lokasi.sumber === "koreksi" || lokasi.sumber === "rekam";
+  // Sudah dicek admin: petugas hanya bisa melihat; admin tetap bisa menyesuaikan.
+  const terkunci = Boolean(lokasi.dicek) && !admin;
+
+  const ubahDicek = async () => {
+    const baru = await api.setLokasiDicek(kk.id, !lokasi.dicek);
+    onBerubah(baru);
+    toast(baru.lokasi.dicek ? "Lokasi sensus ditandai sudah dicek dan dikunci." : "Kunci lokasi sensus dibuka.");
+  };
 
   const titikPeta = pilihan || lokasi.titik;
   const tautan = titikPeta ? urlPeta(titikPeta) : "";
@@ -210,7 +263,7 @@ export function LokasiKertasKerja({ kk, aturan, onBerubah }) {
       <div className="fk-field">
         <span className="fk-q-name">Lokasi sensus</span>
 
-        {perluCek && (
+        {perluCek && !terkunci && (
           <p className="fk-lokasi-data-peringatan" role="alert">
             {LABEL_STATUS[lokasi.status]}. Tetapkan lokasi sensusnya di peta, atau tekan <b>Rekam di sini</b>{" "}
             saat berada di lokasi.
@@ -226,6 +279,15 @@ export function LokasiKertasKerja({ kk, aturan, onBerubah }) {
           </dd>
           <dt>GPS saat pendataan</dt>
           <dd>{ringkasGps(lokasi.gps, aturan)}</dd>
+          {lokasi.dicek && (
+            <>
+              <dt>Pemeriksaan</dt>
+              <dd className="fk-dicek-ket">
+                ✓ Sudah dicek {namaAdmin(lokasi.dicek.oleh)}, {formatWaktu(lokasi.dicek.waktu)}. Terkunci
+                {admin ? " untuk petugas." : " — hanya admin yang bisa mengubahnya."}
+              </dd>
+            </>
+          )}
         </dl>
 
         {peta && (
@@ -268,7 +330,7 @@ export function LokasiKertasKerja({ kk, aturan, onBerubah }) {
             <button type="button" className="fk-btn-ghost" onClick={berhentiRekam}>
               Berhenti
             </button>
-          ) : (
+          ) : terkunci ? null : (
             <>
               <button
                 type="button"
@@ -295,6 +357,10 @@ export function LokasiKertasKerja({ kk, aturan, onBerubah }) {
             </a>
           )}
         </div>
+
+        {admin && adaData && !pilihan && !rekam && (
+          <TombolDicek dicek={lokasi.dicek} onUbah={ubahDicek} label="Lokasi sensus sudah dicek" />
+        )}
       </div>
     </section>
   );

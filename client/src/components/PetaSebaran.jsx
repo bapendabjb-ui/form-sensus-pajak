@@ -11,10 +11,12 @@ const SebaranLeaflet = lazy(() => import("./peta/SebaranLeaflet.jsx"));
  * titik dan bisa digeser, peta ini menggambar seluruh titik dan tidak mengubah
  * data apa pun. Memakai peta Google bila tersedia, peta cadangan bila tidak.
  *
- * titik  : [{ entriId, lat, lon, judul, formulir, nomor, status, petugas, ... }]
+ * titik  : [{ entriId, lat, lon, judul, formulir, nomor, status, petugas, dicek, ... }]
  * onBuka : (titik) => void  - dipanggil saat tautan di balon diklik
+ * onCek  : (titik) => void | null  - admin: tandai / buka "sudah dicek" dari balon
+ * kunciPandang : pandangan dirapatkan ulang hanya bila nilai ini berganti
  */
-export default function PetaSebaran({ titik = [], onBuka }) {
+export default function PetaSebaran({ titik = [], onBuka, onCek = null, kunciPandang }) {
   const [jenis, setJenis] = useState("peta");
   const mesin = useMesinPeta();
 
@@ -24,9 +26,18 @@ export default function PetaSebaran({ titik = [], onBuka }) {
     </div>
   );
   if (mesin.jenis === "google") {
-    kanvas = <SebaranGoogle kunci={mesin.kunci} titik={titik} onBuka={onBuka} jenis={jenis} />;
+    kanvas = (
+      <SebaranGoogle
+        kunci={mesin.kunci}
+        titik={titik}
+        onBuka={onBuka}
+        onCek={onCek}
+        kunciPandang={kunciPandang}
+        jenis={jenis}
+      />
+    );
   } else if (mesin.jenis === "leaflet") {
-    kanvas = <SebaranLeaflet titik={titik} onBuka={onBuka} jenis={jenis} />;
+    kanvas = <SebaranLeaflet titik={titik} onBuka={onBuka} onCek={onCek} kunciPandang={kunciPandang} jenis={jenis} />;
   }
 
   return (
@@ -42,6 +53,11 @@ export default function PetaSebaran({ titik = [], onBuka }) {
           {titik.some((t) => t.sumber === "gps") && (
             <span className="fk-legenda">
               <span className="fk-titik-contoh is-rekam" /> Terekam otomatis
+            </span>
+          )}
+          {titik.some((t) => t.dicek) && (
+            <span className="fk-legenda">
+              <span className="fk-titik-contoh is-dicek">✓</span> Sudah dicek
             </span>
           )}
         </div>

@@ -20,6 +20,7 @@ const PILIH = {
   titikAkurasi: true,
   titikSumber: true,
   lokasiStatus: true,
+  lokasiDicekAt: true,
   entri: { select: { id: true, rekamLat: true, rekamLon: true, rekamAkurasi: true } },
 };
 

@@ -93,6 +93,7 @@ test("syaratSaring memetakan saringan ke syarat database", () => {
     lokasiStatus: { in: ["tanpa", "kantor", "kasar"] },
     entri: { some: {} },
   });
+  assert.deepEqual(syaratSaring("belumdicek"), { lokasiDicekAt: null, entri: { some: {} } });
   assert.deepEqual(syaratSaring("semua"), {});
   assert.deepEqual(syaratSaring("ngawur"), {});
 });

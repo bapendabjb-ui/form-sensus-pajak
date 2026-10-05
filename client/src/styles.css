@@ -629,6 +629,14 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-balon-rekam{font-size:11.5px; color:var(--faint); font-style:italic;}
 .fk-balon-buka{margin-top:6px; border:1px solid var(--line); background:var(--surface); color:var(--brand-dark); font-size:12px; font-weight:600; padding:6px 10px; border-radius:8px; cursor:pointer;}
 .fk-balon-buka:hover{border-color:var(--brand); background:var(--brand-tint);}
+.fk-balon-aksi{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;}
+.fk-balon-aksi .fk-balon-buka{margin-top:0;}
+.fk-balon-cek{border:1px solid var(--brand); background:var(--brand); color:#fff; font-size:12px; font-weight:600; padding:6px 10px; border-radius:8px; cursor:pointer;}
+.fk-balon-cek.is-on{border-color:var(--line); background:var(--surface); color:var(--muted);}
+.fk-balon-dicek{font-size:12px; font-weight:600; color:var(--brand-dark);}
+/* titik yang sudah dicek admin: centang di tengahnya */
+.fk-titik.is-dicek .fk-titik-isi{display:grid; place-items:center; color:#fff; font-size:10px; font-weight:700; line-height:1;}
+.fk-titik-contoh.is-dicek{display:inline-grid; place-items:center; width:13px; height:13px; background:var(--brand); color:#fff; font-size:8px; font-weight:700; line-height:1;}
 /* Peta Google digambar di kanvas tersendiri supaya lapisan "memuat" milik React tidak bertabrakan dengannya. */
 .fk-peta-kanvas{position:absolute; inset:0;}
 .fk-peta-memuat{position:absolute; inset:0; z-index:1; display:flex; align-items:center; justify-content:center; gap:10px; background:#E6EAEF; color:var(--muted); font-size:13px;}
@@ -752,6 +760,23 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-pengajuan-ringkas.is-ada{background:#FBF0DC; border-color:#EFD9AE; color:#6F4705;}
 .fk-pengajuan-ringkas-teks{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; font-size:13px;}
 .fk-pengajuan-ringkas-teks b{font-size:14px;}
+
+/* ---------- centang "sudah dicek" admin (mengunci koordinat) ---------- */
+.fk-dicek{display:inline-flex; align-items:center; gap:8px; align-self:flex-start; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-size:13.5px; font-weight:600; padding:8px 12px; border-radius:10px; min-height:40px;}
+.fk-dicek:hover:not(:disabled){border-color:var(--brand);}
+.fk-dicek.is-on{border-color:#BFE0DC; background:var(--brand-tint); color:var(--brand-dark);}
+.fk-dicek:disabled{opacity:.6;}
+.fk-dicek-kotak{display:grid; place-items:center; width:20px; height:20px; border:2px solid var(--line); border-radius:6px; color:#fff; font-size:13px; line-height:1; flex:none;}
+.fk-dicek.is-on .fk-dicek-kotak{background:var(--brand); border-color:var(--brand);}
+.fk-dicek-ket{color:var(--brand-dark); font-weight:600;}
+/* baris data berkoordinat di halaman kertas kerja: centangnya di samping, bukan di dalam tombol baris */
+.fk-baris-cek{display:flex; align-items:center; gap:8px; padding-right:12px; border-bottom:1px solid var(--line-soft);}
+.fk-baris-cek:last-child{border-bottom:0;}
+.fk-baris-cek .fk-baris{flex:1; min-width:0; border-bottom:0;}
+.fk-baris-cek .fk-dicek{flex:none; font-size:12.5px; padding:6px 10px; min-height:36px;}
+/* pertanyaan Lokasi yang terkunci: petugas hanya melihat */
+.fk-koordinat-kunci{display:flex; flex-direction:column; gap:6px; border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:#F6F9F9; font-size:14px;}
+.fk-koordinat-kunci .fk-dicek-ket{font-size:12.5px;}
 
 /* ---------- pemeriksaan lokasi ---------- */
 .fk-pill.is-lokasi{background:#FBF0DC; color:#8A5306;}

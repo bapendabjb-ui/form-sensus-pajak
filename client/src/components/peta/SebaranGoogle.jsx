@@ -10,11 +10,20 @@ import { PUSAT_AWAL, PetaMemuat, WARNA_STATUS, isiBalon } from "./bersama.jsx";
  * kunci  : kunci Maps JavaScript API dari /api/konfigurasi
  * titik  : [{ entriId, lat, lon, judul, formulir, nomor, status, sumber, ... }]
  * onBuka : (titik) => void  - dipanggil saat tombol di balon diklik
+ * onCek  : (titik) => void | null  - admin: tombol "sudah dicek" di balon
+ * kunciPandang : pandangan dirapatkan ulang hanya bila nilai ini berganti
  * jenis  : "peta" | "satelit"
  */
 
 const TIPE = { peta: "roadmap", satelit: "hybrid" };
 const ZOOM_MAKS_RAPAT = 17;
+
+/** Tanda centang di tengah titik yang sudah dicek admin. */
+function labelTitik(t) {
+  if (!t.dicek) return null;
+  const warna = t.sumber === "gps" ? WARNA_STATUS[t.status === "selesai" ? "selesai" : "draft"] : "#ffffff";
+  return { text: "✓", color: warna, fontSize: "10px", fontWeight: "700" };
+}
 
 /** Lingkaran berwarna; berlubang untuk posisi yang terekam otomatis. */
 function ikonTitik(lib, t) {
@@ -30,7 +39,7 @@ function ikonTitik(lib, t) {
   };
 }
 
-export default function SebaranGoogle({ kunci, titik = [], onBuka, jenis }) {
+export default function SebaranGoogle({ kunci, titik = [], onBuka, onCek = null, kunciPandang, jenis }) {
   const wadah = useRef(null);
   const peta = useRef(null);
   const balon = useRef(null);
@@ -38,6 +47,9 @@ export default function SebaranGoogle({ kunci, titik = [], onBuka, jenis }) {
   const g = useRef(null);
   const bukaRef = useRef(onBuka);
   bukaRef.current = onBuka;
+  const cekRef = useRef(onCek);
+  cekRef.current = onCek;
+  const pandangRef = useRef(Symbol("belum"));
   const [siap, setSiap] = useState(false);
 
   // Buat peta sekali.
@@ -92,20 +104,37 @@ export default function SebaranGoogle({ kunci, titik = [], onBuka, jenis }) {
     balon.current.close();
 
     penanda.current = titik.map((t) => {
-      const p = new lib.Marker({ map: m, position: { lat: t.lat, lng: t.lon }, icon: ikonTitik(lib, t), title: t.judul || t.formulir });
+      const p = new lib.Marker({
+        map: m,
+        position: { lat: t.lat, lng: t.lon },
+        icon: ikonTitik(lib, t),
+        label: labelTitik(t),
+        title: t.judul || t.formulir,
+      });
       p.addListener("click", () => {
         const isi = document.createElement("div");
-        isi.innerHTML = isiBalon(t); // semua teks sudah di-escape di isiBalon
-        const tombol = isi.querySelector(".fk-balon-buka");
-        if (tombol) tombol.onclick = () => bukaRef.current?.(t);
+        isi.innerHTML = isiBalon(t, { bisaCek: Boolean(cekRef.current) }); // semua teks sudah di-escape
+        const buka = isi.querySelector(".fk-balon-buka");
+        if (buka) buka.onclick = () => bukaRef.current?.(t);
+        const cek = isi.querySelector(".fk-balon-cek");
+        if (cek) {
+          cek.onclick = () => {
+            balon.current.close();
+            cekRef.current?.(t);
+          };
+        }
         balon.current.setContent(isi);
         balon.current.open({ map: m, anchor: p });
       });
       return p;
     });
 
-    // Rapatkan pandangan ke titik yang ada. Satu titik tidak punya rentang,
-    // jadi fitBounds akan memperbesar habis-habisan - pakai setCenter.
+    // Rapatkan pandangan hanya saat tampilan / saringan berganti, bukan setiap
+    // kali sebuah titik ditandai sudah dicek (lihat SebaranLeaflet).
+    if (pandangRef.current === kunciPandang) return;
+    pandangRef.current = kunciPandang;
+    // Satu titik tidak punya rentang, jadi fitBounds akan memperbesar
+    // habis-habisan - pakai setCenter.
     if (titik.length === 1) {
       m.setCenter({ lat: titik[0].lat, lng: titik[0].lon });
       m.setZoom(ZOOM_MAKS_RAPAT);
@@ -117,7 +146,7 @@ export default function SebaranGoogle({ kunci, titik = [], onBuka, jenis }) {
         if (m.getZoom() > ZOOM_MAKS_RAPAT) m.setZoom(ZOOM_MAKS_RAPAT);
       });
     }
-  }, [titik, siap]);
+  }, [titik, siap, kunciPandang]);
 
   return (
     <div className="fk-peta is-sebaran">

@@ -22,7 +22,8 @@ import { IkonEpbb, CheckIcon } from "../../components/Icons.jsx";
 import { useAdmin } from "../../lib/admin.js";
 import { pantauPosisi, ambilPosisi } from "../../lib/rekamPosisi.js";
 import { nilaiTitik } from "../../lib/cekLokasi.js";
-import { StatusGps } from "../../components/LokasiObjek.jsx";
+import { StatusGps, TombolDicek, namaAdmin } from "../../components/LokasiObjek.jsx";
+import { formatWaktu, urlPeta } from "../../lib/format.js";
 import { bersihkanDrafLama, useKonfigurasi } from "../../lib/konfigurasi.js";
 import { kembali, pasangPenjaga } from "../../lib/router.js";
 import { urlKk } from "./bersama.js";
@@ -138,6 +139,9 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
   // Data baru: kertas kerjanya sudah punya titik yang baik? Bila ya, posisi
   // petugas saat ini (mis. di kantor) tidak lagi perlu dikhawatirkan.
   const [titikKkBaik, setTitikKkBaik] = useState(false);
+  // Mengubah data: koordinat objeknya sudah dicek admin? { oleh, waktu } | null.
+  // Bila ya, petugas hanya bisa melihatnya; server juga menolak perubahannya.
+  const [koordinatDicek, setKoordinatDicek] = useState(null);
   const wadah = useRef(null);
   const berubah = useRef(false);
   const aturanLokasi = useKonfigurasi().lokasi || null;
@@ -204,6 +208,7 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
           setNomor(e.kertasKerja.nomor);
           setTim(e.kertasKerja.petugas || []);
           setPengajuan(e.pengajuanHapus || null);
+          setKoordinatDicek(e.lokasi?.dicek || null);
           const awal = {};
           for (const q of f.pertanyaan) {
             awal[q.id] = e.jawaban[q.id] === undefined ? emptyValue(q.tipe) : fromApi(q.tipe, e.jawaban[q.id]);
@@ -498,6 +503,33 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
   const tataLetak = susunTataLetak(formulir.pertanyaan);
   const adaKolom = tataLetak.some((b) => !b.penuh);
 
+  const koordinatTerkunci = Boolean(entriId && koordinatDicek && !admin);
+
+  const ubahKoordinatDicek = async () => {
+    const hasil = await api.setKoordinatDicek(entriId, !koordinatDicek);
+    setKoordinatDicek(hasil.lokasi.dicek);
+    toast(hasil.lokasi.dicek ? "Koordinat objek ditandai sudah dicek dan dikunci." : "Kunci koordinat objek dibuka.");
+  };
+
+  /** Pertanyaan Lokasi yang terkunci: petugas hanya melihat titiknya. */
+  const koordinatBaca = (v) => {
+    const ada = v && typeof v.lat === "number";
+    return (
+      <div className="fk-koordinat-kunci">
+        <span>{ada ? `${v.lat.toFixed(6)}, ${v.lon.toFixed(6)}` : "Belum diisi"}</span>
+        {ada && (
+          <a className="fk-lokasi-peta" href={urlPeta(v)} target="_blank" rel="noreferrer">
+            Buka di Google Maps
+          </a>
+        )}
+        <span className="fk-dicek-ket">
+          ✓ Sudah dicek {namaAdmin(koordinatDicek.oleh)}, {formatWaktu(koordinatDicek.waktu)}. Hanya admin yang bisa
+          mengubahnya.
+        </span>
+      </div>
+    );
+  };
+
   const kolomIsian = (q) => (
     <div className="fk-field" key={q.id} data-qid={q.id}>
       <label className="fk-q-name">
@@ -510,14 +542,21 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
         )}
       </label>
       {q.keterangan && <p className="fk-q-ket">{q.keterangan}</p>}
-      <FieldInput
-        q={q}
-        value={answers[q.id]}
-        invalid={Boolean(errors[q.id])}
-        onChange={(v) => setAnswer(q.id, v)}
-        isiEpbb={q.tipe === "nop" ? isiEpbb : null}
-      />
+      {q.tipe === "lokasi" && koordinatTerkunci ? (
+        koordinatBaca(answers[q.id])
+      ) : (
+        <FieldInput
+          q={q}
+          value={answers[q.id]}
+          invalid={Boolean(errors[q.id])}
+          onChange={(v) => setAnswer(q.id, v)}
+          isiEpbb={q.tipe === "nop" ? isiEpbb : null}
+        />
+      )}
       {errors[q.id] && <span className="fk-err">{errors[q.id]}</span>}
+      {q.tipe === "lokasi" && entriId && admin && typeof answers[q.id]?.lat === "number" && (
+        <TombolDicek dicek={koordinatDicek} onUbah={ubahKoordinatDicek} label="Koordinat objek sudah dicek" />
+      )}
     </div>
   );
 

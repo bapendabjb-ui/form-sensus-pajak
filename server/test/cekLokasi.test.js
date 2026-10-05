@@ -116,9 +116,32 @@ test("jawabanLokasiPertama memakai jawaban terisi pertama sesuai urutan formulir
 
 test("ringkasLokasiEntri: koordinat objek lain diperiksa terpisah dari GPS asli", () => {
   const e = entriGps(LAPANGAN);
-  assert.deepEqual(ringkasLokasiEntri(e, null), { gps: "baik", objek: null });
+  assert.deepEqual(ringkasLokasiEntri(e, null), { gps: "baik", objek: null, dicek: null });
   // Koordinat rumah kedua diambil dengan tombol GPS di kantor: keliru.
   assert.equal(ringkasLokasiEntri(e, { ...DEKAT_KANTOR, akurasi: 6, sumber: "gps" }).objek, "kantor");
   // Ditunjuk di peta / ditempel dari Google Maps: dipercaya.
   assert.equal(ringkasLokasiEntri(e, { ...DEKAT_KANTOR, akurasi: null, sumber: "peta" }).objek, "baik");
+});
+
+test("titik yang sudah dicek admin dianggap terverifikasi walau dekat kantor", () => {
+  const kk = { ...KK_KOSONG, lokasiDicekAt: new Date(), lokasiDicekOleh: "admin" };
+  const r = ringkasLokasiKk(kk, [entriGps(DEKAT_KANTOR)]);
+  assert.equal(r.status, "baik");
+  assert.deepEqual(r.dicek, { oleh: "admin", waktu: kk.lokasiDicekAt });
+  assert.equal(ringkasLokasiKk(KK_KOSONG, [entriGps(DEKAT_KANTOR)]).dicek, null);
+});
+
+test("titikKk: GPS data yang dibekukan saat dicek tetap tampil sebagai GPS data", () => {
+  const kk = { titikLat: LAPANGAN.lat, titikLon: LAPANGAN.lon, titikAkurasi: 9, titikSumber: "data", lokasiDicekAt: new Date() };
+  const t = titikKk(kk, [entriGps(DEKAT_KANTOR)]);
+  assert.equal(t.sumber, "gps");
+  assert.equal(t.lat, LAPANGAN.lat, "bekuan tidak bergeser oleh data lain");
+  assert.equal(t.akurasi, 9);
+});
+
+test("ringkasLokasiEntri: koordinat objek yang dicek admin terverifikasi", () => {
+  const e = { ...entriGps(LAPANGAN), koordinatDicekAt: new Date(), koordinatDicekOleh: "admin" };
+  const r = ringkasLokasiEntri(e, { ...DEKAT_KANTOR, akurasi: 6, sumber: "gps" });
+  assert.equal(r.objek, "baik");
+  assert.equal(r.dicek.oleh, "admin");
 });

@@ -50,6 +50,7 @@ function susunTitikPeta(kks) {
         ...dasar,
         jenis: "kk",
         entriId: null,
+        dicek: Boolean(kk.lokasiDicekAt),
         lat: t.lat,
         lon: t.lon,
         // "koreksi" = ditunjuk di peta; "rekam" = direkam di lokasi; "gps" = GPS
@@ -71,6 +72,7 @@ function susunTitikPeta(kks) {
         ...dasar,
         jenis: "data",
         entriId: e.id,
+        dicek: Boolean(e.koordinatDicekAt),
         lat: lokasi.nilai.lat,
         lon: lokasi.nilai.lon,
         sumber: "formulir",
@@ -110,6 +112,7 @@ router.get(
         titikLon: true,
         titikAkurasi: true,
         titikSumber: true,
+        lokasiDicekAt: true,
         petugas: { include: { petugas: true } },
         entri: {
           orderBy: [{ createdAt: "asc" }, { id: "asc" }],
@@ -118,6 +121,7 @@ router.get(
             rekamLat: true,
             rekamLon: true,
             rekamAkurasi: true,
+            koordinatDicekAt: true,
             berkasLengkap: true,
             catatanBerkas: true,
             updatedAt: true,

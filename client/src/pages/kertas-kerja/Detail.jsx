@@ -10,7 +10,7 @@ import { PitaPengajuan, AjukanHapus } from "../../components/PengajuanHapus.jsx"
 import { judulEntri, ringkasEntri, fotoEntri } from "../../lib/ringkas.js";
 import { formatTimestamp } from "../../lib/format.js";
 import { LABEL_STATUS } from "../../lib/cekLokasi.js";
-import { LokasiKertasKerja } from "../../components/LokasiObjek.jsx";
+import { LokasiKertasKerja, TombolDicek } from "../../components/LokasiObjek.jsx";
 import { useKonfigurasi } from "../../lib/konfigurasi.js";
 import { IkonFormulir } from "../../components/Icons.jsx";
 import { bacaFilterKk } from "../../lib/filterKk.js";
@@ -174,6 +174,13 @@ export function DetailKertasKerja({ id }) {
 
   const setPengajuan = (pengajuanHapus) => setKk((k) => ({ ...k, pengajuanHapus }));
 
+  /** Admin: balik tanda "koordinat objek sudah dicek" sebuah data. */
+  const ubahKoordinatDicek = async (e) => {
+    const hasil = await api.setKoordinatDicek(e.id, !e.lokasi.dicek);
+    setKk((k) => ({ ...k, entri: k.entri.map((x) => (x.id === e.id ? { ...x, lokasi: hasil.lokasi } : x)) }));
+    toast(hasil.lokasi.dicek ? "Koordinat objek ditandai sudah dicek dan dikunci." : "Kunci koordinat objek dibuka.");
+  };
+
   const tombolKembali = (
     <button type="button" className="fk-textbtn hanya-desktop" onClick={() => kembali("/kertas-kerja")}>
       ‹ Kembali ke daftar
@@ -333,7 +340,7 @@ export function DetailKertasKerja({ id }) {
         )}
       </section>
 
-      <LokasiKertasKerja kk={kk} aturan={aturanLokasi} onBerubah={setKk} />
+      <LokasiKertasKerja kk={kk} aturan={aturanLokasi} admin={admin} onBerubah={setKk} />
 
       <div className="fk-bagian">Tambah data</div>
       {bank.length === 0 ? (
@@ -409,7 +416,8 @@ export function DetailKertasKerja({ id }) {
             {entri.map((e) => {
               const ringkas = ringkasEntri(formulir.pertanyaan, e.jawaban);
               const foto = fotoEntri(formulir.pertanyaan, e.jawaban);
-              return (
+              const berkoordinat = e.lokasi.objek !== null;
+              const baris = (
                 <button
                   type="button"
                   className="fk-baris"
@@ -430,6 +438,12 @@ export function DetailKertasKerja({ id }) {
                         <span className="fk-pill is-lokasi">{LABEL_OBJEK[e.lokasi.objek]}</span>
                       </span>
                     )}
+                    {/* Admin melihat tombol centangnya sendiri di samping baris. */}
+                    {!admin && e.lokasi.dicek && (
+                      <span className="fk-baris-kurang">
+                        <span className="fk-pill is-done">✓ Koordinat dicek</span>
+                      </span>
+                    )}
                     {e.diajukanHapus && (
                       <span className="fk-baris-kurang">
                         <span className="fk-pill is-hapus">Diajukan hapus</span>
@@ -446,6 +460,15 @@ export function DetailKertasKerja({ id }) {
                   </span>
                   <span className="fk-baris-panah">›</span>
                 </button>
+              );
+              // Centang koordinat objek ada di samping baris, bukan di dalamnya:
+              // tombol di dalam tombol tidak sah dan ketukannya ikut membuka data.
+              if (!admin || !berkoordinat) return baris;
+              return (
+                <div className="fk-baris-cek" key={e.id}>
+                  {baris}
+                  <TombolDicek dicek={e.lokasi.dicek} onUbah={() => ubahKoordinatDicek(e)} label="Koordinat dicek" />
+                </div>
               );
             })}
           </div>

@@ -130,10 +130,11 @@ model KertasKerja {
   judul     String            @default("") @db.VarChar(200)
   status    StatusKertasKerja @default(draft)
   createdAt DateTime          @default(now()) @map("created_at")
-  /// Titik objek - rumah / bidang yang disensus (satu kertas kerja = satu objek).
+  /// Lokasi sensus - rumah / bidang yang disensus (satu kertas kerja = satu objek).
   /// Diisi bila ditetapkan dengan sengaja: "peta" = ditunjuk di peta atau ditempel
-  /// dari Google Maps, "gps" = Rekam di sini di lokasi. Kosong = memakai GPS
-  /// terbaik yang terekam otomatis saat data-datanya disimpan.
+  /// dari Google Maps, "gps" = Rekam di sini di lokasi, "data" = GPS terbaik
+  /// datanya yang dibekukan saat admin menandai sudah dicek. Kosong = memakai
+  /// GPS terbaik yang terekam otomatis saat data-datanya disimpan.
   titikLat      Float?    @map("titik_lat")
   titikLon      Float?    @map("titik_lon")
   titikAkurasi  Float?    @map("titik_akurasi")
@@ -145,6 +146,9 @@ model KertasKerja {
   /// daftar kertas kerja bisa disaring di database. Null = belum dihitung;
   /// server menghitungnya saat start (lihat src/lokasiKk.js).
   lokasiStatus  String?   @map("lokasi_status") @db.VarChar(10)
+  /// Lokasi sensus sudah dicek admin: terkunci, hanya admin yang bisa mengubahnya.
+  lokasiDicekAt   DateTime? @map("lokasi_dicek_at")
+  lokasiDicekOleh String    @default("") @map("lokasi_dicek_oleh") @db.VarChar(64)
 
   petugas        KertasKerjaPetugas[]
   entri          Entri[]
@@ -190,6 +194,10 @@ model Entri {
   /// Perkiraan simpangan dalam meter, apa adanya dari perangkat.
   rekamAkurasi  Float?    @map("rekam_akurasi")
   rekamWaktu    DateTime? @map("rekam_waktu")
+  /// Koordinat objek (jawaban pertanyaan Lokasi) sudah dicek admin: terkunci,
+  /// petugas tidak bisa mengubahnya lagi.
+  koordinatDicekAt   DateTime? @map("koordinat_dicek_at")
+  koordinatDicekOleh String    @default("") @map("koordinat_dicek_oleh") @db.VarChar(64)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

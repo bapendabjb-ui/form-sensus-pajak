@@ -227,6 +227,13 @@ export const hapusTitikKk = (id) =>
 export const rekamTitikKk = (id, posisi) =>
   request(`/kertas-kerja/${id}/rekam`, { method: "PUT", body: posisi, auth: true });
 
+/** Tandai lokasi sensus sudah dicek (terkunci untuk petugas). Khusus admin. Mengembalikan detail kertas kerja. */
+export const setLokasiDicek = (id, dicek) =>
+  request(`/kertas-kerja/${id}/lokasi-dicek`, { method: "PUT", body: { dicek }, auth: true });
+/** Tandai koordinat objek sebuah data sudah dicek (terkunci untuk petugas). Khusus admin. Mengembalikan data. */
+export const setKoordinatDicek = (entriId, dicek) =>
+  request(`/entri/${entriId}/koordinat-dicek`, { method: "PUT", body: { dicek }, auth: true });
+
 /* ---------- entri: satu data yang diisi lewat formulir ---------- */
 
 export const getEntri = (id) => request(`/entri/${id}`);
@@ -239,9 +246,12 @@ export const createEntri = (kertasKerjaId, formulirId, jawaban, dariEpbb = [], b
     method: "POST",
     body: { formulirId, jawaban, dariEpbb, ...berkas, rekamKoordinat },
   });
-/** Mengubah data tidak merekam posisi; titik objek ditetapkan di tingkat kertas kerja. */
+/**
+ * Mengubah data tidak merekam posisi; titik objek ditetapkan di tingkat kertas kerja.
+ * Token admin ikut dikirim bila ada: koordinat objek yang sudah dicek hanya bisa diubah admin.
+ */
 export const updateEntri = (id, jawaban, dariEpbb = [], berkas = {}) =>
-  request(`/entri/${id}`, { method: "PUT", body: { jawaban, dariEpbb, ...berkas } });
+  request(`/entri/${id}`, { method: "PUT", body: { jawaban, dariEpbb, ...berkas }, auth: true });
 export const deleteEntri = (id) => request(`/entri/${id}`, { method: "DELETE", auth: true });
 
 /** Koordinat dari teks / tautan Google Maps, termasuk tautan pendek maps.app.goo.gl. */

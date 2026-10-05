@@ -11,6 +11,9 @@ import { PUSAT_AWAL, isiBalon } from "./bersama.jsx";
  *
  * titik  : [{ entriId, lat, lon, judul, formulir, nomor, status, petugas, ... }]
  * onBuka : (titik) => void  - dipanggil saat tautan di balon diklik
+ * onCek  : (titik) => void | null  - admin: tombol "sudah dicek" di balon
+ * kunciPandang : pandangan dirapatkan ulang hanya bila nilai ini berganti
+ *                (tampilan / saringan), bukan setiap titik berubah tanda
  * jenis  : "peta" | "satelit"
  */
 
@@ -21,19 +24,22 @@ import { PUSAT_AWAL, isiBalon } from "./bersama.jsx";
  */
 const ikonTitik = (t) =>
   L.divIcon({
-    className: `fk-titik is-${t.status === "selesai" ? "selesai" : "draft"}${t.sumber === "gps" ? " is-rekam" : ""}`,
-    html: '<span class="fk-titik-isi"></span>',
+    className: `fk-titik is-${t.status === "selesai" ? "selesai" : "draft"}${t.sumber === "gps" ? " is-rekam" : ""}${t.dicek ? " is-dicek" : ""}`,
+    html: `<span class="fk-titik-isi">${t.dicek ? "✓" : ""}</span>`,
     iconSize: [16, 16],
     iconAnchor: [8, 8],
   });
 
-export default function SebaranLeaflet({ titik = [], onBuka, jenis }) {
+export default function SebaranLeaflet({ titik = [], onBuka, onCek = null, kunciPandang, jenis }) {
   const wadah = useRef(null);
   const peta = useRef(null);
   const ubin = useRef(null);
   const lapisanTitik = useRef(null);
   const bukaRef = useRef(onBuka);
   bukaRef.current = onBuka;
+  const cekRef = useRef(onCek);
+  cekRef.current = onCek;
+  const pandangRef = useRef(Symbol("belum"));
 
   // Buat peta sekali.
   useEffect(() => {
@@ -68,23 +74,38 @@ export default function SebaranLeaflet({ titik = [], onBuka, jenis }) {
 
     grup.clearLayers();
     for (const t of titik) {
-      const penanda = L.marker([t.lat, t.lon], { icon: ikonTitik(t) }).bindPopup(isiBalon(t));
+      const penanda = L.marker([t.lat, t.lon], { icon: ikonTitik(t) }).bindPopup(
+        isiBalon(t, { bisaCek: Boolean(cekRef.current) })
+      );
       // Tombol di dalam balon baru ada di DOM setelah balon terbuka.
       penanda.on("popupopen", (e) => {
-        const tombol = e.popup.getElement()?.querySelector(".fk-balon-buka");
-        if (tombol) tombol.onclick = () => bukaRef.current?.(t);
+        const el = e.popup.getElement();
+        const buka = el?.querySelector(".fk-balon-buka");
+        if (buka) buka.onclick = () => bukaRef.current?.(t);
+        const cek = el?.querySelector(".fk-balon-cek");
+        if (cek) {
+          cek.onclick = () => {
+            m.closePopup();
+            cekRef.current?.(t);
+          };
+        }
       });
       grup.addLayer(penanda);
     }
 
-    // Rapatkan pandangan ke titik yang ada. Satu titik tidak punya rentang,
-    // jadi fitBounds akan mengecilkan peta habis-habisan - pakai setView.
+    // Rapatkan pandangan ke titik yang ada - hanya saat tampilan / saringan
+    // berganti. Menandai sudah dicek mengubah daftar titik juga, dan pandangan
+    // yang melompat setiap kali akan membuat admin kehilangan wilayah kerjanya.
+    if (pandangRef.current === kunciPandang) return;
+    pandangRef.current = kunciPandang;
+    // Satu titik tidak punya rentang, jadi fitBounds akan mengecilkan peta
+    // habis-habisan - pakai setView.
     if (titik.length === 1) {
       m.setView([titik[0].lat, titik[0].lon], 17);
     } else if (titik.length > 1) {
       m.fitBounds(L.latLngBounds(titik.map((t) => [t.lat, t.lon])), { padding: [40, 40], maxZoom: 17 });
     }
-  }, [titik]);
+  }, [titik, kunciPandang]);
 
   return <div className="fk-peta is-sebaran" ref={wadah} />;
 }

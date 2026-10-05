@@ -94,7 +94,6 @@ const ringkasTim = (petugas = []) => {
   return lain > 0 ? `${petugas[0].nama} +${lain}` : petugas[0].nama;
 };
 
-/** HTML isi balon sebuah titik; semua teks dari data sudah di-escape. */
 /** Keterangan asal titik di balon. */
 const ASAL_TITIK = {
   gps: "Titik dari GPS saat pendataan",
@@ -103,7 +102,11 @@ const ASAL_TITIK = {
   formulir: "Koordinat dari pertanyaan Lokasi",
 };
 
-export function isiBalon(t) {
+/**
+ * HTML isi balon sebuah titik; semua teks dari data sudah di-escape.
+ * `bisaCek` = admin: ada tombol "sudah dicek" (.fk-balon-cek).
+ */
+export function isiBalon(t, { bisaCek = false } = {}) {
   const kk = !t.entriId;
   const baris = [
     `<strong>${aman(t.judul || (kk ? `Kertas kerja ${t.nomor}` : t.formulir))}</strong>`,
@@ -111,10 +114,17 @@ export function isiBalon(t) {
     `<span class="fk-balon-sub">${aman(ringkasTim(t.petugas))}</span>`,
   ];
   if (ASAL_TITIK[t.sumber]) baris.push(`<span class="fk-balon-rekam">${ASAL_TITIK[t.sumber]}</span>`);
+  if (t.dicek) baris.push(`<span class="fk-balon-dicek">✓ Sudah dicek admin · terkunci</span>`);
   if (!t.berkasLengkap) {
     const catatan = t.catatanBerkas ? `: ${aman(t.catatanBerkas)}` : "";
     baris.push(`<span class="fk-balon-kurang">Berkas tidak lengkap${catatan}</span>`);
   }
-  baris.push(`<button type="button" class="fk-balon-buka">${kk ? "Buka kertas kerja" : "Buka data"}</button>`);
+  const tombol = [`<button type="button" class="fk-balon-buka">${kk ? "Buka kertas kerja" : "Buka data"}</button>`];
+  if (bisaCek) {
+    tombol.push(
+      `<button type="button" class="fk-balon-cek${t.dicek ? " is-on" : ""}">${t.dicek ? "Buka kunci" : "✓ Sudah dicek"}</button>`
+    );
+  }
+  baris.push(`<div class="fk-balon-aksi">${tombol.join("")}</div>`);
   return `<div class="fk-balon">${baris.join("")}</div>`;
 }
