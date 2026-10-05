@@ -15,12 +15,14 @@ const SARING = [
 
 /**
  * Dua macam titik ditampilkan terpisah supaya tidak menumpuk:
- *   kk   : satu titik per kertas kerja - lokasi sensus;
- *   data : koordinat dari pertanyaan Lokasi di formulir, mis. Koordinat Objek Pajak PBB-P2.
+ *   kk   : Lokasi sensus - satu titik per kertas kerja;
+ *   data : Koordinat objek - jawaban pertanyaan Lokasi di formulir, mis.
+ *          Koordinat Objek Pajak PBB-P2. Angkanya jumlah data berkoordinat,
+ *          bukan jumlah seluruh data, jadi namanya sengaja bukan "Data".
  */
 const TAMPILAN = [
-  ["kk", "Kertas kerja", "Satu titik per kertas kerja: lokasi sensus."],
-  ["data", "Data", "Koordinat dari pertanyaan Lokasi di formulir, mis. Koordinat Objek Pajak."],
+  ["kk", "Lokasi sensus", "Satu titik per kertas kerja: tempat petugas mendata."],
+  ["data", "Koordinat objek", "Satu titik per data yang mengisi pertanyaan Lokasi, mis. Koordinat Objek Pajak."],
 ];
 
 const KUNCI_TAMPILAN = "sensus-pajak:peta-tampilan";

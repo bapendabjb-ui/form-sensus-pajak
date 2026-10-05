@@ -609,8 +609,8 @@ kertas kerja, bukan per data. Ada tiga macam koordinat:
 | Koordinat | Asal | Dipakai untuk |
 | --------- | ---- | ------------- |
 | **GPS asli** per data | Posisi perangkat petugas saat data **baru** disimpan (kolom `entri.rekam_*`). Tidak bisa diubah. | Bukti kunjungan, dan titik kertas kerja selama belum ditetapkan |
-| **Titik kertas kerja** | Ditetapkan di peta / ditempel dari Google Maps, atau **Rekam di sini** di lokasi (kolom `kertas_kerja.titik_*`). Bila belum ada: GPS terbaik di antara datanya — yang di lapangan dan paling teliti. | Peta Sensus tampilan **Kertas kerja** (satu titik per kertas kerja); pemeriksaan lokasi |
-| **Pertanyaan Lokasi** di formulir | Diisi petugas, mis. Koordinat Objek Pajak pada PBB-P2 — termasuk rumah kedua di tempat lain. | Peta Sensus tampilan **Data** (satu titik per data yang mengisinya) |
+| **Titik kertas kerja** | Ditetapkan di peta / ditempel dari Google Maps, atau **Rekam di sini** di lokasi (kolom `kertas_kerja.titik_*`). Bila belum ada: GPS terbaik di antara datanya — yang di lapangan dan paling teliti. | Peta Sensus tampilan **Lokasi sensus** (satu titik per kertas kerja); pemeriksaan lokasi |
+| **Pertanyaan Lokasi** di formulir | Diisi petugas, mis. Koordinat Objek Pajak pada PBB-P2 — termasuk rumah kedua di tempat lain. | Peta Sensus tampilan **Koordinat objek** (satu titik per data yang mengisinya) |
 
 | Kapan | Yang terjadi |
 | ----- | ------------ |
