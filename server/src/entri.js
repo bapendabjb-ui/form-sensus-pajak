@@ -9,7 +9,8 @@
 const prisma = require("./prisma");
 const { normalizeNilai, nilaiTerisi, pesanFormat, barisRincianTarif } = require("./answers");
 const { FOTO_MAKS_PER_PERTANYAAN } = require("./batas");
-const { includePertanyaan, bentukFormulir, petaJawaban } = require("./bentuk");
+const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require("./bentuk");
+const { includePengajuanTerakhir, bentukPengajuanTerakhir } = require("./pengajuan");
 const { notFound } = require("./http");
 const { SUMBER_EPBB } = require("./epbb");
 
@@ -168,7 +169,13 @@ async function tulisJawaban(tx, entriId, siap) {
 async function muatEntri(id) {
   const e = await prisma.entri.findUnique({
     where: { id },
-    include: { jawaban: true, kertasKerja: true, formulir: { include: includePertanyaan } },
+    include: {
+      jawaban: true,
+      // Tim dipakai untuk memilih nama pengaju saat petugas mengajukan hapus.
+      kertasKerja: { include: { petugas: { include: { petugas: true } } } },
+      formulir: { include: includePertanyaan },
+      pengajuanHapus: includePengajuanTerakhir("entri"),
+    },
   });
   if (!e) throw notFound("Data tidak ditemukan.");
   return {
@@ -177,7 +184,9 @@ async function muatEntri(id) {
       id: e.kertasKerja.id,
       nomor: e.kertasKerja.nomor,
       status: e.kertasKerja.status,
+      petugas: bentukTim(e.kertasKerja.petugas),
     },
+    pengajuanHapus: bentukPengajuanTerakhir(e.pengajuanHapus),
     formulir: bentukFormulir(e.formulir),
     jawaban: petaJawaban(e.jawaban),
     dariEpbb: e.jawaban.filter((j) => j.dariEpbb).map((j) => j.pertanyaanId),

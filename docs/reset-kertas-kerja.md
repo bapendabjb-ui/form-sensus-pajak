@@ -16,6 +16,7 @@ urutannya, jangan lompat langkah.
 | Semua kertas kerja beserta tim petugasnya                    | Akun admin (dan password-nya)     |
 | Semua data yang diisi (jawaban pertanyaan, rincian tarif)    | Daftar petugas                    |
 | Semua foto — catatannya di database **dan** berkasnya        | Bank formulir beserta pertanyaan  |
+| Semua pengajuan hapus beserta riwayatnya                     |                                   |
 | Counter nomor → kertas kerja berikutnya bernomor **00001**   |                                   |
 | Draf isian yang tertinggal di HP/laptop petugas *(lihat catatan di bawah)* |                     |
 

@@ -11,8 +11,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "../../api.js";
 import { useToast } from "../../components/Toast.jsx";
 import { useDialog } from "../../components/Dialog.jsx";
-import { Loading, ErrorBox, KunciAdmin } from "../../components/Ui.jsx";
+import { Loading, ErrorBox } from "../../components/Ui.jsx";
 import FieldInput from "../../components/Fields.jsx";
+import { PitaPengajuan, AjukanHapus } from "../../components/PengajuanHapus.jsx";
 import { fromApi, emptyValue, buildPayload, validateRequired, statusFoto, isFilled } from "../../lib/answers.js";
 import { nilaiDariEpbb } from "../../lib/epbb.js";
 import { judulEntri } from "../../lib/ringkas.js";
@@ -26,6 +27,7 @@ import { urlKk } from "./bersama.js";
 
 const UMUR_FOTO_DRAF_MS = 20 * 3600 * 1000; // unggahan yang tak disimpan dibersihkan server setelah 24 jam
 const BERKAS_LENGKAP = { berkasLengkap: true, catatanBerkas: "" };
+const PESAN_HAPUS = "Data beserta fotonya dihapus dari kertas kerja. Tindakan ini tidak dapat dibatalkan.";
 
 /** Salin jawaban untuk disimpan sebagai draf: foto hanya yang sudah terunggah. */
 /**
@@ -67,6 +69,9 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
   const admin = useAdmin();
   const [formulir, setFormulir] = useState(null);
   const [nomor, setNomor] = useState("");
+  // Hanya saat mengubah data: tim kertas kerja (nama pengaju) dan pengajuan hapus terakhirnya.
+  const [tim, setTim] = useState([]);
+  const [pengajuan, setPengajuan] = useState(null);
   const [answers, setAnswers] = useState({});
   // { [pertanyaanId]: true } untuk isian yang masih asli dari EPBB; hilang begitu petugas mengubahnya.
   const [dariEpbb, setDariEpbb] = useState({});
@@ -133,6 +138,8 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
           if (batal) return;
           f = e.formulir;
           setNomor(e.kertasKerja.nomor);
+          setTim(e.kertasKerja.petugas || []);
+          setPengajuan(e.pengajuanHapus || null);
           const awal = {};
           for (const q of f.pertanyaan) {
             awal[q.id] = e.jawaban[q.id] === undefined ? emptyValue(q.tipe) : fromApi(q.tipe, e.jawaban[q.id]);
@@ -343,20 +350,19 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
     }
   };
 
+  const sudahDihapus = () => {
+    berubah.current = false;
+    hapusDraf();
+    toast("Data dihapus.");
+    kembali(urlKembali);
+  };
+
   const hapus = async () => {
-    const ya = await konfirmasi({
-      judul: "Hapus data ini?",
-      pesan: "Data beserta fotonya dihapus dari kertas kerja. Tindakan ini tidak dapat dibatalkan.",
-      ya: "Hapus",
-      bahaya: true,
-    });
+    const ya = await konfirmasi({ judul: "Hapus data ini?", pesan: PESAN_HAPUS, ya: "Hapus", bahaya: true });
     if (!ya) return;
     try {
       await api.deleteEntri(entriId);
-      berubah.current = false;
-      hapusDraf();
-      toast("Data dihapus.");
-      kembali(urlKembali);
+      sudahDihapus();
     } catch (e) {
       toast(e.message, true);
     }
@@ -426,6 +432,16 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
   return (
     <div ref={wadah} className={"fk-fill" + (adaKolom ? " is-dua-kolom" : "")}>
       {tombolKembali}
+
+      {entriId && (
+        <PitaPengajuan
+          pengajuan={pengajuan}
+          admin={admin}
+          pesanHapus={PESAN_HAPUS}
+          onDisetujui={sudahDihapus}
+          onBerubah={setPengajuan}
+        />
+      )}
 
       {latihan && (
         <div className="fk-latihan-bar" role="note">
@@ -519,9 +535,7 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
             </button>
           </div>
         ) : (
-          <KunciAdmin>
-            Menghapus data hanya bisa dilakukan admin. Isian yang keliru masih bisa Anda perbaiki lalu simpan.
-          </KunciAdmin>
+          <AjukanHapus jenis="entri" sasaranId={entriId} tim={tim} pengajuan={pengajuan} onTerkirim={setPengajuan} />
         ))}
 
       <div className="fk-form-actions fk-sticky-actions">

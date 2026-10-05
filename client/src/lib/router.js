@@ -218,6 +218,10 @@ export function cocokkanRute(pathname) {
   if (b.length === 1 && b[0] === "petugas") return { nama: "petugas", tab: "petugas", judul: "Petugas" };
   if (b.length === 1 && b[0] === "formulir") return { nama: "formulir", tab: "formulir", judul: "Formulir" };
   if (b.length === 1 && b[0] === "ekspor") return { nama: "ekspor", tab: "ekspor", judul: "Ekspor Data" };
+  // Tidak ada di bilah tab HP (dibuka dari Dashboard), jadi bilah atas butuh tombol kembali.
+  if (b.length === 1 && b[0] === "pengajuan-hapus") {
+    return { nama: "pengajuan", tab: "pengajuan", judul: "Pengajuan Hapus", kembali: "/" };
+  }
 
   return { nama: "tidak-ada", tab: null, judul: "Tidak Ditemukan", kembali: "/" };
 }

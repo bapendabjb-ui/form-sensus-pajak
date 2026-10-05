@@ -6,6 +6,7 @@ const { requireAdmin } = require("../auth");
 const { wrap, notFound, parseId, ApiError } = require("../http");
 const { siapkanJawaban, tulisJawaban, muatEntri, bacaBerkas, bacaRekamKoordinat } = require("../entri");
 const { hapusBerkas } = require("../foto");
+const { hapusEntri } = require("../hapus");
 const { includePertanyaan } = require("../bentuk");
 
 const router = express.Router();
@@ -58,14 +59,7 @@ router.delete(
   "/:id",
   requireAdmin,
   wrap(async (req, res) => {
-    const id = parseId(req.params.id);
-    const ada = await prisma.entri.findUnique({ where: { id } });
-    if (!ada) throw notFound("Data tidak ditemukan.");
-
-    const berkas = await prisma.foto.findMany({ where: { entriId: id }, select: { berkas: true } });
-    await prisma.entri.delete({ where: { id } });
-    await hapusBerkas(berkas.map((f) => f.berkas));
-
+    await hapusEntri(parseId(req.params.id), req.admin);
     res.status(204).end();
   })
 );

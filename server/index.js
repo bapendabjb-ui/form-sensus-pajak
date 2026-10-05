@@ -49,6 +49,7 @@ app.use("/api/petugas", require("./src/routes/petugas"));
 app.use("/api/formulir", require("./src/routes/formulir"));
 app.use("/api/kertas-kerja", require("./src/routes/kertasKerja"));
 app.use("/api/entri", require("./src/routes/entri"));
+app.use("/api/pengajuan-hapus", require("./src/routes/pengajuan"));
 app.use("/api/foto", require("./src/routes/foto"));
 app.use("/api/dashboard", require("./src/routes/dashboard"));
 app.use("/api/peta", require("./src/routes/peta"));

@@ -7,8 +7,8 @@
  *   node server/scripts/reset-kertas-kerja.js --yakin   (benar-benar menghapus)
  *
  * Yang dihapus: kertas kerja, tim petugasnya, entri, jawaban, rincian tarif,
- * semua foto (baris database dan berkasnya di UPLOAD_DIR), dan counter nomor
- * dikembalikan ke 0. Periode data dinaikkan sehingga draf isian di browser
+ * semua foto (baris database dan berkasnya di UPLOAD_DIR), seluruh pengajuan
+ * hapus beserta riwayatnya, dan counter nomor dikembalikan ke 0. Periode data dinaikkan sehingga draf isian di browser
  * petugas ikut dibuang saat aplikasi dibuka berikutnya.
  * Yang tetap: admin, petugas, bank formulir & pertanyaannya.
  *
@@ -25,15 +25,19 @@ const prisma = require("../src/prisma");
 async function main() {
   const yakin = process.argv.includes("--yakin");
 
-  const [kertasKerja, entri, jawaban, foto] = await Promise.all([
+  const [kertasKerja, entri, jawaban, foto, pengajuan] = await Promise.all([
     prisma.kertasKerja.count(),
     prisma.entri.count(),
     prisma.jawaban.count(),
     prisma.foto.count(),
+    prisma.pengajuanHapus.count(),
   ]);
   console.log(`Database : ${String(process.env.DATABASE_URL || "").replace(/\/\/[^@]*@/, "//***@")}`);
   console.log(`Foto     : ${config.uploadDir}`);
-  console.log(`Akan dihapus: ${kertasKerja} kertas kerja, ${entri} entri, ${jawaban} jawaban, ${foto} foto.`);
+  console.log(
+    `Akan dihapus: ${kertasKerja} kertas kerja, ${entri} entri, ${jawaban} jawaban, ${foto} foto, ` +
+      `${pengajuan} pengajuan hapus.`
+  );
 
   if (!yakin) {
     console.log("Mode uji - tidak ada yang dihapus. Tambahkan --yakin untuk menjalankan.");
@@ -43,6 +47,8 @@ async function main() {
   await prisma.$transaction([
     // Semua foto, termasuk unggahan yang belum ditautkan ke entri.
     prisma.foto.deleteMany({}),
+    // Riwayatnya memuat nomor kertas kerja yang akan dipakai ulang mulai 00001.
+    prisma.pengajuanHapus.deleteMany({}),
     // Cascade: kertas_kerja_petugas, entri, jawaban, rincian_tarif.
     prisma.kertasKerja.deleteMany({}),
     // Periode naik: browser petugas membuang draf lamanya saat aplikasi dibuka.

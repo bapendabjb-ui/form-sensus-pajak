@@ -3,7 +3,7 @@ import * as api from "./api.js";
 import { ToastProvider } from "./components/Toast.jsx";
 import { DialogProvider } from "./components/Dialog.jsx";
 import { Empty } from "./components/Ui.jsx";
-import { Lambang, IconKembali, IconGrid, IconDoc, IconUser, IconList, IconLock, IconUnduh, IconPeta, IconLatihan } from "./components/Icons.jsx";
+import { Lambang, IconKembali, IconGrid, IconDoc, IconUser, IconList, IconLock, IconUnduh, IconPeta, IconLatihan, IconPengajuan } from "./components/Icons.jsx";
 import LoginAdmin from "./components/LoginAdmin.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import { DaftarKertasKerja, BuatKertasKerja, DetailKertasKerja, IsiData } from "./pages/kertas-kerja/index.js";
@@ -13,6 +13,7 @@ import AkunPage from "./pages/AkunPage.jsx";
 import EksporPage from "./pages/EksporPage.jsx";
 import PetaPage from "./pages/PetaPage.jsx";
 import LatihanPage from "./pages/LatihanPage.jsx";
+import PengajuanPage from "./pages/PengajuanPage.jsx";
 import { AdminContext } from "./lib/admin.js";
 import { bersihkanDrafLama } from "./lib/konfigurasi.js";
 import { useLokasi, navigate, kembali, cocokkanRute } from "./lib/router.js";
@@ -25,6 +26,8 @@ const NAV = [
   { tab: "latihan", path: "/latihan", label: "Latihan Petugas", pendek: "Latihan", Icon: IconLatihan },
   { tab: "ekspor", path: "/ekspor", label: "Ekspor", pendek: "Ekspor", Icon: IconUnduh, admin: true },
   { tab: "formulir", path: "/formulir", label: "Formulir", pendek: "Formulir", Icon: IconList, admin: true },
+  // Hanya di sidebar: bilah tab HP admin sudah penuh. Di HP dibuka dari Dashboard.
+  { tab: "pengajuan", path: "/pengajuan-hapus", label: "Pengajuan Hapus", pendek: "Pengajuan", Icon: IconPengajuan, admin: true, tabbar: false },
 ];
 
 /** Klik tautan internal tanpa memuat ulang halaman (Ctrl/Cmd+klik tetap membuka tab baru). */
@@ -137,6 +140,9 @@ function Shell() {
     case "formulir":
       halaman = <FormulirPage admin={admin} onAuthChanged={() => setAdmin(api.isLoggedIn())} />;
       break;
+    case "pengajuan":
+      halaman = <PengajuanPage admin={admin} onAuthChanged={() => setAdmin(api.isLoggedIn())} />;
+      break;
     case "masuk":
       // Setelah berhasil masuk, kembali ke layar yang tadi ditinggalkan.
       halaman = <LoginAdmin onLoggedIn={() => kembali("/")} />;
@@ -243,7 +249,7 @@ function Shell() {
       {/* ---------- HP: bilah tab bawah ---------- */}
       {!rute.fokus && (
         <nav className="fk-tabbar" aria-label="Navigasi utama">
-          {menu.map(({ tab, path, pendek, Icon }) => (
+          {menu.filter((m) => m.tabbar !== false).map(({ tab, path, pendek, Icon }) => (
             <a
               key={tab}
               href={path}

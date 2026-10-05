@@ -131,8 +131,9 @@ model KertasKerja {
   status    StatusKertasKerja @default(draft)
   createdAt DateTime          @default(now()) @map("created_at")
 
-  petugas KertasKerjaPetugas[]
-  entri   Entri[]
+  petugas        KertasKerjaPetugas[]
+  entri          Entri[]
+  pengajuanHapus PengajuanHapus[]
 
   @@map("kertas_kerja")
 }
@@ -176,11 +177,12 @@ model Entri {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  kertasKerja  KertasKerja    @relation(fields: [kertasKerjaId], references: [id], onDelete: Cascade)
-  formulir     Formulir       @relation(fields: [formulirId], references: [id], onDelete: Cascade)
-  jawaban      Jawaban[]
-  rincianTarif RincianTarif[]
-  foto         Foto[]
+  kertasKerja    KertasKerja      @relation(fields: [kertasKerjaId], references: [id], onDelete: Cascade)
+  formulir       Formulir         @relation(fields: [formulirId], references: [id], onDelete: Cascade)
+  jawaban        Jawaban[]
+  rincianTarif   RincianTarif[]
+  foto           Foto[]
+  pengajuanHapus PengajuanHapus[]
 
   @@index([kertasKerjaId], map: "entri_kertas_kerja_id_idx")
   @@index([formulirId], map: "entri_formulir_id_idx")
@@ -258,6 +260,50 @@ model Foto {
   @@index([entriId], map: "foto_entri_id_idx")
   @@index([pertanyaanId], map: "foto_pertanyaan_id_idx")
   @@map("foto")
+}
+
+enum JenisPengajuan {
+  kertas_kerja
+  entri
+}
+
+enum StatusPengajuan {
+  menunggu
+  disetujui
+  ditolak
+}
+
+/// Permintaan petugas agar admin menghapus sebuah kertas kerja atau satu data.
+/// Petugas tidak login, jadi `pengaju` hanyalah nama anggota tim yang dipilih
+/// saat mengajukan.
+///
+/// Baris tetap disimpan setelah diputuskan sebagai jejak. Tautannya menjadi NULL
+/// begitu sasarannya terhapus, karena itu nomor kertas kerja dan judul data
+/// disalin ke sini supaya riwayatnya tetap terbaca.
+model PengajuanHapus {
+  id             Int             @id @default(autoincrement())
+  jenis          JenisPengajuan
+  /// Untuk jenis "entri" diisi kertas kerja pemilik datanya.
+  kertasKerjaId  Int?            @map("kertas_kerja_id")
+  entriId        Int?            @map("entri_id")
+  nomorKk        String          @map("nomor_kk") @db.Char(5)
+  /// Jenis "entri": judul data dan formulirnya, mis. "Toko Budi · PBJT Restoran".
+  judul          String          @default("") @db.VarChar(300)
+  alasan         String          @db.VarChar(500)
+  pengaju        String          @db.VarChar(150)
+  status         StatusPengajuan @default(menunggu)
+  createdAt      DateTime        @default(now()) @map("created_at")
+  diputuskanAt   DateTime?       @map("diputuskan_at")
+  /// Username admin yang memutuskan.
+  diputuskanOleh String          @default("") @map("diputuskan_oleh") @db.VarChar(64)
+
+  kertasKerja KertasKerja? @relation(fields: [kertasKerjaId], references: [id], onDelete: SetNull)
+  entri       Entri?       @relation(fields: [entriId], references: [id], onDelete: SetNull)
+
+  @@index([status], map: "pengajuan_hapus_status_idx")
+  @@index([kertasKerjaId], map: "pengajuan_hapus_kertas_kerja_id_idx")
+  @@index([entriId], map: "pengajuan_hapus_entri_id_idx")
+  @@map("pengajuan_hapus")
 }
 
 /// Counter penomoran kertas kerja - selalu tepat 1 baris (id = 1).

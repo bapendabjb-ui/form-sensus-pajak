@@ -198,6 +198,14 @@ export function formatTimestamp(value) {
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** "5 Oktober 2026, 14.30" - tanggal beserta jam. */
+export function formatWaktu(value) {
+  const tanggal = formatTimestamp(value);
+  if (!tanggal) return "";
+  const d = new Date(value);
+  return `${tanggal}, ${pad(d.getHours())}.${pad(d.getMinutes())}`;
+}
+
 /* ---------- angka & uang ---------- */
 
 /** Sisakan hanya digit (dan satu koma desimal) dari input pengguna. */

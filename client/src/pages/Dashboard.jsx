@@ -3,8 +3,10 @@ import * as api from "../api.js";
 import { Panel, PageHead, Loading, ErrorBox } from "../components/Ui.jsx";
 import { navigate } from "../lib/router.js";
 import { simpanFilterKk } from "../lib/filterKk.js";
+import { useAdmin } from "../lib/admin.js";
 
 export default function Dashboard() {
+  const admin = useAdmin();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -57,6 +59,25 @@ export default function Dashboard() {
               Kertas Kerja
             </button>
           </div>
+
+          {/* Selalu tampil untuk admin: di HP ini satu-satunya jalan ke halaman Pengajuan Hapus. */}
+          {admin && (
+            <button
+              type="button"
+              className={"fk-pengajuan-ringkas" + (stats.pengajuanHapus > 0 ? " is-ada" : "")}
+              onClick={() => navigate("/pengajuan-hapus")}
+            >
+              <span className="fk-pengajuan-ringkas-teks">
+                <b>Pengajuan hapus</b>
+                <span>
+                  {stats.pengajuanHapus > 0
+                    ? `${Number(stats.pengajuanHapus).toLocaleString("id-ID")} menunggu persetujuan Anda`
+                    : "Tidak ada yang menunggu"}
+                </span>
+              </span>
+              <span className="fk-baris-panah">›</span>
+            </button>
+          )}
 
           <div className="fk-stats">
             {kartu.map(([angka, label, onClick, kelas = ""]) => {

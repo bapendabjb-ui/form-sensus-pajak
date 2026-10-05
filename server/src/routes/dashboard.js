@@ -7,14 +7,18 @@ const { peringkatPetugas } = require("../rekap");
 
 const router = express.Router();
 
-/** GET /api/dashboard/stats -> angka ringkasan + 10 petugas dengan kertas kerja terbanyak. */
+/**
+ * GET /api/dashboard/stats -> angka ringkasan + 10 petugas dengan kertas kerja terbanyak.
+ * `pengajuanHapus` = pengajuan hapus yang menunggu; hanya ditampilkan untuk admin.
+ */
 router.get(
   "/stats",
   wrap(async (_req, res) => {
-    const [totalKertasKerja, selesai, tidakLengkap, rekapPetugas] = await Promise.all([
+    const [totalKertasKerja, selesai, tidakLengkap, pengajuanHapus, rekapPetugas] = await Promise.all([
       prisma.kertasKerja.count(),
       prisma.kertasKerja.count({ where: { status: "selesai" } }),
       prisma.entri.count({ where: { berkasLengkap: false } }),
+      prisma.pengajuanHapus.count({ where: { status: "menunggu" } }),
       peringkatPetugas(10),
     ]);
 
@@ -23,6 +27,7 @@ router.get(
       selesai,
       draft: totalKertasKerja - selesai,
       tidakLengkap,
+      pengajuanHapus,
       rekapPetugas,
     });
   })

@@ -230,6 +230,21 @@ export const updateEntri = (id, jawaban, dariEpbb = [], berkas = {}, rekamKoordi
   request(`/entri/${id}`, { method: "PUT", body: { jawaban, dariEpbb, ...berkas, rekamKoordinat } });
 export const deleteEntri = (id) => request(`/entri/${id}`, { method: "DELETE", auth: true });
 
+/* ---------- pengajuan hapus ---------- */
+
+/**
+ * Petugas meminta admin menghapus kertas kerja atau satu data.
+ * `jenis` = "kertas_kerja" | "entri"; `petugasId` = anggota tim yang mengajukan.
+ */
+export const ajukanHapus = (jenis, sasaranId, petugasId, alasan) =>
+  request("/pengajuan-hapus", { method: "POST", body: { jenis, sasaranId, petugasId, alasan } });
+export const batalkanPengajuan = (id) => request(`/pengajuan-hapus/${id}`, { method: "DELETE" });
+/** Khusus admin. `status` = "menunggu" | "riwayat". Mengembalikan { baris, menunggu }. */
+export const listPengajuan = (status = "menunggu") =>
+  request(`/pengajuan-hapus?status=${status}`, { auth: true });
+export const setujuiPengajuan = (id) => request(`/pengajuan-hapus/${id}/setujui`, { method: "POST", auth: true });
+export const tolakPengajuan = (id) => request(`/pengajuan-hapus/${id}/tolak`, { method: "POST", auth: true });
+
 /* ---------- foto ---------- */
 
 export const fotoUrl = (id) => `${BASE}/foto/${id}`;

@@ -15,6 +15,8 @@ const {
   hitungTidakLengkap,
 } = require("../entri");
 const { hapusBerkas } = require("../foto");
+const { hapusKertasKerja } = require("../hapus");
+const { includePengajuanTerakhir, bentukPengajuanTerakhir } = require("../pengajuan");
 const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require("../bentuk");
 const { susunEkspor, barisTanpaData, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
 
@@ -49,7 +51,14 @@ async function muatDetail(id) {
     where: { id },
     include: {
       ...includeTim,
-      entri: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], include: { jawaban: true } },
+      pengajuanHapus: includePengajuanTerakhir("kertas_kerja"),
+      entri: {
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        include: {
+          jawaban: true,
+          pengajuanHapus: { where: { status: "menunggu" }, select: { id: true }, take: 1 },
+        },
+      },
     },
   });
   if (!kk) throw notFound("Kertas kerja tidak ditemukan.");
@@ -74,12 +83,14 @@ function bentukDetail({ kk, formulir }) {
     status: kk.status,
     createdAt: kk.createdAt,
     petugas: bentukTim(kk.petugas),
+    pengajuanHapus: bentukPengajuanTerakhir(kk.pengajuanHapus),
     formulir: formulir.map(bentukFormulir),
     entri: kk.entri.map((e) => ({
       id: e.id,
       formulirId: e.formulirId,
       berkasLengkap: e.berkasLengkap,
       catatanBerkas: e.catatanBerkas,
+      diajukanHapus: e.pengajuanHapus.length > 0,
       createdAt: e.createdAt,
       updatedAt: e.updatedAt,
       jawaban: petaJawaban(e.jawaban),
@@ -378,17 +389,7 @@ router.delete(
   "/:id",
   requireAdmin,
   wrap(async (req, res) => {
-    const id = parseId(req.params.id);
-    const ada = await prisma.kertasKerja.findUnique({ where: { id } });
-    if (!ada) throw notFound("Kertas kerja tidak ditemukan.");
-
-    const berkas = await prisma.foto.findMany({
-      where: { entri: { kertasKerjaId: id } },
-      select: { berkas: true },
-    });
-    await prisma.kertasKerja.delete({ where: { id } });
-    await hapusBerkas(berkas.map((f) => f.berkas));
-
+    await hapusKertasKerja(parseId(req.params.id), req.admin);
     res.status(204).end();
   })
 );

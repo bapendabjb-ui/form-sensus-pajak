@@ -55,6 +55,14 @@ berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengeksporny
 6. **Tandai selesai** (minimal satu data), atau **Ekspor CSV** kapan saja.
    **Ubah petugas** dan penghapusan memerlukan login admin. Data yang sudah tersimpan tetap
    bisa dibuka dan diubah.
+7. **Ajukan hapus** — petugas yang ingin menghapus kertas kerja atau satu data menekan
+   **Ajukan hapus** di bagian bawah halamannya, memilih namanya dari tim, dan menulis alasan.
+   Halaman itu lalu menampilkan pita kuning "diajukan untuk dihapus" (bisa dibatalkan selama
+   belum diputuskan), dan data yang diajukan berlabel **Diajukan hapus** di halaman kertas kerjanya.
+   Admin memutuskan lewat menu **Pengajuan Hapus** (di HP: dari kartu di Dashboard) atau
+   langsung di pita halaman tersebut — **Setujui & hapus** atau **Tolak**. Pengajuan yang ditolak
+   tetap disebutkan di halaman sasarannya supaya petugas tahu, dan semua keputusan tercatat di
+   tab **Riwayat**.
 
 ---
 
@@ -149,6 +157,7 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── WilayahInput.jsx    kecamatan & kelurahan bertingkat
 │       │   ├── LokasiInput.jsx     titik GPS + akurasi
 │       │   ├── Dialog.jsx          dialog konfirmasi aplikasi (pengganti window.confirm)
+│       │   ├── PengajuanHapus.jsx  pita pengajuan menunggu + isian "Ajukan hapus"
 │       │   ├── Fields.jsx          semua 16 tipe input pengisian (termasuk NIK, NPWP, NOP, RT & RW)
 │       │   ├── RingkasanLatihan.jsx  hasil & ringkasan jawaban setelah latihan
 │       │   └── Toast.jsx, Ui.jsx
@@ -163,6 +172,7 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │           │   └── bersama.js      perkakas kecil yang dipakai keempatnya
 │           ├── PetugasPage.jsx
 │           ├── LatihanPage.jsx     pilih formulir untuk latihan petugas (tanpa simpan)
+│           ├── PengajuanPage.jsx   antrean & riwayat pengajuan hapus (admin)
 │           └── FormulirPage.jsx    login admin + penyusun formulir
 │
 ├── server/                         Express + Prisma
@@ -181,10 +191,12 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │   │   ├── answers.js              normalisasi & validasi nilai per tipe
 │   │   ├── entri.js                simpan data: jawaban, rincian tarif, tautan foto
 │   │   ├── foto.js                 simpan/hapus berkas foto + pembersih foto yatim (per batch)
+│   │   ├── hapus.js                hapus kertas kerja / data + tutup pengajuan hapusnya
+│   │   ├── pengajuan.js            validasi & bentuk JSON pengajuan hapus
 │   │   ├── wilayah.js              data kecamatan & kelurahan Kota Banjarbaru
 │   │   ├── bentuk.js               bentuk keluaran JSON bersama
 │   │   ├── format.js               format tanggal/uang + penyusun CSV (anti rumus)
-│   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, foto, dashboard, peta, nop
+│   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, pengajuan, foto, dashboard, peta, nop
 │   └── test/                       tes node:test - logika murni, tanpa database
 │
 ├── uploads/                        foto (lokal; di Railway pakai volume) — tidak di-commit
@@ -321,6 +333,8 @@ Prinsipnya: **pekerjaan lapangan terbuka, pengelolaan dan penghapusan butuh admi
 | Melihat dashboard, kertas kerja, formulir, dan daftar petugas                 |        —          |
 | Membuat kertas kerja beserta timnya, menandai selesai                         |        —          |
 | Mengisi data, mengubah data, mengunggah & melihat foto                        |        —          |
+| Mengajukan hapus kertas kerja / data, membatalkan pengajuan yang menunggu      |        —          |
+| **Melihat, menyetujui & menolak pengajuan hapus**                             |       ✅          |
 | **Ekspor CSV & Excel (kertas kerja, formulir, daftar petugas)**               |       ✅          |
 | **Mengubah tim petugas kertas kerja yang sudah dibuat**                       |       ✅          |
 | **Menambah / mengubah / menghapus petugas, impor daftar petugas**             |       ✅          |
@@ -329,8 +343,9 @@ Prinsipnya: **pekerjaan lapangan terbuka, pengelolaan dan penghapusan butuh admi
 | **Membuat / mengubah / menghapus formulir**                                   |       ✅          |
 
 Aksi khusus admin **tidak ditampilkan** selama belum login; di tempatnya muncul
-pemberitahuan singkat beserta tombol **Masuk admin**. Menu **Formulir** dan
-**Ekspor** disembunyikan sebelum login. Login bisa dibuka kapan saja lewat `/masuk`
+pemberitahuan singkat beserta tombol **Masuk admin** — kecuali tombol hapus, yang
+digantikan tombol **Ajukan hapus**. Menu **Formulir**, **Ekspor**, dan **Pengajuan
+Hapus** disembunyikan sebelum login. Login bisa dibuka kapan saja lewat `/masuk`
 (tombol **Masuk admin** di kaki sidebar, atau **Masuk** di bilah atas pada HP).
 
 Menyembunyikan tombol hanya untuk kenyamanan — **server memeriksa token pada setiap
@@ -405,6 +420,7 @@ build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
 | `jawaban`               | `nilai` JSON, **UNIQUE(entri_id, pertanyaan_id)**                           |
 | `rincian_tarif`         | Bentuk ternormalisasi jawaban "rincian tarif" per entri, untuk pelaporan    |
 | `foto`                  | Berkas foto: `berkas` (path relatif), `entri_id`, `pertanyaan_id`, `mime`   |
+| `pengajuan_hapus`       | Pengajuan hapus dari petugas: `jenis` (`kertas_kerja`/`entri`), tautan sasaran, salinan `nomor_kk` & `judul`, `alasan`, `pengaju`, `status` (`menunggu`/`disetujui`/`ditolak`), `diputuskan_at`, `diputuskan_oleh` |
 | `nomor_counter`         | Tepat 1 baris (`id = 1`) untuk penomoran                                    |
 
 Perilaku relasi:
@@ -413,6 +429,10 @@ Perilaku relasi:
 - Menghapus **entri** → jawaban & fotonya ikut terhapus.
 - Menghapus **formulir** → ditolak **409** bila sudah diisi, kecuali `?force=true` (data ikut terhapus).
 - Menghapus **petugas** yang masih ada di tim kertas kerja → ditolak **409**.
+- Pengajuan hapus **tidak ikut terhapus** bersama sasarannya: tautannya menjadi `NULL` dan
+  barisnya tetap ada sebagai riwayat. Kertas kerja / data yang terhapus lewat jalan apa pun
+  (persetujuan, tombol hapus admin, atau formulir yang dihapus paksa) menutup pengajuan yang
+  masih menunggu untuknya sebagai `disetujui`. Skrip reset kertas kerja mengosongkan tabel ini.
 - Mengubah formulir memakai *update* untuk pertanyaan yang id-nya dikirim ulang, sehingga data
   yang sudah tersimpan tidak hilang saat admin menambah atau mengurutkan ulang pertanyaan.
 
@@ -853,6 +873,22 @@ Body `jawaban` berbentuk `{ "<pertanyaanId>": nilai }` (lihat format di atas). K
 **selalu** divalidasi saat menyimpan data; bila ada yang kosong server menjawab **422**
 `{ "error": "...", "errors": { "<pertanyaanId>": "Kolom ini wajib diisi." } }` tanpa menyimpan apa pun.
 
+`GET /kertas-kerja/:id` dan `GET /entri/:id` menyertakan `pengajuanHapus`: pengajuan terakhir
+yang masih menunggu atau ditolak untuk sasaran itu (atau `null`). Setiap entri di detail kertas
+kerja juga membawa `diajukanHapus` (ada pengajuan menunggu atau tidak).
+
+### Pengajuan hapus
+
+| Method   | Endpoint                          | Keterangan                                                        |
+| -------- | --------------------------------- | ----------------------------------------------------------------- |
+| `POST`   | `/pengajuan-hapus`                | `{ jenis: "kertas_kerja" \| "entri", sasaranId, petugasId, alasan }` — `petugasId` harus anggota tim kertas kerjanya; alasan 1–500 karakter; **409** bila sudah ada yang menunggu |
+| `DELETE` | `/pengajuan-hapus/:id`            | Batalkan pengajuan yang masih menunggu                            |
+| `GET`    | `/pengajuan-hapus?status=menunggu` | 🔒 `{ baris, menunggu }` — antrean, terlama dulu; `status=riwayat` → 100 keputusan terbaru |
+| `POST`   | `/pengajuan-hapus/:id/setujui`    | 🔒 Hapus sasarannya (beserta data & foto), pengajuan → `disetujui` |
+| `POST`   | `/pengajuan-hapus/:id/tolak`      | 🔒 Sasaran tetap ada, pengajuan → `ditolak`                       |
+
+Memutuskan pengajuan yang sudah diputuskan dijawab **409**.
+
 ### Foto
 
 | Method | Endpoint     | Keterangan                                                       |
@@ -864,7 +900,7 @@ Body `jawaban` berbentuk `{ "<pertanyaanId>": nilai }` (lihat format di atas). K
 
 | Method | Endpoint           | Keterangan                                                                        |
 | ------ | ------------------ | --------------------------------------------------------------------------------- |
-| `GET`  | `/dashboard/stats` | Kertas kerja, selesai, data, data berkas tidak lengkap (`tidakLengkap`), foto, formulir, petugas + 10 petugas dengan kertas kerja terbanyak (`rekapPetugas`) |
+| `GET`  | `/dashboard/stats` | Kertas kerja, selesai, data, data berkas tidak lengkap (`tidakLengkap`), pengajuan hapus menunggu (`pengajuanHapus`), foto, formulir, petugas + 10 petugas dengan kertas kerja terbanyak (`rekapPetugas`) |
 | `GET`  | `/health`          | Health check (dipakai Railway)                                                    |
 | `GET`  | `/konfigurasi`     | Batas aplikasi: `petugasMaks`, `fotoMaksPerPertanyaan`, `uploadMaksMb`, `cekNop`  |
 | `GET`  | `/wilayah`         | Kecamatan & kelurahan Kota Banjarbaru                                             |

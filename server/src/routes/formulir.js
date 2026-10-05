@@ -7,6 +7,7 @@ const { requireAdmin } = require("../auth");
 const { wrap, badRequest, notFound, conflict, parseId } = require("../http");
 const { includePertanyaan, bentukFormulir } = require("../bentuk");
 const { hapusBerkas, sapuFotoYatim } = require("../foto");
+const { tutupPengajuan } = require("../hapus");
 const { susunEkspor, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
 const { bacaPayload, susunBerkasBank, bacaBerkasBank } = require("../bankFormulir");
 
@@ -328,7 +329,11 @@ router.delete(
       where: { entri: { formulirId: id } },
       select: { berkas: true },
     });
-    await prisma.formulir.delete({ where: { id } });
+    await prisma.$transaction([
+      // Data formulir ini ikut terhapus, jadi pengajuan hapusnya sudah terpenuhi.
+      tutupPengajuan({ entri: { formulirId: id } }, req.admin),
+      prisma.formulir.delete({ where: { id } }),
+    ]);
     await hapusBerkas(berkas.map((f) => f.berkas));
 
     res.status(204).end();

@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import * as api from "../../api.js";
 import { useToast } from "../../components/Toast.jsx";
 import { useDialog } from "../../components/Dialog.jsx";
-import { Loading, ErrorBox, Empty, StatusPill, BerkasPill, KunciAdmin } from "../../components/Ui.jsx";
+import { Loading, ErrorBox, Empty, StatusPill, BerkasPill } from "../../components/Ui.jsx";
 import PetugasTim from "../../components/PetugasTim.jsx";
+import { PitaPengajuan, AjukanHapus } from "../../components/PengajuanHapus.jsx";
 import { judulEntri, ringkasEntri, fotoEntri } from "../../lib/ringkas.js";
 import { formatTimestamp } from "../../lib/format.js";
 import { IkonFormulir } from "../../components/Icons.jsx";
@@ -109,13 +110,20 @@ export function DetailKertasKerja({ id }) {
     }
   };
 
+  const pesanHapus = () =>
+    kk.entri.length
+      ? `${kk.entri.length} data beserta fotonya ikut terhapus. Tindakan ini tidak dapat dibatalkan.`
+      : "Kertas kerja ini belum berisi data.";
+
+  const sudahDihapus = () => {
+    toast(`Kertas kerja ${kk.nomor} dihapus.`);
+    navigate("/kertas-kerja", { replace: true });
+  };
+
   const hapusKk = async () => {
-    const jumlah = kk.entri.length;
     const ya = await konfirmasi({
       judul: `Hapus kertas kerja ${kk.nomor}?`,
-      pesan: jumlah
-        ? `${jumlah} data beserta fotonya ikut terhapus. Tindakan ini tidak dapat dibatalkan.`
-        : "Kertas kerja ini belum berisi data.",
+      pesan: pesanHapus(),
       ya: "Hapus",
       bahaya: true,
     });
@@ -123,13 +131,14 @@ export function DetailKertasKerja({ id }) {
     setSibuk(true);
     try {
       await api.deleteKertasKerja(id);
-      toast(`Kertas kerja ${kk.nomor} dihapus.`);
-      navigate("/kertas-kerja", { replace: true });
+      sudahDihapus();
     } catch (e) {
       toast(e.message, true);
       setSibuk(false);
     }
   };
+
+  const setPengajuan = (pengajuanHapus) => setKk((k) => ({ ...k, pengajuanHapus }));
 
   const tombolKembali = (
     <button type="button" className="fk-textbtn hanya-desktop" onClick={() => kembali("/kertas-kerja")}>
@@ -162,6 +171,14 @@ export function DetailKertasKerja({ id }) {
   return (
     <div className="fk-fill">
       {tombolKembali}
+
+      <PitaPengajuan
+        pengajuan={kk.pengajuanHapus}
+        admin={admin}
+        pesanHapus={pesanHapus()}
+        onDisetujui={sudahDihapus}
+        onBerubah={setPengajuan}
+      />
 
       <section className="fk-panel fk-form">
         <div className="fk-form-accent" />
@@ -359,6 +376,11 @@ export function DetailKertasKerja({ id }) {
                         {e.catatanBerkas && <span className="fk-baris-catatan">{e.catatanBerkas}</span>}
                       </span>
                     )}
+                    {e.diajukanHapus && (
+                      <span className="fk-baris-kurang">
+                        <span className="fk-pill is-hapus">Diajukan hapus</span>
+                      </span>
+                    )}
                     {foto.length > 0 && (
                       <span className="fk-baris-foto">
                         {foto.slice(0, 4).map((f) => (
@@ -383,7 +405,13 @@ export function DetailKertasKerja({ id }) {
           </button>
         </div>
       ) : (
-        <KunciAdmin>Menghapus kertas kerja hanya bisa dilakukan admin.</KunciAdmin>
+        <AjukanHapus
+          jenis="kertas_kerja"
+          sasaranId={kk.id}
+          tim={kk.petugas}
+          pengajuan={kk.pengajuanHapus}
+          onTerkirim={setPengajuan}
+        />
       )}
     </div>
   );

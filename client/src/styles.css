@@ -715,6 +715,34 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-kunci-ikon{display:grid; place-items:center; color:var(--faint); flex:none;}
 .fk-kunci-teks{flex:1; min-width:170px;}
 
+/* ---------- pengajuan hapus ---------- */
+.fk-pill.is-hapus{background:#FBF0DC; color:#8A5306;}
+.fk-pill.is-netral{background:#EEF1F4; color:var(--muted);}
+/* pita di atas halaman sasaran yang sedang diajukan */
+.fk-pengajuan-pita{display:flex; flex-wrap:wrap; align-items:center; gap:12px; background:#FBF0DC; border:1px solid #EFD9AE; color:#6F4705; border-radius:12px; padding:13px 15px;}
+.fk-pengajuan-isi{flex:1 1 260px; min-width:0; display:flex; flex-direction:column; gap:3px;}
+.fk-pengajuan-judul{font-weight:600; font-size:14px;}
+.fk-pengajuan-alasan{font-size:13.5px; line-height:1.45; overflow-wrap:anywhere; white-space:pre-line; margin:0;}
+.fk-pengajuan-meta{font-size:12.5px; opacity:.85;}
+.fk-pengajuan-aksi{display:flex; gap:8px; flex-wrap:wrap;}
+.fk-pengajuan-aksi .fk-btn-danger{margin-left:0;}
+/* isian pengajuan (petugas) */
+.fk-ajukan .fk-field:nth-last-child(2){border-bottom:0;}
+.fk-ajukan-aksi{justify-content:flex-end; margin-top:0;}
+/* kartu di halaman Pengajuan Hapus (admin) */
+.fk-pengajuan-kartu{display:flex; flex-direction:column; gap:8px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+.fk-pengajuan-kepala{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.fk-pengajuan-jenis{font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--faint);}
+.fk-pengajuan-kepala .fk-pill{margin-left:auto;}
+.fk-pengajuan-kartu .fk-pengajuan-alasan{color:var(--ink);}
+.fk-pengajuan-kartu .fk-pengajuan-aksi{margin-top:4px;}
+/* ringkasan di Dashboard (admin) */
+.fk-pengajuan-ringkas{display:flex; align-items:center; gap:12px; width:100%; text-align:left; font:inherit; color:inherit; background:var(--surface); border:1px solid var(--line); border-radius:13px; padding:13px 16px; cursor:pointer; transition:.12s;}
+.fk-pengajuan-ringkas:hover{border-color:var(--brand);}
+.fk-pengajuan-ringkas.is-ada{background:#FBF0DC; border-color:#EFD9AE; color:#6F4705;}
+.fk-pengajuan-ringkas-teks{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; font-size:13px;}
+.fk-pengajuan-ringkas-teks b{font-size:14px;}
+
 /* ---------- latihan petugas ---------- */
 .fk-latihan-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--brand-tint); border:1px solid #BFE0DC; color:var(--brand-dark); border-radius:12px; padding:11px 14px; font-size:13.5px;}
 .fk-latihan-bar span:last-child{flex:1 1 220px;}
@@ -846,6 +874,11 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-latihan-bar{font-size:13px;}
   .fk-zona-bahaya{justify-content:stretch;}
   .fk-zona-bahaya .fk-btn-danger{width:100%;}
+  .fk-pengajuan-aksi{display:grid; grid-template-columns:1fr 1fr; width:100%;}
+  .fk-pengajuan-aksi > :only-child{grid-column:1 / -1;}
+  .fk-pengajuan-kartu .fk-pengajuan-aksi > :first-child:nth-last-child(3){grid-column:1 / -1;}
+  .fk-ajukan-aksi{padding-bottom:16px;}
+  .fk-pengajuan-ringkas{min-height:60px;}
   /* dialog menempel di dasar layar: sasaran sentuh dekat ibu jari */
   .fk-dialog-latar{align-items:flex-end; padding:0;}
   .fk-dialog,
