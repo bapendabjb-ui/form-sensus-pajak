@@ -415,7 +415,7 @@ build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
 | `formulir`              | Bank formulir + `ikon` (nama ikon kartu, kosong = nomor) + `urutan` (susunan tampil, diatur admin lewat seret) |
 | `pertanyaan`            | `tipe` (19 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `luas`, `nik`, `npwp`, `niknpwp`, `telepon` & `nop`), `label`, `keterangan`, `wajib`, `range_harga`, `isi_epbb`, `kolom` (`""`/`kiri`/`kanan`), `urutan` |
 | `pertanyaan_opsi`       | Opsi dropdown/radio/checkbox & daftar "Jenis tarif"                         |
-| `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status` (kolom `judul` tidak dipakai lagi)     |
+| `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status`, `titik_*` (titik objek yang ditetapkan), `lokasi_status` (kolom `judul` tidak dipakai lagi) |
 | `kertas_kerja_petugas`  | Tim petugas (1–8), `urutan` 0 = penanggung jawab                            |
 | `entri`                 | Satu data: `kertas_kerja_id` + `formulir_id` (boleh berulang); `berkas_lengkap` + `catatan_berkas` |
 | `jawaban`               | `nilai` JSON, **UNIQUE(entri_id, pertanyaan_id)**                           |
@@ -603,21 +603,22 @@ menganggapnya kosong, sehingga pertanyaan wajib akan gagal validasi. Di CSV, sel
 
 ### Koordinat otomatis & pemeriksaan lokasi
 
-Selain pertanyaan Lokasi, setiap data **baru** merekam posisi perangkat petugas saat disimpan
-(kolom `rekam_*`), termasuk data dari formulir yang tidak punya pertanyaan Lokasi. Posisi ini
-disebut **GPS asli** dan berfungsi sebagai bukti petugas datang ke lokasi objek. Karena itu GPS
-asli tidak bisa digeser lewat peta.
+**Satu kertas kerja = satu objek** (rumah / bidang yang disensus), jadi titik lokasinya satu per
+kertas kerja, bukan per data. Ada tiga macam koordinat:
 
-Letak objek yang dipakai Peta Sensus disebut **titik objek**. Sumbernya, berurutan: koreksi lewat
-peta → jawaban pertanyaan Lokasi → GPS asli.
+| Koordinat | Asal | Dipakai untuk |
+| --------- | ---- | ------------- |
+| **GPS asli** per data | Posisi perangkat petugas saat data **baru** disimpan (kolom `entri.rekam_*`). Tidak bisa diubah. | Bukti kunjungan, dan titik kertas kerja selama belum ditetapkan |
+| **Titik kertas kerja** | Ditetapkan di peta / ditempel dari Google Maps, atau **Rekam di sini** di lokasi (kolom `kertas_kerja.titik_*`). Bila belum ada: GPS terbaik di antara datanya — yang di lapangan dan paling teliti. | Satu titik per kertas kerja di Peta Sensus; pemeriksaan lokasi |
+| **Pertanyaan Lokasi** di formulir | Diisi petugas, mis. koordinat rumah kedua pada PBB-P2. | Objek lain di tempat berbeda: titik tersendiri di peta, kecuali ≤ 50 m dari titik kertas kerjanya |
 
 | Kapan | Yang terjadi |
 | ----- | ------------ |
-| Mengisi data baru | Posisi dipantau sejak layar dibuka, dan statusnya tampil di atas tombol **Simpan**: ✓ terekam, belum terekam, kurang akurat (> 100 m), atau **di area kantor BPPRD** (radius 150 m). Selain ✓, petugas diminta konfirmasi sebelum menyimpan. |
+| Mengisi data baru | Posisi dipantau sejak layar dibuka, dan statusnya tampil di atas tombol **Simpan**: ✓ terekam, belum terekam, kurang akurat (> 100 m), atau **di area kantor BPPRD** (radius 150 m). Konfirmasi hanya muncul bila **kertas kerjanya belum punya titik yang baik**, atau koordinat pertanyaan Lokasi diambil dengan GPS di kantor. |
 | Mengubah data | Posisi **tidak** direkam. Dulu GPS yang masih kosong diisi saat data disimpan ulang, sehingga data yang diperbaiki di kantor mendapat titik kantor. |
-| Layar ubah data | Panel **Lokasi data** menampilkan GPS asli dan titik objek. Tombol **Koreksi di peta** (petugas maupun admin; pelakunya dicatat) dan **Rekam ulang di sini** (hanya diterima bila akurasinya ≤ 50 m dan di luar area kantor). |
-| Halaman kertas kerja | Label **Lokasi di kantor / belum ada / kurang akurat** per data, saringan **Lokasi perlu dicek**, dan label **Dikoreksi di peta**. |
-| Tandai selesai | Bila ada data yang lokasinya perlu dicek, muncul konfirmasi berisi rinciannya: **Periksa dulu** (menyaring daftar) atau **Tetap tandai selesai**. |
+| Halaman kertas kerja | Panel **Lokasi objek**: asal titik, ringkasan GPS data ("3 data: 2 di lokasi, 1 di area kantor"), tombol **Tetapkan di peta** (dengan kolom tempel Google Maps), **Rekam di sini** (hanya diterima bila akurasinya ≤ 50 m dan di luar area kantor), dan **Pakai GPS data**. Petugas maupun admin bisa memakainya; pelakunya dicatat. |
+| Daftar kertas kerja | Saringan **Lokasi perlu dicek** dan label per kartu. Statusnya disimpan di `kertas_kerja.lokasi_status` (`src/lokasiKk.js`), dihitung ulang setiap data dibuat/dihapus atau titik ditetapkan, dan diisi saat server start untuk kertas kerja lama. |
+| Tandai selesai | Bila titik kertas kerja atau koordinat pertanyaan Lokasi perlu dicek, muncul konfirmasi: **Periksa dulu** (menggulir ke panel Lokasi objek) atau **Tetap tandai selesai**. |
 
 Titik kantor dan ambang akurasinya ada di `server/src/batas.js` (`KANTOR`, `AKURASI_KASAR_M`,
 `AKURASI_REKAM_ULANG_M`, `JARAK_JAUH_M`) dan dikirim ke klien lewat `/api/konfigurasi`. Aturan
@@ -625,8 +626,7 @@ penilaiannya ada di `server/src/cekLokasi.js`, dengan salinan di `client/src/lib
 
 Titik yang ditunjuk di peta tidak diperiksa terhadap area kantor, supaya objek yang bertetangga
 dengan kantor tetap bisa ditandai. Admin tetap bisa membandingkannya dengan GPS asli: jaraknya
-tampil di panel, dan koreksi yang berjarak lebih dari 500 m dari GPS asli yang baik ditandai
-**Jauh dari GPS**. Aplikasi web tidak bisa mendeteksi aplikasi pemalsu GPS (*fake GPS*).
+dari GPS lapangan terbaik tampil di panel, dan yang lebih dari 500 m ditandai **Jauh dari GPS**. Aplikasi web tidak bisa mendeteksi aplikasi pemalsu GPS (*fake GPS*).
 
 ### Peta Google
 
@@ -889,6 +889,8 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | `GET`    | `/kertas-kerja/:id`               | Tim petugas, seluruh entri, definisi formulir yang diisi  |
 | `PUT`    | `/kertas-kerja/:id/petugas`       | 🔒 `{ petugasIds }` — ganti tim                           |
 | `PUT`    | `/kertas-kerja/:id/status`        | `{ status }` — `selesai` butuh minimal 1 data (**422**)   |
+| `PUT`    | `/kertas-kerja/:id/titik`         | `{ lat, lon }` atau `{ hapus: true }` — tetapkan titik objek lewat peta / kembali ke GPS data. Terbuka; admin yang login tercatat namanya |
+| `PUT`    | `/kertas-kerja/:id/rekam`         | `{ lat, lon, akurasi }` — titik objek dari GPS di lokasi. **422** bila akurasi > 50 m / tidak diketahui, atau posisinya di area kantor |
 | `POST`   | `/kertas-kerja/:id/entri`         | `{ formulirId, jawaban, berkasLengkap?, catatanBerkas? }` — tambah satu data |
 | `DELETE` | `/kertas-kerja/:id`               | 🔒 Hapus beserta seluruh data & foto                      |
 | `GET`    | `/kertas-kerja/:id/export`        | Unduh CSV; `?formulir=<id>` = hanya satu formulir         |
@@ -898,9 +900,9 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 
 ```json
 {
-  "baris": [ { "id": 7, "nomor": "00007", "status": "draft", "petugas": [], "jumlahData": 3, "jumlahTidakLengkap": 1 } ],
+  "baris": [ { "id": 7, "nomor": "00007", "status": "draft", "petugas": [], "jumlahData": 3, "jumlahTidakLengkap": 1, "lokasiStatus": "kantor" } ],
   "hal": 1, "per": 20, "total": 137, "adaLagi": true,
-  "jumlah": { "semua": 137, "draft": 40, "selesai": 97, "kurang": 12 }
+  "jumlah": { "semua": 137, "draft": 40, "selesai": 97, "kurang": 12, "lokasi": 5 }
 }
 ```
 
@@ -909,7 +911,7 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | `hal`     | `1`     | Halaman, mulai dari 1                                                       |
 | `per`     | `20`    | Baris per halaman, **dibatasi 100**                                         |
 | `cari`    | —       | Penggalan nomor. Karakter non-angka dibuang, jadi `4` menemukan `00004`     |
-| `saring`  | `semua` | `semua` · `draft` · `selesai` · `kurang` (punya data berkas tidak lengkap)  |
+| `saring`  | `semua` | `semua` · `draft` · `selesai` · `kurang` (punya data berkas tidak lengkap) · `lokasi` (punya data, titiknya di kantor / kurang akurat / belum ada) |
 
 Nilai yang tidak masuk akal dibulatkan ke batasnya, bukan ditolak: `per=100000`
 menjadi 100, `hal=0` menjadi 1, dan saringan yang tidak dikenal menjadi `semua`.
@@ -937,8 +939,6 @@ yang keduanya tidak dipakai di layar itu.
 | -------- | ------------ | --------------------------------------------- |
 | `GET`    | `/entri/:id` | Satu data + formulirnya + nomor kertas kerja  |
 | `PUT`    | `/entri/:id` | `{ jawaban, berkasLengkap?, catatanBerkas? }` — ubah data (tanpa `berkasLengkap` penanda tidak berubah) |
-| `PUT`    | `/entri/:id/titik` | `{ lat, lon }` atau `{ hapus: true }` — koreksi titik objek lewat peta. Terbuka; admin yang login tercatat namanya |
-| `PUT`    | `/entri/:id/rekam` | `{ lat, lon, akurasi }` — rekam ulang GPS asli di lokasi. **422** bila akurasi > 50 m / tidak diketahui, atau posisinya di area kantor |
 | `DELETE` | `/entri/:id` | 🔒 Hapus data beserta fotonya                 |
 
 Body `jawaban` berbentuk `{ "<pertanyaanId>": nilai }` (lihat format di atas). Kolom wajib

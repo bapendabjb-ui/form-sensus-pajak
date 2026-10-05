@@ -88,6 +88,11 @@ test("syaratSaring memetakan saringan ke syarat database", () => {
   assert.deepEqual(syaratSaring("selesai"), { status: "selesai" });
   // "Berkas tidak lengkap" sifat entri di dalamnya, bukan kolom kertas kerja.
   assert.deepEqual(syaratSaring("kurang"), { entri: { some: { berkasLengkap: false } } });
+  // Kertas kerja tanpa data belum punya apa pun untuk diperiksa lokasinya.
+  assert.deepEqual(syaratSaring("lokasi"), {
+    lokasiStatus: { in: ["tanpa", "kantor", "kasar"] },
+    entri: { some: {} },
+  });
   assert.deepEqual(syaratSaring("semua"), {});
   assert.deepEqual(syaratSaring("ngawur"), {});
 });

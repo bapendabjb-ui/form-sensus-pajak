@@ -1,12 +1,13 @@
 /*
- * Lokasi sebuah data di layar isi data.
+ * Lokasi objek sensus. Satu kertas kerja = satu rumah / bidang, jadi titiknya satu.
  *
- *   - StatusGps  : data baru - posisi perangkat yang akan terekam saat disimpan,
- *                  supaya petugas tahu SEBELUM menyimpan bila lokasinya belum
- *                  ada, kasar, atau masih di kantor.
- *   - LokasiData : data yang sudah tersimpan - GPS asli (bukti kunjungan) dan
- *                  titik objek, beserta dua cara memperbaikinya: koreksi lewat
- *                  peta, atau rekam ulang GPS saat berada di lokasi objek.
+ *   - StatusGps     : layar isi data baru - posisi perangkat yang akan terekam
+ *                     saat disimpan, supaya petugas tahu SEBELUM menyimpan bila
+ *                     lokasinya belum ada, kasar, atau masih di kantor.
+ *   - LokasiKertasKerja : halaman kertas kerja - titik objek, ringkasan GPS
+ *                     data-datanya (bukti kunjungan), dan cara menetapkan
+ *                     titiknya: lewat peta / tempel Google Maps, atau Rekam di
+ *                     sini saat berada di lokasi.
  *
  * Aturan penilaiannya ada di lib/cekLokasi.js (salinan server/src/cekLokasi.js).
  */
@@ -19,11 +20,11 @@ import { pantauPosisi } from "../lib/rekamPosisi.js";
 import TempelKoordinat from "./TempelKoordinat.jsx";
 import { formatWaktu, urlPeta } from "../lib/format.js";
 
-// Leaflet cukup besar: unduh hanya saat peta dibuka.
+// Pustaka peta cukup besar: unduh hanya saat peta dibuka.
 const PetaLokasi = lazy(() => import("./PetaLokasi.jsx"));
 
-/** Rekam ulang menyerah bila GPS tidak kunjung cukup teliti selama ini. */
-const REKAM_ULANG_MAKS_MS = 45000;
+/** Rekam di sini menyerah bila GPS tidak kunjung cukup teliti selama ini. */
+const REKAM_MAKS_MS = 45000;
 
 const meter = (m) => (typeof m === "number" ? `±${Math.round(m)} m` : "akurasi tidak diketahui");
 const namaKantor = (aturan) => aturan?.kantor?.nama || "kantor";
@@ -32,9 +33,11 @@ const namaKantor = (aturan) => aturan?.kantor?.nama || "kantor";
  * @param {object} props
  * @param {{ status: string, posisi: object|null, galat: string }} props.gps  keadaan pantauPosisi
  * @param {object|null} props.aturan  konfigurasi.lokasi dari server
+ * @param {boolean} [props.titikSudahAda]  kertas kerjanya sudah punya titik yang baik -
+ *        posisi yang buruk tidak lagi perlu dikhawatirkan, cukup dicatat
  * @param {() => void} props.onUlangi
  */
-export function StatusGps({ gps, aturan, onUlangi }) {
+export function StatusGps({ gps, aturan, titikSudahAda = false, onUlangi }) {
   if (gps.status === "mencari") {
     return (
       <div className="fk-gps-status is-mencari" role="status">
@@ -47,19 +50,22 @@ export function StatusGps({ gps, aturan, onUlangi }) {
   const nilai = gps.status === "siap" ? nilaiTitik(gps.posisi, aturan) : "tanpa";
   let teks;
   if (nilai === "baik") teks = `Lokasi terekam · ${meter(gps.posisi.akurasi)}`;
-  else if (nilai === "kantor") {
-    teks = `Anda berada di area ${namaKantor(aturan)}. Koordinat data ini akan tercatat di kantor.`;
+  else if (titikSudahAda) {
+    teks = `${LABEL_STATUS[nilai]}. Tidak masalah: titik kertas kerja ini sudah ada.`;
+  } else if (nilai === "kantor") {
+    teks = `Anda berada di area ${namaKantor(aturan)}. Kertas kerja ini belum punya titik di lokasi objek.`;
   } else if (nilai === "kasar") {
     teks = `Lokasi kurang akurat (${meter(gps.posisi.akurasi)}). Nyalakan GPS HP atau pindah ke tempat terbuka.`;
   } else teks = `${gps.galat || "Lokasi belum terekam."} Data tetap bisa disimpan, tetapi tanpa koordinat.`;
 
+  const tenang = nilai === "baik" || titikSudahAda;
   return (
-    <div className={"fk-gps-status " + (nilai === "baik" ? "is-baik" : "is-waspada")} role="status">
+    <div className={"fk-gps-status " + (nilai === "baik" ? "is-baik" : tenang ? "" : "is-waspada")} role="status">
       <span className="fk-gps-ikon" aria-hidden="true">
-        {nilai === "baik" ? "✓" : "!"}
+        {nilai === "baik" ? "✓" : tenang ? "i" : "!"}
       </span>
       <span className="fk-gps-teks">{teks}</span>
-      {nilai !== "baik" && nilai !== "kantor" && (
+      {!tenang && nilai !== "kantor" && (
         <button type="button" className="fk-mini" onClick={onUlangi}>
           Coba lagi
         </button>
@@ -68,54 +74,56 @@ export function StatusGps({ gps, aturan, onUlangi }) {
   );
 }
 
-/** Keterangan asal titik objek. */
-function asalTitik(entri) {
-  const { lokasi, koreksiTitik } = entri;
-  if (lokasi.sumber === "koreksi") {
-    const oleh = koreksiTitik.oleh === "petugas" || !koreksiTitik.oleh ? "petugas" : `admin (${koreksiTitik.oleh})`;
-    return `Dikoreksi di peta oleh ${oleh}, ${formatWaktu(koreksiTitik.waktu)}.`;
+/** Keterangan asal titik objek kertas kerja. */
+function asalTitik(lokasi) {
+  const oleh = !lokasi.oleh || lokasi.oleh === "petugas" ? "petugas" : `admin (${lokasi.oleh})`;
+  if (lokasi.sumber === "koreksi") return `Ditetapkan di peta oleh ${oleh}, ${formatWaktu(lokasi.waktu)}.`;
+  if (lokasi.sumber === "rekam") {
+    return `Direkam di lokasi oleh ${oleh} (${meter(lokasi.titik.akurasi)}), ${formatWaktu(lokasi.waktu)}.`;
   }
-  if (lokasi.sumber === "formulir") return "Diambil dari pertanyaan Lokasi di formulir.";
-  if (lokasi.sumber === "gps") return "Memakai GPS saat pendataan.";
-  return "Belum ada titik lokasi.";
+  if (lokasi.sumber === "gps") return `GPS terbaik dari data-datanya (${meter(lokasi.titik.akurasi)}).`;
+  return "Belum ada titik.";
 }
 
-/** Keterangan GPS asli. */
-function keteranganGps(entri, aturan) {
-  const r = entri.rekamKoordinat;
-  if (!r) return "Tidak terekam.";
-  const catatan = { kantor: ` · di area ${namaKantor(aturan)}`, kasar: " · kurang akurat" }[entri.lokasi.gps] || "";
-  return `${meter(r.akurasi)}, ${formatWaktu(r.waktu)}${catatan}`;
+/** "3 data: 2 di lokasi, 1 di kantor" */
+function ringkasGps(gps, aturan) {
+  const total = gps.baik + gps.kasar + gps.kantor + gps.tanpa;
+  if (!total) return "Belum ada data.";
+  const bagian = [
+    [gps.baik, "di lokasi"],
+    [gps.kasar, "kurang akurat"],
+    [gps.kantor, `di area ${namaKantor(aturan)}`],
+    [gps.tanpa, "tanpa GPS"],
+  ]
+    .filter(([n]) => n > 0)
+    .map(([n, teks]) => `${n} ${teks}`);
+  return `${total} data: ${bagian.join(", ")}.`;
 }
 
 /**
  * @param {object} props
- * @param {object} props.entri   hasil api.getEntri (rekamKoordinat, koreksiTitik, lokasi)
- * @param {{lat:number, lon:number}|null} props.titikFormulir  jawaban Lokasi terisi, bila ada
+ * @param {object} props.kk      detail kertas kerja (id, lokasi, entri)
  * @param {object|null} props.aturan  konfigurasi.lokasi dari server
- * @param {(entri: object) => void} props.onBerubah
+ * @param {(kk: object) => void} props.onBerubah  detail kertas kerja terbaru dari server
  */
-export function LokasiData({ entri, titikFormulir, aturan, onBerubah }) {
+export function LokasiKertasKerja({ kk, aturan, onBerubah }) {
   const toast = useToast();
   const [peta, setPeta] = useState(false);
-  const [pilihan, setPilihan] = useState(null); // titik dari peta yang belum disimpan
-  const [rekam, setRekam] = useState(null); // { posisi } selama rekam ulang berjalan
+  const [pilihan, setPilihan] = useState(null); // titik dari peta / tempel yang belum disimpan
+  const [rekam, setRekam] = useState(null); // { posisi } selama Rekam di sini berjalan
   const [galat, setGalat] = useState("");
   const [sibuk, setSibuk] = useState(false);
   const henti = useRef(null);
 
-  // Hentikan GPS bila layar ditinggalkan di tengah rekam ulang.
+  // Hentikan GPS bila halaman ditinggalkan di tengah perekaman.
   useEffect(() => () => henti.current && henti.current(), []);
 
-  const { lokasi, koreksiTitik, rekamKoordinat } = entri;
-  const perluCek = lokasi.status !== "baik";
+  const { lokasi } = kk;
+  const adaData = kk.entri.length > 0;
+  const perluCek = adaData && lokasi.status !== "baik";
+  const ditetapkan = lokasi.sumber === "koreksi" || lokasi.sumber === "rekam";
 
-  const titikAwal =
-    (koreksiTitik && { lat: koreksiTitik.lat, lon: koreksiTitik.lon }) ||
-    titikFormulir ||
-    (rekamKoordinat && { lat: rekamKoordinat.lat, lon: rekamKoordinat.lon }) ||
-    null;
-  const titikPeta = pilihan || titikAwal;
+  const titikPeta = pilihan || lokasi.titik;
   const tautan = titikPeta ? urlPeta(titikPeta) : "";
 
   const jalankan = async (aksi, pesan) => {
@@ -133,15 +141,15 @@ export function LokasiData({ entri, titikFormulir, aturan, onBerubah }) {
     }
   };
 
-  const simpanKoreksi = async () => {
-    const ok = await jalankan(() => api.koreksiTitik(entri.id, pilihan.lat, pilihan.lon), "Titik objek dikoreksi.");
+  const simpanTitik = async () => {
+    const ok = await jalankan(() => api.tetapkanTitikKk(kk.id, pilihan.lat, pilihan.lon), "Titik objek disimpan.");
     if (ok) {
       setPilihan(null);
       setPeta(false);
     }
   };
 
-  const hapusKoreksi = () => jalankan(() => api.hapusKoreksiTitik(entri.id), "Koreksi titik dihapus.");
+  const hapusTitik = () => jalankan(() => api.hapusTitikKk(kk.id), "Titik kembali memakai GPS data.");
 
   const berhentiRekam = () => {
     if (henti.current) henti.current();
@@ -178,15 +186,15 @@ export function LokasiData({ entri, titikFormulir, aturan, onBerubah }) {
         const batas = aturan?.akurasiRekamUlangM ?? 50;
         if (typeof posisi.akurasi === "number" && posisi.akurasi <= batas) {
           if (nilaiTitik(posisi, aturan) === "kantor") {
-            akhiri(`Posisi Anda masih di area ${namaKantor(aturan)}. Rekam ulang saat berada di lokasi objek.`);
+            akhiri(`Posisi Anda masih di area ${namaKantor(aturan)}. Rekam saat berada di lokasi objek.`);
             return;
           }
           akhiri("");
           jalankan(
-            () => api.rekamUlangLokasi(entri.id, { lat: posisi.lat, lon: posisi.lon, akurasi: posisi.akurasi }),
-            `Lokasi direkam ulang (${meter(posisi.akurasi)}).`
+            () => api.rekamTitikKk(kk.id, { lat: posisi.lat, lon: posisi.lon, akurasi: posisi.akurasi }),
+            `Titik objek direkam (${meter(posisi.akurasi)}).`
           );
-        } else if (Date.now() - mulai > REKAM_ULANG_MAKS_MS) {
+        } else if (Date.now() - mulai > REKAM_MAKS_MS) {
           akhiri(
             `GPS belum cukup teliti (terbaik ${meter(posisi.akurasi)}, perlu ±${batas} m). ` +
               "Pindah ke tempat terbuka lalu coba lagi."
@@ -198,26 +206,26 @@ export function LokasiData({ entri, titikFormulir, aturan, onBerubah }) {
   };
 
   return (
-    <section className={"fk-section fk-lokasi-data" + (perluCek ? " is-waspada" : "")}>
+    <section className={"fk-section fk-lokasi-data" + (perluCek ? " is-waspada" : "")} id="lokasi-objek">
       <div className="fk-field">
-        <span className="fk-q-name">Lokasi data</span>
+        <span className="fk-q-name">Lokasi objek</span>
 
         {perluCek && (
           <p className="fk-lokasi-data-peringatan" role="alert">
-            {LABEL_STATUS[lokasi.status]}. Koreksi titik objeknya di peta, atau tekan <b>Rekam ulang di sini</b> saat
-            berada di lokasi objek.
+            {LABEL_STATUS[lokasi.status]}. Tetapkan titik rumah / bidangnya di peta, atau tekan <b>Rekam di sini</b>{" "}
+            saat berada di lokasi.
           </p>
         )}
 
         <dl className="fk-lokasi-data-rinci">
           <dt>Titik objek</dt>
           <dd>
-            {asalTitik(entri)}
-            {lokasi.jarakM !== null && ` Berjarak ${formatJarak(lokasi.jarakM)} dari GPS saat pendataan.`}
+            {asalTitik(lokasi)}
+            {lokasi.jarakM !== null && ` Berjarak ${formatJarak(lokasi.jarakM)} dari GPS petugas di lapangan.`}
             {lokasi.jauh && <span className="fk-pill is-lokasi">Jauh dari GPS</span>}
           </dd>
           <dt>GPS saat pendataan</dt>
-          <dd>{keteranganGps(entri, aturan)}</dd>
+          <dd>{ringkasGps(lokasi.gps, aturan)}</dd>
         </dl>
 
         {peta && (
@@ -249,7 +257,7 @@ export function LokasiData({ entri, titikFormulir, aturan, onBerubah }) {
         <div className="fk-lokasi-aksi">
           {pilihan ? (
             <>
-              <button type="button" className="fk-btn" onClick={simpanKoreksi} disabled={sibuk}>
+              <button type="button" className="fk-btn" onClick={simpanTitik} disabled={sibuk}>
                 {sibuk ? "Menyimpan..." : "Simpan titik ini"}
               </button>
               <button type="button" className="fk-btn-ghost" onClick={() => setPilihan(null)} disabled={sibuk}>
@@ -269,14 +277,14 @@ export function LokasiData({ entri, titikFormulir, aturan, onBerubah }) {
                 aria-expanded={peta}
                 disabled={sibuk}
               >
-                {peta ? "Tutup peta" : "Koreksi di peta"}
+                {peta ? "Tutup peta" : "Tetapkan di peta"}
               </button>
               <button type="button" className="fk-btn-ghost" onClick={mulaiRekam} disabled={sibuk}>
-                Rekam ulang di sini
+                Rekam di sini
               </button>
-              {koreksiTitik && (
-                <button type="button" className="fk-mini is-danger" onClick={hapusKoreksi} disabled={sibuk}>
-                  Hapus koreksi
+              {ditetapkan && (
+                <button type="button" className="fk-mini is-danger" onClick={hapusTitik} disabled={sibuk}>
+                  Pakai GPS data
                 </button>
               )}
             </>

@@ -3,7 +3,7 @@
 const express = require("express");
 const prisma = require("../prisma");
 const config = require("../config");
-const { requireAdmin } = require("../auth");
+const { requireAdmin, bacaAdmin } = require("../auth");
 const { wrap, badRequest, notFound, parseId, ApiError } = require("../http");
 const { ambilNomorBerikutnya, previewNomorBerikutnya } = require("../nomor");
 const {
@@ -12,18 +12,20 @@ const {
   muatEntri,
   bacaBerkas,
   bacaRekamKoordinat,
+  bacaKoordinat,
   hitungTidakLengkap,
 } = require("../entri");
 const { hapusBerkas } = require("../foto");
 const { hapusKertasKerja } = require("../hapus");
 const { includePengajuanTerakhir, bentukPengajuanTerakhir } = require("../pengajuan");
-const { jawabanLokasiPertama, ringkasLokasi } = require("../cekLokasi");
+const { jawabanLokasiPertama, ringkasLokasiKk, ringkasLokasiEntri, nilaiTitik } = require("../cekLokasi");
+const { perbaruiLokasiKk } = require("../lokasiKk");
 const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require("../bentuk");
 const { susunEkspor, barisTanpaData, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
 
 const router = express.Router();
 
-const { PETUGAS_MAKS } = require("../batas");
+const { PETUGAS_MAKS, KANTOR, AKURASI_REKAM_ULANG_M } = require("../batas");
 
 const includeTim = { petugas: { include: { petugas: true } } };
 
@@ -88,6 +90,7 @@ function bentukDetail({ kk, formulir }) {
     status: kk.status,
     createdAt: kk.createdAt,
     petugas: bentukTim(kk.petugas),
+    lokasi: ringkasLokasiKk(kk, kk.entri),
     pengajuanHapus: bentukPengajuanTerakhir(kk.pengajuanHapus),
     formulir: formulir.map(bentukFormulir),
     entri: kk.entri.map((e) => {
@@ -98,7 +101,7 @@ function bentukDetail({ kk, formulir }) {
         berkasLengkap: e.berkasLengkap,
         catatanBerkas: e.catatanBerkas,
         diajukanHapus: e.pengajuanHapus.length > 0,
-        lokasi: ringkasLokasi(e, jawabanLokasiPertama(qidLokasi.get(e.formulirId) || [], jawaban)),
+        lokasi: ringkasLokasiEntri(e, jawabanLokasiPertama(qidLokasi.get(e.formulirId) || [], jawaban)),
         createdAt: e.createdAt,
         updatedAt: e.updatedAt,
         jawaban,
@@ -115,6 +118,7 @@ const bentukRingkas = (k, tidakLengkap) => ({
   petugas: bentukTim(k.petugas),
   jumlahData: k._count.entri,
   jumlahTidakLengkap: tidakLengkap.get(k.id) || 0,
+  lokasiStatus: k.lokasiStatus,
 });
 
 /* ---------- daftar & penomoran ---------- */
@@ -123,7 +127,7 @@ const bentukRingkas = (k, tidakLengkap) => ({
 const PER_HALAMAN = 20;
 const PER_HALAMAN_MAKS = 100;
 
-const SARINGAN = new Set(["semua", "draft", "selesai", "kurang"]);
+const SARINGAN = new Set(["semua", "draft", "selesai", "kurang", "lokasi"]);
 
 /** Kata kunci lebih panjang dari ini dipotong; nama petugas pun paling 150 huruf. */
 const CARI_MAKS = 100;
@@ -164,12 +168,14 @@ function syaratSaring(saring) {
   // dalamnya. EXISTS jauh lebih murah daripada menghitung seluruhnya hanya
   // untuk tahu ada-tidaknya, dan entri_berkas_lengkap_idx sudah menopangnya.
   if (saring === "kurang") return { entri: { some: { berkasLengkap: false } } };
+  // Kertas kerja tanpa data belum punya apa pun untuk diperiksa.
+  if (saring === "lokasi") return { lokasiStatus: { in: ["tanpa", "kantor", "kasar"] }, entri: { some: {} } };
   return {};
 }
 
 /**
  * GET /api/kertas-kerja?hal=1&per=20&cari=&saring=semua
- *   -> { baris, hal, per, total, adaLagi, jumlah: { semua, draft, selesai, kurang } }
+ *   -> { baris, hal, per, total, adaLagi, jumlah: { semua, draft, selesai, kurang, lokasi } }
  *
  * Dipaginasi karena daftar ini bertambah terus sepanjang umur aplikasi dan
  * tidak pernah menyusut. Pencarian, penyaringan, dan angka pada tombol saringan
@@ -204,7 +210,7 @@ router.get(
 
     const hitung = (tambahan) => prisma.kertasKerja.count({ where: { ...cari, ...tambahan } });
 
-    const [list, total, semua, draft, selesai, kurang] = await Promise.all([
+    const [list, total, semua, draft, selesai, kurang, lokasi] = await Promise.all([
       prisma.kertasKerja.findMany({
         where,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -217,6 +223,7 @@ router.get(
       hitung(syaratSaring("draft")),
       hitung(syaratSaring("selesai")),
       hitung(syaratSaring("kurang")),
+      hitung(syaratSaring("lokasi")),
     ]);
 
     const tidakLengkap = await hitungTidakLengkap(list.map((k) => k.id));
@@ -227,7 +234,7 @@ router.get(
       per,
       total,
       adaLagi: hal * per < total,
-      jumlah: { semua, draft, selesai, kurang },
+      jumlah: { semua, draft, selesai, kurang, lokasi },
     });
   })
 );
@@ -388,8 +395,89 @@ router.post(
       return e;
     });
     await hapusBerkas(dilepas);
+    await perbaruiLokasiKk(id);
 
     res.status(201).json(await muatEntri(entri.id));
+  })
+);
+
+/**
+ * PUT /api/kertas-kerja/:id/titik  { lat, lon } | { hapus: true }
+ * -> tetapkan titik objek lewat peta / tempel Google Maps, atau kembali ke GPS data.
+ *
+ * Terbuka untuk petugas maupun admin. GPS asli per data tidak ikut berubah,
+ * jadi bukti kunjungannya tetap ada; pelakunya dicatat (username admin, atau "petugas").
+ */
+router.put(
+  "/:id/titik",
+  wrap(async (req, res) => {
+    const id = parseId(req.params.id);
+    const ada = await prisma.kertasKerja.findUnique({ where: { id }, select: { id: true } });
+    if (!ada) throw notFound("Kertas kerja tidak ditemukan.");
+
+    let data;
+    if (req.body?.hapus === true) {
+      data = { titikLat: null, titikLon: null, titikAkurasi: null, titikSumber: "", titikWaktu: null, titikOleh: "" };
+    } else {
+      const k = bacaKoordinat(req.body);
+      if (!k) throw badRequest("Titik di peta tidak valid.");
+      const admin = await bacaAdmin(req);
+      data = {
+        titikLat: k.lat,
+        titikLon: k.lon,
+        titikAkurasi: null,
+        titikSumber: "peta",
+        titikWaktu: new Date(),
+        titikOleh: admin ? admin.username : "petugas",
+      };
+    }
+
+    await prisma.kertasKerja.update({ where: { id }, data });
+    await perbaruiLokasiKk(id);
+    res.json(bentukDetail(await muatDetail(id)));
+  })
+);
+
+/**
+ * PUT /api/kertas-kerja/:id/rekam  { lat, lon, akurasi } -> titik objek dari GPS di lokasi.
+ *
+ * Syaratnya ketat karena dianggap bukti berada di lokasi: akurasi harus
+ * diketahui dan cukup teliti, dan posisinya tidak boleh di area kantor.
+ */
+router.put(
+  "/:id/rekam",
+  wrap(async (req, res) => {
+    const id = parseId(req.params.id);
+    const ada = await prisma.kertasKerja.findUnique({ where: { id }, select: { id: true } });
+    if (!ada) throw notFound("Kertas kerja tidak ditemukan.");
+
+    const k = bacaKoordinat(req.body);
+    if (!k) throw badRequest("Posisi GPS tidak valid.");
+    if (k.akurasi === null || k.akurasi > AKURASI_REKAM_ULANG_M) {
+      throw new ApiError(
+        422,
+        `GPS belum cukup teliti (${k.akurasi === null ? "akurasi tidak diketahui" : `±${Math.round(k.akurasi)} m`}). ` +
+          `Pindah ke tempat terbuka lalu coba lagi - minimal ±${AKURASI_REKAM_ULANG_M} m.`
+      );
+    }
+    if (nilaiTitik(k) === "kantor") {
+      throw new ApiError(422, `Posisi Anda masih di area ${KANTOR.nama}. Rekam saat berada di lokasi objek.`);
+    }
+
+    const admin = await bacaAdmin(req);
+    await prisma.kertasKerja.update({
+      where: { id },
+      data: {
+        titikLat: k.lat,
+        titikLon: k.lon,
+        titikAkurasi: k.akurasi,
+        titikSumber: "gps",
+        titikWaktu: new Date(),
+        titikOleh: admin ? admin.username : "petugas",
+      },
+    });
+    await perbaruiLokasiKk(id);
+    res.json(bentukDetail(await muatDetail(id)));
   })
 );
 

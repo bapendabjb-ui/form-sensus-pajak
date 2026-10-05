@@ -1,18 +1,22 @@
 "use strict";
 
 /**
- * Pemeriksaan lokasi data - murni, tanpa database.
+ * Pemeriksaan lokasi - murni, tanpa database.
  *
- * Setiap data punya dua macam titik:
+ * Satu kertas kerja = satu objek (rumah / bidang yang disensus), jadi titik
+ * objeknya satu per kertas kerja:
  *
- *   - GPS asli   : posisi perangkat petugas saat data pertama kali disimpan
- *                  (kolom rekam_*). Ini bukti kunjungan, jadi tidak bisa
- *                  digeser lewat peta - hanya bisa direkam ulang di tempat.
- *   - titik objek: letak objek pajak. Urutan sumbernya: koreksi lewat peta,
- *                  lalu jawaban pertanyaan Lokasi di formulir, lalu GPS asli.
+ *   - titik kertas kerja : ditetapkan dengan sengaja - ditunjuk di peta /
+ *                          ditempel dari Google Maps ("koreksi"), atau Rekam di
+ *                          sini saat berada di lokasi ("rekam"). Bila belum ada,
+ *                          dipakai GPS terbaik dari data-datanya ("gps").
+ *   - GPS asli per data  : posisi perangkat saat data pertama kali disimpan
+ *                          (kolom entri.rekam_*). Bukti kunjungan; tidak bisa
+ *                          diubah.
+ *   - pertanyaan Lokasi  : koordinat objek lain yang berbeda tempat, mis. rumah
+ *                          kedua pada formulir PBB-P2. Dinilai per data.
  *
- * Titik objek inilah yang dipakai Peta Sensus dan yang diperiksa sebelum
- * kertas kerja ditandai selesai. Salinan untuk klien: client/src/lib/cekLokasi.js.
+ * Salinan aturan nilaiTitik untuk klien: client/src/lib/cekLokasi.js.
  */
 
 const { KANTOR, AKURASI_KASAR_M, JARAK_JAUH_M } = require("./batas");
@@ -54,12 +58,84 @@ function nilaiTitik(t) {
   return "baik";
 }
 
+/** Urutan dari yang terbaik, untuk memilih GPS terbaik di antara data. */
+const PERINGKAT = { baik: 0, kasar: 1, kantor: 2, tanpa: 3 };
+
 /** GPS asli sebuah entri, atau null. */
 function titikGps(e) {
   if (!e || e.rekamLat === null || e.rekamLat === undefined || e.rekamLon === null || e.rekamLon === undefined) {
     return null;
   }
   return { lat: e.rekamLat, lon: e.rekamLon, akurasi: e.rekamAkurasi ?? null };
+}
+
+/**
+ * GPS terbaik di antara data sebuah kertas kerja: yang nilainya paling baik,
+ * lalu yang paling teliti. Kasar di luar kantor lebih berguna daripada teliti
+ * di kantor - yang pertama setidaknya dekat dengan objeknya.
+ */
+function gpsTerbaik(entri = []) {
+  let terbaik = null;
+  for (const e of entri) {
+    const t = titikGps(e);
+    if (!t) continue;
+    const nilai = nilaiTitik(t);
+    const lebihBaik =
+      !terbaik ||
+      PERINGKAT[nilai] < PERINGKAT[terbaik.nilai] ||
+      (PERINGKAT[nilai] === PERINGKAT[terbaik.nilai] && (t.akurasi ?? Infinity) < (terbaik.akurasi ?? Infinity));
+    if (lebihBaik) terbaik = { ...t, nilai, entriId: e.id };
+  }
+  return terbaik;
+}
+
+/**
+ * Titik objek sebuah kertas kerja.
+ * @returns {{ lat, lon, akurasi, manual, sumber: "koreksi"|"rekam"|"gps" } | null}
+ */
+function titikKk(kk, entri = []) {
+  if (kk && typeof kk.titikLat === "number" && typeof kk.titikLon === "number") {
+    const rekam = kk.titikSumber === "gps";
+    return {
+      lat: kk.titikLat,
+      lon: kk.titikLon,
+      akurasi: rekam ? kk.titikAkurasi ?? null : null,
+      manual: !rekam,
+      sumber: rekam ? "rekam" : "koreksi",
+    };
+  }
+  const gps = gpsTerbaik(entri);
+  return gps ? { lat: gps.lat, lon: gps.lon, akurasi: gps.akurasi, manual: false, sumber: "gps" } : null;
+}
+
+/**
+ * Ringkasan lokasi sebuah kertas kerja untuk tampilan.
+ *   status : nilai titik objek - selain "baik", kertas kerja perlu diperiksa
+ *   sumber : asal titik objek, null bila belum ada titik sama sekali
+ *   titik  : { lat, lon, akurasi } | null
+ *   gps    : jumlah data menurut nilai GPS aslinya { baik, kasar, kantor, tanpa }
+ *   jarakM : jarak titik yang ditetapkan dari GPS asli terbaik yang baik
+ *   jauh   : jarak itu melebihi JARAK_JAUH_M - ditunjuk jauh dari tempat petugas berada
+ */
+function ringkasLokasiKk(kk, entri = []) {
+  const titik = titikKk(kk, entri);
+  const gps = { baik: 0, kasar: 0, kantor: 0, tanpa: 0 };
+  for (const e of entri) gps[nilaiTitik(titikGps(e))] += 1;
+
+  const terbaik = gpsTerbaik(entri);
+  const jarakM =
+    titik && titik.sumber !== "gps" && terbaik && terbaik.nilai === "baik" ? Math.round(jarakMeter(titik, terbaik)) : null;
+
+  return {
+    status: nilaiTitik(titik),
+    sumber: titik ? titik.sumber : null,
+    titik: titik ? { lat: titik.lat, lon: titik.lon, akurasi: titik.akurasi } : null,
+    waktu: titik && titik.sumber !== "gps" ? kk.titikWaktu ?? null : null,
+    oleh: titik && titik.sumber !== "gps" ? kk.titikOleh || "" : "",
+    gps,
+    jarakM,
+    jauh: jarakM !== null && jarakM > JARAK_JAUH_M,
+  };
 }
 
 /** Jawaban pertanyaan Lokasi pertama yang terisi. `qids` urut seperti di formulir. */
@@ -71,46 +147,25 @@ function jawabanLokasiPertama(qids, jawaban = {}) {
 }
 
 /**
- * Titik objek: koreksi peta > jawaban pertanyaan Lokasi > GPS asli.
- * @returns {{ lat, lon, akurasi, manual, sumber: "koreksi"|"formulir"|"gps" } | null}
+ * Ringkasan lokasi satu data.
+ *   gps   : nilai GPS asli data ini
+ *   objek : nilai koordinat dari pertanyaan Lokasi (objek lain), null bila tidak diisi
  */
-function titikObjek(e, jawabanLokasi) {
-  if (e && typeof e.koreksiLat === "number" && typeof e.koreksiLon === "number") {
-    return { lat: e.koreksiLat, lon: e.koreksiLon, akurasi: null, manual: true, sumber: "koreksi" };
-  }
-  if (adaTitik(jawabanLokasi)) {
-    return {
-      lat: jawabanLokasi.lat,
-      lon: jawabanLokasi.lon,
-      akurasi: typeof jawabanLokasi.akurasi === "number" ? jawabanLokasi.akurasi : null,
-      manual: jawabanLokasi.sumber === "peta",
-      sumber: "formulir",
-    };
-  }
-  const gps = titikGps(e);
-  return gps ? { ...gps, manual: false, sumber: "gps" } : null;
-}
-
-/**
- * Ringkasan lokasi untuk tampilan.
- *   status : nilai titik objek - selain "baik", data perlu diperiksa
- *   gps    : nilai GPS asli (bukti kunjungan), untuk keterangan
- *   sumber : asal titik objek, null bila tidak ada titik sama sekali
- *   jarakM : jarak titik objek dari GPS asli bila keduanya berbeda sumber
- *   jauh   : jarak itu melebihi JARAK_JAUH_M padahal GPS asli baik
- */
-function ringkasLokasi(e, jawabanLokasi) {
-  const gps = titikGps(e);
-  const objek = titikObjek(e, jawabanLokasi);
-  const nilaiGps = nilaiTitik(gps);
-  const jarakM = objek && gps && objek.sumber !== "gps" ? Math.round(jarakMeter(objek, gps)) : null;
+function ringkasLokasiEntri(e, jawabanLokasi) {
   return {
-    status: nilaiTitik(objek),
-    gps: nilaiGps,
-    sumber: objek ? objek.sumber : null,
-    jarakM,
-    jauh: jarakM !== null && nilaiGps === "baik" && jarakM > JARAK_JAUH_M,
+    gps: nilaiTitik(titikGps(e)),
+    objek: adaTitik(jawabanLokasi) ? nilaiTitik({ ...jawabanLokasi, manual: jawabanLokasi.sumber === "peta" }) : null,
   };
 }
 
-module.exports = { adaTitik, jarakMeter, nilaiTitik, titikGps, jawabanLokasiPertama, titikObjek, ringkasLokasi };
+module.exports = {
+  adaTitik,
+  jarakMeter,
+  nilaiTitik,
+  titikGps,
+  gpsTerbaik,
+  titikKk,
+  ringkasLokasiKk,
+  jawabanLokasiPertama,
+  ringkasLokasiEntri,
+};

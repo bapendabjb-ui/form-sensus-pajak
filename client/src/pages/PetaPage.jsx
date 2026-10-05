@@ -46,7 +46,10 @@ export default function PetaPage() {
   // berkedip dan memaksa pandangan kembali merapat terus-menerus.
   const tampil = useMemo(() => titik.filter((t) => cocok(t, saring)), [titik, saring]);
 
-  const bukaData = (t) => navigate(`/kertas-kerja/${t.kertasKerjaId}/data/${t.entriId}`);
+  // Titik kertas kerja (rumah / bidang yang disensus) membuka kertas kerjanya;
+  // titik objek lain dari pertanyaan Lokasi membuka datanya.
+  const bukaData = (t) =>
+    navigate(t.entriId ? `/kertas-kerja/${t.kertasKerjaId}/data/${t.entriId}` : `/kertas-kerja/${t.kertasKerjaId}`);
 
   const jumlahKk = useMemo(() => new Set(tampil.map((t) => t.kertasKerjaId)).size, [tampil]);
 

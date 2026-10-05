@@ -130,11 +130,27 @@ model KertasKerja {
   judul     String            @default("") @db.VarChar(200)
   status    StatusKertasKerja @default(draft)
   createdAt DateTime          @default(now()) @map("created_at")
+  /// Titik objek - rumah / bidang yang disensus (satu kertas kerja = satu objek).
+  /// Diisi bila ditetapkan dengan sengaja: "peta" = ditunjuk di peta atau ditempel
+  /// dari Google Maps, "gps" = Rekam di sini di lokasi. Kosong = memakai GPS
+  /// terbaik yang terekam otomatis saat data-datanya disimpan.
+  titikLat      Float?    @map("titik_lat")
+  titikLon      Float?    @map("titik_lon")
+  titikAkurasi  Float?    @map("titik_akurasi")
+  titikSumber   String    @default("") @map("titik_sumber") @db.VarChar(10)
+  titikWaktu    DateTime? @map("titik_waktu")
+  /// Username admin yang menetapkan, atau "petugas" bila tanpa login.
+  titikOleh     String    @default("") @map("titik_oleh") @db.VarChar(64)
+  /// Hasil pemeriksaan lokasi (baik | tanpa | kantor | kasar), disimpan supaya
+  /// daftar kertas kerja bisa disaring di database. Null = belum dihitung;
+  /// server menghitungnya saat start (lihat src/lokasiKk.js).
+  lokasiStatus  String?   @map("lokasi_status") @db.VarChar(10)
 
   petugas        KertasKerjaPetugas[]
   entri          Entri[]
   pengajuanHapus PengajuanHapus[]
 
+  @@index([lokasiStatus], map: "kertas_kerja_lokasi_status_idx")
   @@map("kertas_kerja")
 }
 
@@ -174,14 +190,6 @@ model Entri {
   /// Perkiraan simpangan dalam meter, apa adanya dari perangkat.
   rekamAkurasi  Float?    @map("rekam_akurasi")
   rekamWaktu    DateTime? @map("rekam_waktu")
-  /// Letak objek yang ditunjuk petugas / admin lewat peta saat pemeriksaan.
-  /// Menggantikan GPS asli sebagai titik objek tanpa menghapusnya - GPS asli
-  /// tetap disimpan sebagai bukti kunjungan. Null = belum pernah dikoreksi.
-  koreksiLat    Float?    @map("koreksi_lat")
-  koreksiLon    Float?    @map("koreksi_lon")
-  koreksiWaktu  DateTime? @map("koreksi_waktu")
-  /// Username admin yang mengoreksi, atau "petugas" bila tanpa login.
-  koreksiOleh   String    @default("") @map("koreksi_oleh") @db.VarChar(64)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

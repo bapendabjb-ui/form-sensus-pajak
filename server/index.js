@@ -179,6 +179,12 @@ async function start() {
   sapu();
   setInterval(sapu, 6 * 3600 * 1000).unref();
 
+  // Status lokasi kertas kerja yang belum pernah dihitung (mis. setelah migrasi).
+  require("./src/lokasiKk")
+    .isiLokasiKkKosong()
+    .then((n) => n && console.log(`[Sensus Pajak] status lokasi ${n} kertas kerja dihitung.`))
+    .catch((e) => console.error("[Sensus Pajak] penghitungan status lokasi gagal:", e.message));
+
   const admin = await ensureAdminSeed();
   console.log(
     admin.created

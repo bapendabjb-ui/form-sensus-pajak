@@ -13,7 +13,7 @@ const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require(".
 const { includePengajuanTerakhir, bentukPengajuanTerakhir } = require("./pengajuan");
 const { notFound } = require("./http");
 const { SUMBER_EPBB } = require("./epbb");
-const { jawabanLokasiPertama, ringkasLokasi } = require("./cekLokasi");
+const { jawabanLokasiPertama, ringkasLokasiEntri } = require("./cekLokasi");
 
 /** Tipe pertanyaan yang bisa diisi dari EPBB - hanya ini yang boleh bertanda "dari EPBB". */
 const TIPE_EPBB = new Set(Object.values(SUMBER_EPBB).flat());
@@ -207,11 +207,7 @@ async function muatEntri(id) {
       e.rekamLat === null || e.rekamLon === null
         ? null
         : { lat: e.rekamLat, lon: e.rekamLon, akurasi: e.rekamAkurasi, waktu: e.rekamWaktu },
-    koreksiTitik:
-      e.koreksiLat === null || e.koreksiLon === null
-        ? null
-        : { lat: e.koreksiLat, lon: e.koreksiLon, waktu: e.koreksiWaktu, oleh: e.koreksiOleh },
-    lokasi: ringkasLokasi(e, jawabanLokasiPertama(qidLokasi, jawaban)),
+    lokasi: ringkasLokasiEntri(e, jawabanLokasiPertama(qidLokasi, jawaban)),
   };
 }
 

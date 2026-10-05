@@ -6,7 +6,8 @@ import { useToast } from "../../components/Toast.jsx";
 import { useDialog } from "../../components/Dialog.jsx";
 import { PageHead, Loading, ErrorBox, Empty, StatusPill, BerkasPill } from "../../components/Ui.jsx";
 import { formatTimestamp } from "../../lib/format.js";
-import { FILTER_KK, bacaFilterKk, simpanFilterKk } from "../../lib/filterKk.js";
+import { FILTER_KK, bacaFilterKk, simpanFilterKk, lokasiPerluCek } from "../../lib/filterKk.js";
+import { LABEL_STATUS } from "../../lib/cekLokasi.js";
 import { useAdmin } from "../../lib/admin.js";
 import { navigate } from "../../lib/router.js";
 import { urlKk, unduh, ringkasTim } from "./bersama.js";
@@ -33,7 +34,7 @@ const KOSONG = {
   hal: 1,
   total: 0,
   adaLagi: false,
-  jumlah: { semua: 0, draft: 0, selesai: 0, kurang: 0 },
+  jumlah: { semua: 0, draft: 0, selesai: 0, kurang: 0, lokasi: 0 },
 };
 
 export function DaftarKertasKerja() {
@@ -176,7 +177,9 @@ export function DaftarKertasKerja() {
                 aria-selected={filter === kunci}
                 key={kunci}
                 className={
-                  "fk-filter-btn" + (filter === kunci ? " is-on" : "") + (kunci === "kurang" ? " is-kurang" : "")
+                  "fk-filter-btn" +
+                  (filter === kunci ? " is-on" : "") +
+                  (kunci === "kurang" ? " is-kurang" : kunci === "lokasi" ? " is-lokasi" : "")
                 }
                 onClick={() => pilihFilter(kunci)}
               >
@@ -196,7 +199,9 @@ export function DaftarKertasKerja() {
                   ? `Tidak ada hasil "${kata}" pada saringan ini.`
                   : filter === "kurang"
                     ? "Tidak ada kertas kerja dengan berkas tidak lengkap."
-                    : "Tidak ada kertas kerja pada saringan ini."}
+                    : filter === "lokasi"
+                      ? "Semua kertas kerja sudah punya titik lokasi yang baik."
+                      : "Tidak ada kertas kerja pada saringan ini."}
             </Empty>
           ) : (
             <>
@@ -217,6 +222,7 @@ export function DaftarKertasKerja() {
                         {k.jumlahData} data · {formatTimestamp(k.createdAt)}
                       </div>
                     </div>
+                    {lokasiPerluCek(k) && <span className="fk-pill is-lokasi">{LABEL_STATUS[k.lokasiStatus]}</span>}
                     <BerkasPill jumlah={k.jumlahTidakLengkap} />
                     <StatusPill status={k.status} />
                     {/* Aksi tambahan hanya di desktop; di HP semuanya ada di halaman kertas kerja.

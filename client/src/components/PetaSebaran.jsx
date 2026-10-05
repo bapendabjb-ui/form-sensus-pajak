@@ -39,7 +39,7 @@ export default function PetaSebaran({ titik = [], onBuka }) {
           <span className="fk-legenda">
             <span className="fk-titik-contoh is-draft" /> Draft
           </span>
-          {titik.some((t) => t.sumber === "rekam") && (
+          {titik.some((t) => t.sumber === "gps") && (
             <span className="fk-legenda">
               <span className="fk-titik-contoh is-rekam" /> Terekam otomatis
             </span>

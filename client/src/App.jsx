@@ -50,10 +50,15 @@ function usePenandaKetik() {
     };
     const perbarui = () => html.classList.toggle("fk-ketik", sedangKetik());
     const saatLepas = () => setTimeout(perbarui, 80);
-    document.addEventListener("focusin", perbarui);
+    // Bilah tab disembunyikan seketika, tetapi baru dimunculkan lagi setelah
+    // ketukan selesai. Fokus pindah ke tombol sudah saat jari menekan; bila bilah
+    // tab langsung muncul, ia menutupi tombol di dasar layar (mis. "Pakai" di
+    // sebelah kolom isian) dan ketukannya jatuh ke bilah tab.
+    const saatFokus = () => (sedangKetik() ? perbarui() : saatLepas());
+    document.addEventListener("focusin", saatFokus);
     document.addEventListener("focusout", saatLepas);
     return () => {
-      document.removeEventListener("focusin", perbarui);
+      document.removeEventListener("focusin", saatFokus);
       document.removeEventListener("focusout", saatLepas);
     };
   }, []);

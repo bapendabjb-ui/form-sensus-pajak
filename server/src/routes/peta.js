@@ -4,7 +4,7 @@ const express = require("express");
 const prisma = require("../prisma");
 const { wrap } = require("../http");
 const { bentukTim } = require("../bentuk");
-const { adaTitik } = require("../cekLokasi");
+const { adaTitik, jarakMeter, titikKk } = require("../cekLokasi");
 
 const router = express.Router();
 
@@ -27,28 +27,76 @@ function judulEntri(jawaban = []) {
 /** Koordinat sah? Jawaban lokasi yang kosong disimpan sebagai { lat: null, lon: null }. */
 const punyaTitik = adaTitik;
 
-/** Kolom entri yang dibutuhkan satu titik peta. */
-const pilihEntri = {
-  id: true,
-  berkasLengkap: true,
-  catatanBerkas: true,
-  updatedAt: true,
-  formulir: { select: { judul: true } },
-  jawaban: {
-    select: { nilai: true, pertanyaan: { select: { tipe: true, urutan: true } } },
-    orderBy: { pertanyaan: { urutan: "asc" } },
-  },
-  kertasKerja: {
-    select: { id: true, nomor: true, status: true, petugas: { include: { petugas: true } } },
-  },
-};
+/**
+ * Koordinat pertanyaan Lokasi yang sedekat ini dengan titik kertas kerjanya
+ * dianggap objek yang sama dan tidak digambar dua kali. GPS petugas sering
+ * terekam dari jalan di depan rumah, sedangkan koordinat objek pajak ditunjuk
+ * tepat di bangunannya - pada bidang yang besar selisihnya bisa puluhan meter.
+ */
+const JARAK_SAMA_M = 50;
 
 /**
- * GET /api/peta -> semua titik hasil sensus, satu titik per data (entri).
+ * Titik-titik peta dari daftar kertas kerja beserta datanya.
  *
- * Satu titik per data, yaitu titik objeknya (lihat src/cekLokasi.js): koreksi
- * lewat peta, lalu jawaban pertanyaan Lokasi, lalu GPS asli yang terekam
- * otomatis saat data disimpan.
+ *   - satu titik per kertas kerja: titik objeknya (lihat src/cekLokasi.js -
+ *     koreksi peta, rekam di lokasi, atau GPS terbaik datanya), `entriId` null;
+ *   - satu titik per data yang mengisi pertanyaan Lokasi di tempat lain, mis.
+ *     rumah kedua pada PBB-P2 (`sumber` "formulir").
+ */
+function susunTitikPeta(kks) {
+  const titik = [];
+  for (const kk of kks) {
+    const entri = kk.entri || [];
+    const dasar = { kertasKerjaId: kk.id, nomor: kk.nomor, status: kk.status, petugas: bentukTim(kk.petugas) };
+
+    const t = titikKk(kk, entri);
+    if (t) {
+      const kurang = entri.filter((e) => !e.berkasLengkap).length;
+      titik.push({
+        ...dasar,
+        entriId: null,
+        lat: t.lat,
+        lon: t.lon,
+        // "koreksi" = ditunjuk di peta; "rekam" = direkam di lokasi; "gps" = GPS
+        // terekam otomatis saat data disimpan
+        sumber: t.sumber,
+        judul: entri.map((e) => judulEntri(e.jawaban)).find(Boolean) || "",
+        formulir: `${entri.length} data`,
+        jumlahData: entri.length,
+        berkasLengkap: kurang === 0,
+        catatanBerkas: kurang ? `${kurang} data` : "",
+        updatedAt: entri.reduce((a, e) => (e.updatedAt > a ? e.updatedAt : a), new Date(0)),
+      });
+    }
+
+    for (const e of entri) {
+      const lokasi = (e.jawaban || []).find((j) => j.pertanyaan.tipe === "lokasi" && adaTitik(j.nilai));
+      if (!lokasi) continue;
+      if (t && jarakMeter(t, lokasi.nilai) <= JARAK_SAMA_M) continue;
+      titik.push({
+        ...dasar,
+        entriId: e.id,
+        lat: lokasi.nilai.lat,
+        lon: lokasi.nilai.lon,
+        sumber: "formulir",
+        judul: judulEntri(e.jawaban),
+        formulir: e.formulir.judul,
+        jumlahData: 1,
+        berkasLengkap: e.berkasLengkap,
+        catatanBerkas: e.catatanBerkas || "",
+        updatedAt: e.updatedAt,
+      });
+    }
+  }
+
+  // Titik terbaru di akhir supaya tergambar paling atas saat bertumpuk.
+  titik.sort((a, b) => new Date(a.updatedAt) - new Date(b.updatedAt));
+  return titik;
+}
+
+/**
+ * GET /api/peta -> titik hasil sensus: satu per kertas kerja (rumah / bidang
+ * yang disensus), ditambah objek lain dari pertanyaan Lokasi.
  *
  * Jawaban lokasi kosong tetap tersimpan sebagai { lat: null, lon: null }, jadi
  * penyaringannya dilakukan di aplikasi, tidak bisa diserahkan ke database
@@ -57,66 +105,43 @@ const pilihEntri = {
 router.get(
   "/",
   wrap(async (_req, res) => {
-    const [rows, berkoordinat] = await Promise.all([
-      prisma.jawaban.findMany({
-        where: { pertanyaan: { tipe: "lokasi" } },
-        select: { nilai: true, entri: { select: pilihEntri } },
-      }),
-      prisma.entri.findMany({
-        where: { OR: [{ koreksiLat: { not: null } }, { rekamLat: { not: null } }] },
-        select: { ...pilihEntri, koreksiLat: true, koreksiLon: true, rekamLat: true, rekamLon: true },
-      }),
-    ]);
-
-    const bentukTitik = (e, lat, lon, sumber) => ({
-      entriId: e.id,
-      lat,
-      lon,
-      // "koreksi" = ditunjuk di peta saat pemeriksaan; "formulir" = jawaban
-      // pertanyaan Lokasi; "rekam" = GPS terekam otomatis saat data disimpan
-      sumber,
-      judul: judulEntri(e.jawaban),
-      formulir: e.formulir.judul,
-      berkasLengkap: e.berkasLengkap,
-      catatanBerkas: e.catatanBerkas || "",
-      updatedAt: e.updatedAt,
-      kertasKerjaId: e.kertasKerja.id,
-      nomor: e.kertasKerja.nomor,
-      status: e.kertasKerja.status,
-      petugas: bentukTim(e.kertasKerja.petugas),
+    const kks = await prisma.kertasKerja.findMany({
+      where: { entri: { some: {} } },
+      select: {
+        id: true,
+        nomor: true,
+        status: true,
+        titikLat: true,
+        titikLon: true,
+        titikAkurasi: true,
+        titikSumber: true,
+        petugas: { include: { petugas: true } },
+        entri: {
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          select: {
+            id: true,
+            rekamLat: true,
+            rekamLon: true,
+            rekamAkurasi: true,
+            berkasLengkap: true,
+            catatanBerkas: true,
+            updatedAt: true,
+            formulir: { select: { judul: true } },
+            jawaban: {
+              select: { nilai: true, pertanyaan: { select: { tipe: true, urutan: true } } },
+              orderBy: { pertanyaan: { urutan: "asc" } },
+            },
+          },
+        },
+      },
     });
-
-    const titik = [];
-    const sudahAda = new Set();
-
-    // Koreksi didahulukan: itulah letak objek menurut pemeriksaan terakhir.
-    for (const e of berkoordinat) {
-      if (e.koreksiLat === null || e.koreksiLon === null) continue;
-      titik.push(bentukTitik(e, e.koreksiLat, e.koreksiLon, "koreksi"));
-      sudahAda.add(e.id);
-    }
-
-    for (const r of rows) {
-      if (!punyaTitik(r.nilai) || !r.entri || sudahAda.has(r.entri.id)) continue;
-      titik.push(bentukTitik(r.entri, r.nilai.lat, r.nilai.lon, "formulir"));
-      sudahAda.add(r.entri.id);
-    }
-
-    // GPS asli: cadangan bagi data tanpa koreksi dan tanpa jawaban Lokasi
-    // (mis. formulir PBB-P2 yang tidak punya pertanyaan Lokasi).
-    for (const e of berkoordinat) {
-      if (sudahAda.has(e.id) || e.rekamLat === null || e.rekamLon === null) continue;
-      titik.push(bentukTitik(e, e.rekamLat, e.rekamLon, "rekam"));
-    }
-
-    // Titik terbaru di akhir supaya tergambar paling atas saat bertumpuk.
-    titik.sort((a, b) => new Date(a.updatedAt) - new Date(b.updatedAt));
-    res.json(titik);
+    res.json(susunTitikPeta(kks));
   })
 );
 
 module.exports = router;
-// Diekspor untuk diuji terpisah: keduanya murni dan menentukan titik mana yang
-// muncul di peta serta namanya, sementara query di atas perlu database.
+// Diekspor untuk diuji terpisah: murni dan menentukan titik mana yang muncul di
+// peta serta namanya, sementara query di atas perlu database.
 module.exports.punyaTitik = punyaTitik;
 module.exports.judulEntri = judulEntri;
+module.exports.susunTitikPeta = susunTitikPeta;

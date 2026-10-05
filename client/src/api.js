@@ -214,6 +214,19 @@ export const setStatusKertasKerja = (id, status) =>
   request(`/kertas-kerja/${id}/status`, { method: "PUT", body: { status } });
 export const deleteKertasKerja = (id) => request(`/kertas-kerja/${id}`, { method: "DELETE", auth: true });
 
+/**
+ * Titik objek kertas kerja (satu kertas kerja = satu rumah / bidang). Terbuka
+ * untuk petugas; token admin ikut dikirim bila ada supaya namanya tercatat.
+ * Ketiganya mengembalikan detail kertas kerja terbaru.
+ */
+export const tetapkanTitikKk = (id, lat, lon) =>
+  request(`/kertas-kerja/${id}/titik`, { method: "PUT", body: { lat, lon }, auth: true });
+export const hapusTitikKk = (id) =>
+  request(`/kertas-kerja/${id}/titik`, { method: "PUT", body: { hapus: true }, auth: true });
+/** Titik dari GPS saat berada di lokasi. `posisi` = { lat, lon, akurasi }. */
+export const rekamTitikKk = (id, posisi) =>
+  request(`/kertas-kerja/${id}/rekam`, { method: "PUT", body: posisi, auth: true });
+
 /* ---------- entri: satu data yang diisi lewat formulir ---------- */
 
 export const getEntri = (id) => request(`/entri/${id}`);
@@ -226,23 +239,13 @@ export const createEntri = (kertasKerjaId, formulirId, jawaban, dariEpbb = [], b
     method: "POST",
     body: { formulirId, jawaban, dariEpbb, ...berkas, rekamKoordinat },
   });
-/** Mengubah data tidak merekam posisi; GPS asli hanya berganti lewat rekamUlangLokasi. */
+/** Mengubah data tidak merekam posisi; titik objek ditetapkan di tingkat kertas kerja. */
 export const updateEntri = (id, jawaban, dariEpbb = [], berkas = {}) =>
   request(`/entri/${id}`, { method: "PUT", body: { jawaban, dariEpbb, ...berkas } });
 export const deleteEntri = (id) => request(`/entri/${id}`, { method: "DELETE", auth: true });
 
-/**
- * Koreksi titik objek lewat peta. Terbuka untuk petugas; token admin ikut
- * dikirim bila ada supaya nama admin tercatat sebagai pengoreksi.
- */
-export const koreksiTitik = (id, lat, lon) =>
-  request(`/entri/${id}/titik`, { method: "PUT", body: { lat, lon }, auth: true });
-export const hapusKoreksiTitik = (id) =>
-  request(`/entri/${id}/titik`, { method: "PUT", body: { hapus: true }, auth: true });
 /** Koordinat dari teks / tautan Google Maps, termasuk tautan pendek maps.app.goo.gl. */
 export const bacaTautanPeta = (teks) => request("/tautan-peta", { method: "POST", body: { teks } });
-/** Rekam ulang GPS asli di lokasi objek. `posisi` = { lat, lon, akurasi }. */
-export const rekamUlangLokasi = (id, posisi) => request(`/entri/${id}/rekam`, { method: "PUT", body: posisi });
 
 /* ---------- pengajuan hapus ---------- */
 

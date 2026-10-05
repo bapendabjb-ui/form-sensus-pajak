@@ -8,6 +8,7 @@ const { wrap, badRequest, notFound, conflict, parseId } = require("../http");
 const { includePertanyaan, bentukFormulir } = require("../bentuk");
 const { hapusBerkas, sapuFotoYatim } = require("../foto");
 const { tutupPengajuan } = require("../hapus");
+const { perbaruiLokasiKk } = require("../lokasiKk");
 const { susunEkspor, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
 const { bacaPayload, susunBerkasBank, bacaBerkasBank } = require("../bankFormulir");
 
@@ -329,12 +330,15 @@ router.delete(
       where: { entri: { formulirId: id } },
       select: { berkas: true },
     });
+    const terdampak = await prisma.entri.findMany({ where: { formulirId: id }, select: { kertasKerjaId: true } });
     await prisma.$transaction([
       // Data formulir ini ikut terhapus, jadi pengajuan hapusnya sudah terpenuhi.
       tutupPengajuan({ entri: { formulirId: id } }, req.admin),
       prisma.formulir.delete({ where: { id } }),
     ]);
     await hapusBerkas(berkas.map((f) => f.berkas));
+    // Data yang ikut terhapus bisa membawa GPS yang menjadi titik kertas kerjanya.
+    await perbaruiLokasiKk(terdampak.map((e) => e.kertasKerjaId));
 
     res.status(204).end();
   })

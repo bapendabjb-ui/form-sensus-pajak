@@ -95,21 +95,26 @@ const ringkasTim = (petugas = []) => {
 };
 
 /** HTML isi balon sebuah titik; semua teks dari data sudah di-escape. */
+/** Keterangan asal titik di balon. */
+const ASAL_TITIK = {
+  gps: "Titik dari GPS saat pendataan",
+  rekam: "Titik direkam di lokasi",
+  koreksi: "Titik ditetapkan di peta",
+  formulir: "Koordinat dari pertanyaan Lokasi",
+};
+
 export function isiBalon(t) {
+  const kk = !t.entriId;
   const baris = [
-    `<strong>${aman(t.judul || t.formulir)}</strong>`,
+    `<strong>${aman(t.judul || (kk ? `Kertas kerja ${t.nomor}` : t.formulir))}</strong>`,
     `<span class="fk-balon-sub">${aman(t.nomor)} · ${aman(t.formulir)}</span>`,
     `<span class="fk-balon-sub">${aman(ringkasTim(t.petugas))}</span>`,
   ];
-  if (t.sumber === "rekam") {
-    baris.push(`<span class="fk-balon-rekam">Posisi GPS terekam otomatis saat pendataan</span>`);
-  } else if (t.sumber === "koreksi") {
-    baris.push(`<span class="fk-balon-rekam">Titik dikoreksi di peta</span>`);
-  }
+  if (ASAL_TITIK[t.sumber]) baris.push(`<span class="fk-balon-rekam">${ASAL_TITIK[t.sumber]}</span>`);
   if (!t.berkasLengkap) {
     const catatan = t.catatanBerkas ? `: ${aman(t.catatanBerkas)}` : "";
     baris.push(`<span class="fk-balon-kurang">Berkas tidak lengkap${catatan}</span>`);
   }
-  baris.push(`<button type="button" class="fk-balon-buka">Buka data</button>`);
+  baris.push(`<button type="button" class="fk-balon-buka">${kk ? "Buka kertas kerja" : "Buka data"}</button>`);
   return `<div class="fk-balon">${baris.join("")}</div>`;
 }

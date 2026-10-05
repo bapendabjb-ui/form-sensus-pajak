@@ -19,7 +19,7 @@ const ZOOM_MAKS_RAPAT = 17;
 /** Lingkaran berwarna; berlubang untuk posisi yang terekam otomatis. */
 function ikonTitik(lib, t) {
   const warna = WARNA_STATUS[t.status === "selesai" ? "selesai" : "draft"];
-  const rekam = t.sumber === "rekam";
+  const rekam = t.sumber === "gps";
   return {
     path: lib.SymbolPath.CIRCLE,
     scale: 7,

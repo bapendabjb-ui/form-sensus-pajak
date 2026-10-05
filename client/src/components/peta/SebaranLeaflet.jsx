@@ -21,7 +21,7 @@ import { PUSAT_AWAL, isiBalon } from "./bersama.jsx";
  */
 const ikonTitik = (t) =>
   L.divIcon({
-    className: `fk-titik is-${t.status === "selesai" ? "selesai" : "draft"}${t.sumber === "rekam" ? " is-rekam" : ""}`,
+    className: `fk-titik is-${t.status === "selesai" ? "selesai" : "draft"}${t.sumber === "gps" ? " is-rekam" : ""}`,
     html: '<span class="fk-titik-isi"></span>',
     iconSize: [16, 16],
     iconAnchor: [8, 8],
