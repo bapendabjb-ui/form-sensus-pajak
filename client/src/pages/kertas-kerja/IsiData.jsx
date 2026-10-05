@@ -57,11 +57,11 @@ function dialogLokasi(asal, nilai, titik, aturan) {
       tidak: "Kembali",
     };
   }
-  const nanti = "Titik rumah / bidangnya bisa ditetapkan di peta pada halaman kertas kerja.";
+  const nanti = "Lokasi sensusnya bisa ditetapkan di peta pada halaman kertas kerja.";
   if (nilai === "kantor") {
     return {
       judul: `Anda berada di area ${kantor}`,
-      pesan: `Kertas kerja ini belum punya titik di lokasi objek, jadi titiknya akan tercatat di kantor dan ditandai untuk diperiksa. ${nanti}`,
+      pesan: `Kertas kerja ini belum punya lokasi sensus, jadi titiknya akan tercatat di kantor dan ditandai untuk diperiksa. ${nanti}`,
       ya: "Tetap simpan",
       tidak: "Kembali",
     };

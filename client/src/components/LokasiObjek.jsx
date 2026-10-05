@@ -53,7 +53,7 @@ export function StatusGps({ gps, aturan, titikSudahAda = false, onUlangi }) {
   else if (titikSudahAda) {
     teks = `${LABEL_STATUS[nilai]}. Tidak masalah: titik kertas kerja ini sudah ada.`;
   } else if (nilai === "kantor") {
-    teks = `Anda berada di area ${namaKantor(aturan)}. Kertas kerja ini belum punya titik di lokasi objek.`;
+    teks = `Anda berada di area ${namaKantor(aturan)}. Kertas kerja ini belum punya lokasi sensus.`;
   } else if (nilai === "kasar") {
     teks = `Lokasi kurang akurat (${meter(gps.posisi.akurasi)}). Nyalakan GPS HP atau pindah ke tempat terbuka.`;
   } else teks = `${gps.galat || "Lokasi belum terekam."} Data tetap bisa disimpan, tetapi tanpa koordinat.`;
@@ -142,7 +142,7 @@ export function LokasiKertasKerja({ kk, aturan, onBerubah }) {
   };
 
   const simpanTitik = async () => {
-    const ok = await jalankan(() => api.tetapkanTitikKk(kk.id, pilihan.lat, pilihan.lon), "Titik objek disimpan.");
+    const ok = await jalankan(() => api.tetapkanTitikKk(kk.id, pilihan.lat, pilihan.lon), "Lokasi sensus disimpan.");
     if (ok) {
       setPilihan(null);
       setPeta(false);
@@ -186,13 +186,13 @@ export function LokasiKertasKerja({ kk, aturan, onBerubah }) {
         const batas = aturan?.akurasiRekamUlangM ?? 50;
         if (typeof posisi.akurasi === "number" && posisi.akurasi <= batas) {
           if (nilaiTitik(posisi, aturan) === "kantor") {
-            akhiri(`Posisi Anda masih di area ${namaKantor(aturan)}. Rekam saat berada di lokasi objek.`);
+            akhiri(`Posisi Anda masih di area ${namaKantor(aturan)}. Rekam saat berada di lokasi sensus.`);
             return;
           }
           akhiri("");
           jalankan(
             () => api.rekamTitikKk(kk.id, { lat: posisi.lat, lon: posisi.lon, akurasi: posisi.akurasi }),
-            `Titik objek direkam (${meter(posisi.akurasi)}).`
+            `Lokasi sensus direkam (${meter(posisi.akurasi)}).`
           );
         } else if (Date.now() - mulai > REKAM_MAKS_MS) {
           akhiri(
@@ -206,19 +206,19 @@ export function LokasiKertasKerja({ kk, aturan, onBerubah }) {
   };
 
   return (
-    <section className={"fk-section fk-lokasi-data" + (perluCek ? " is-waspada" : "")} id="lokasi-objek">
+    <section className={"fk-section fk-lokasi-data" + (perluCek ? " is-waspada" : "")} id="lokasi-sensus">
       <div className="fk-field">
-        <span className="fk-q-name">Lokasi objek</span>
+        <span className="fk-q-name">Lokasi sensus</span>
 
         {perluCek && (
           <p className="fk-lokasi-data-peringatan" role="alert">
-            {LABEL_STATUS[lokasi.status]}. Tetapkan titik rumah / bidangnya di peta, atau tekan <b>Rekam di sini</b>{" "}
+            {LABEL_STATUS[lokasi.status]}. Tetapkan lokasi sensusnya di peta, atau tekan <b>Rekam di sini</b>{" "}
             saat berada di lokasi.
           </p>
         )}
 
         <dl className="fk-lokasi-data-rinci">
-          <dt>Titik objek</dt>
+          <dt>Titik sensus</dt>
           <dd>
             {asalTitik(lokasi)}
             {lokasi.jarakM !== null && ` Berjarak ${formatJarak(lokasi.jarakM)} dari GPS petugas di lapangan.`}

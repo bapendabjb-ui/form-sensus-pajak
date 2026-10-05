@@ -461,7 +461,7 @@ router.put(
       );
     }
     if (nilaiTitik(k) === "kantor") {
-      throw new ApiError(422, `Posisi Anda masih di area ${KANTOR.nama}. Rekam saat berada di lokasi objek.`);
+      throw new ApiError(422, `Posisi Anda masih di area ${KANTOR.nama}. Rekam saat berada di lokasi sensus.`);
     }
 
     const admin = await bacaAdmin(req);

@@ -616,9 +616,9 @@ kertas kerja, bukan per data. Ada tiga macam koordinat:
 | ----- | ------------ |
 | Mengisi data baru | Posisi dipantau sejak layar dibuka, dan statusnya tampil di atas tombol **Simpan**: ✓ terekam, belum terekam, kurang akurat (> 100 m), atau **di area kantor BPPRD** (radius 150 m). Konfirmasi hanya muncul bila **kertas kerjanya belum punya titik yang baik**, atau koordinat pertanyaan Lokasi diambil dengan GPS di kantor. |
 | Mengubah data | Posisi **tidak** direkam. Dulu GPS yang masih kosong diisi saat data disimpan ulang, sehingga data yang diperbaiki di kantor mendapat titik kantor. |
-| Halaman kertas kerja | Panel **Lokasi objek**: asal titik, ringkasan GPS data ("3 data: 2 di lokasi, 1 di area kantor"), tombol **Tetapkan di peta** (dengan kolom tempel Google Maps), **Rekam di sini** (hanya diterima bila akurasinya ≤ 50 m dan di luar area kantor), dan **Pakai GPS data**. Petugas maupun admin bisa memakainya; pelakunya dicatat. |
+| Halaman kertas kerja | Panel **Lokasi sensus**: asal titik, ringkasan GPS data ("3 data: 2 di lokasi, 1 di area kantor"), tombol **Tetapkan di peta** (dengan kolom tempel Google Maps), **Rekam di sini** (hanya diterima bila akurasinya ≤ 50 m dan di luar area kantor), dan **Pakai GPS data**. Petugas maupun admin bisa memakainya; pelakunya dicatat. |
 | Daftar kertas kerja | Saringan **Lokasi perlu dicek** dan label per kartu. Statusnya disimpan di `kertas_kerja.lokasi_status` (`src/lokasiKk.js`), dihitung ulang setiap data dibuat/dihapus atau titik ditetapkan, dan diisi saat server start untuk kertas kerja lama. |
-| Tandai selesai | Bila titik kertas kerja atau koordinat pertanyaan Lokasi perlu dicek, muncul konfirmasi: **Periksa dulu** (menggulir ke panel Lokasi objek) atau **Tetap tandai selesai**. |
+| Tandai selesai | Bila titik kertas kerja atau koordinat pertanyaan Lokasi perlu dicek, muncul konfirmasi: **Periksa dulu** (menggulir ke panel Lokasi sensus) atau **Tetap tandai selesai**. |
 
 Titik kantor dan ambang akurasinya ada di `server/src/batas.js` (`KANTOR`, `AKURASI_KASAR_M`,
 `AKURASI_REKAM_ULANG_M`, `JARAK_JAUH_M`) dan dikirim ke klien lewat `/api/konfigurasi`. Aturan

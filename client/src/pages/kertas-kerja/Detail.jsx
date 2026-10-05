@@ -116,7 +116,7 @@ export function DetailKertasKerja({ id }) {
     const objekPerluCek = kk.entri.filter(objekMeragukan).length;
     if (tujuan === "selesai" && (titikPerluCek || objekPerluCek)) {
       const rincian = [];
-      if (titikPerluCek) rincian.push(`Titik rumah / bidang: ${LABEL_STATUS[kk.lokasi.status].toLowerCase()}.`);
+      if (titikPerluCek) rincian.push(`Lokasi sensus: ${LABEL_STATUS[kk.lokasi.status].toLowerCase()}.`);
       if (objekPerluCek) {
         rincian.push(`${objekPerluCek} koordinat di pertanyaan Lokasi diambil di kantor atau kurang akurat.`);
       }
@@ -127,7 +127,7 @@ export function DetailKertasKerja({ id }) {
         tidak: "Periksa dulu",
       });
       if (!ya) {
-        if (titikPerluCek) document.getElementById("lokasi-objek")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (titikPerluCek) document.getElementById("lokasi-sensus")?.scrollIntoView({ behavior: "smooth", block: "start" });
         else setSaring("lokasi");
         return;
       }
