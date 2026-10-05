@@ -85,6 +85,7 @@ test("susunTitikPeta: banyak data dalam satu kertas kerja menjadi satu titik", (
     kk({ entri: [entri(1, RUMAH, [jawabTeks("Bu Siti")]), entri(2, RUMAH), entri(3, KANTOR_DEKAT)] }),
   ]);
   assert.equal(t.length, 1);
+  assert.equal(t[0].jenis, "kk");
   assert.equal(t[0].entriId, null);
   assert.equal(t[0].sumber, "gps");
   assert.equal(t[0].lat, RUMAH.lat, "GPS di lapangan, bukan yang di kantor");
@@ -98,23 +99,15 @@ test("susunTitikPeta: rumah kedua dari pertanyaan Lokasi PBB-P2 tampil terpisah"
   ]);
   assert.equal(t.length, 2);
   const objek = t.find((x) => x.entriId === 2);
+  assert.equal(objek.jenis, "data");
   assert.equal(objek.sumber, "formulir");
   assert.equal(objek.lat, RUMAH_KEDUA.lat);
 });
 
-test("susunTitikPeta: koordinat Lokasi di tempat yang sama tidak digambar dua kali", () => {
+test("susunTitikPeta: koordinat Lokasi di tempat yang sama tetap jadi titik data sendiri", () => {
+  // Kedua jenis ditampilkan terpisah oleh klien, jadi tidak ada yang dibuang.
   const t = susunTitikPeta([kk({ entri: [entri(1, RUMAH, [jawabLokasi(RUMAH)])] })]);
-  assert.equal(t.length, 1);
-  assert.equal(t[0].entriId, null);
-});
-
-test("susunTitikPeta: batas objek yang sama 50 m", () => {
-  // 0,0004 derajat lintang ≈ 44 m: GPS dari jalan, koordinat OP di bangunan.
-  const dekat = { lat: RUMAH.lat - 0.0004, lon: RUMAH.lon };
-  assert.equal(susunTitikPeta([kk({ entri: [entri(1, RUMAH, [jawabLokasi(dekat)])] })]).length, 1);
-  // 0,0006 derajat ≈ 67 m: dianggap objek lain.
-  const jauh = { lat: RUMAH.lat - 0.0006, lon: RUMAH.lon };
-  assert.equal(susunTitikPeta([kk({ entri: [entri(1, RUMAH, [jawabLokasi(jauh)])] })]).length, 2);
+  assert.deepEqual(t.map((x) => x.jenis).sort(), ["data", "kk"]);
 });
 
 test("susunTitikPeta: titik yang ditetapkan didahulukan, berkas kurang terhitung", () => {

@@ -4,7 +4,7 @@ const express = require("express");
 const prisma = require("../prisma");
 const { wrap } = require("../http");
 const { bentukTim } = require("../bentuk");
-const { adaTitik, jarakMeter, titikKk } = require("../cekLokasi");
+const { adaTitik, titikKk } = require("../cekLokasi");
 
 const router = express.Router();
 
@@ -28,20 +28,14 @@ function judulEntri(jawaban = []) {
 const punyaTitik = adaTitik;
 
 /**
- * Koordinat pertanyaan Lokasi yang sedekat ini dengan titik kertas kerjanya
- * dianggap objek yang sama dan tidak digambar dua kali. GPS petugas sering
- * terekam dari jalan di depan rumah, sedangkan koordinat objek pajak ditunjuk
- * tepat di bangunannya - pada bidang yang besar selisihnya bisa puluhan meter.
- */
-const JARAK_SAMA_M = 50;
-
-/**
- * Titik-titik peta dari daftar kertas kerja beserta datanya.
+ * Titik-titik peta dari daftar kertas kerja beserta datanya. Klien
+ * menampilkan kedua jenisnya terpisah, jadi tidak ada yang disaring di sini.
  *
- *   - satu titik per kertas kerja: titik objeknya (lihat src/cekLokasi.js -
- *     koreksi peta, rekam di lokasi, atau GPS terbaik datanya), `entriId` null;
- *   - satu titik per data yang mengisi pertanyaan Lokasi di tempat lain, mis.
- *     rumah kedua pada PBB-P2 (`sumber` "formulir").
+ *   - jenis "kk"  : satu titik per kertas kerja - lokasi sensusnya (lihat
+ *                   src/cekLokasi.js: ditetapkan di peta, rekam di lokasi, atau
+ *                   GPS terbaik datanya). `entriId` null.
+ *   - jenis "data": satu titik per data yang mengisi pertanyaan Lokasi, mis.
+ *                   Koordinat Objek Pajak pada PBB-P2 (`sumber` "formulir").
  */
 function susunTitikPeta(kks) {
   const titik = [];
@@ -54,6 +48,7 @@ function susunTitikPeta(kks) {
       const kurang = entri.filter((e) => !e.berkasLengkap).length;
       titik.push({
         ...dasar,
+        jenis: "kk",
         entriId: null,
         lat: t.lat,
         lon: t.lon,
@@ -72,9 +67,9 @@ function susunTitikPeta(kks) {
     for (const e of entri) {
       const lokasi = (e.jawaban || []).find((j) => j.pertanyaan.tipe === "lokasi" && adaTitik(j.nilai));
       if (!lokasi) continue;
-      if (t && jarakMeter(t, lokasi.nilai) <= JARAK_SAMA_M) continue;
       titik.push({
         ...dasar,
+        jenis: "data",
         entriId: e.id,
         lat: lokasi.nilai.lat,
         lon: lokasi.nilai.lon,
@@ -95,8 +90,8 @@ function susunTitikPeta(kks) {
 }
 
 /**
- * GET /api/peta -> titik hasil sensus: satu per kertas kerja (rumah / bidang
- * yang disensus), ditambah objek lain dari pertanyaan Lokasi.
+ * GET /api/peta -> titik hasil sensus: satu per kertas kerja (lokasi sensus,
+ * jenis "kk") dan satu per data berkoordinat (pertanyaan Lokasi, jenis "data").
  *
  * Jawaban lokasi kosong tetap tersimpan sebagai { lat: null, lon: null }, jadi
  * penyaringannya dilakukan di aplikasi, tidak bisa diserahkan ke database
