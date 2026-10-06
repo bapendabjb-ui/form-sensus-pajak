@@ -51,7 +51,11 @@ router.put(
       jawaban = kunciKoordinat(entri.formulir, jawaban, petaJawaban(entri.jawaban));
     }
 
-    const siap = await siapkanJawaban(entri.formulir, jawaban, id, req.body?.dariEpbb);
+    // Klien lama tanpa berkasLengkap: penanda yang tersimpan yang berlaku.
+    const berkas = bacaBerkas(req.body);
+    const siap = await siapkanJawaban(entri.formulir, jawaban, id, req.body?.dariEpbb, {
+      berkasKurang: (berkas.berkasLengkap ?? entri.berkasLengkap) === false,
+    });
     if (Object.keys(siap.errors).length) {
       throw new ApiError(422, "Periksa kembali isian yang ditandai merah.", { errors: siap.errors });
     }
@@ -65,7 +69,7 @@ router.put(
     await prisma.$transaction(async (tx) => {
       await tx.entri.update({
         where: { id },
-        data: { updatedAt: new Date(), ...bacaBerkas(req.body) },
+        data: { updatedAt: new Date(), ...berkas },
       });
       dilepas = await tulisJawaban(tx, id, siap);
     });

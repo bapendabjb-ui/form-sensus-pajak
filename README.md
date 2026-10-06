@@ -52,6 +52,10 @@ berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengeksporny
    kolom catatan (mis. "fotokopi KTP belum ada"). Data bertanda muncul dengan label merah; daftar
    kertas kerja punya saringan **Berkas tidak lengkap**, halaman kertas kerja punya tombol
    **Hanya berkas tidak lengkap**, dan Dashboard menampilkan jumlahnya (kartunya bisa diketuk).
+   Formulir yang dinyalakan admin (sakelar **Boleh disimpan tanpa isian wajib bila ditandai Berkas
+   tidak lengkap** di menu Formulir, mis. PBB-P2) boleh disimpan walau isian wajibnya kosong selama
+   dicentang berkas tidak lengkap — kecuali pertanyaan Lokasi (koordinat), yang tetap wajib. Melepas
+   centangnya mengembalikan semua kolom wajib.
 6. **Tandai selesai** (minimal satu data), atau **Ekspor CSV** kapan saja.
    **Ubah petugas** dan penghapusan memerlukan login admin. Data yang sudah tersimpan tetap
    bisa dibuka dan diubah.

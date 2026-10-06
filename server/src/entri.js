@@ -24,13 +24,19 @@ const TIPE_EPBB = new Set(Object.values(SUMBER_EPBB).flat());
  * Dua lapis pemeriksaan: kolom wajib harus terisi, dan kolom identitas
  * (NIK / NPWP / NOP / RT & RW) harus benar panjang digitnya bila diisi.
  *
+ * Formulir dengan `simpanBerkasKurang` melonggarkan kolom wajib bila data
+ * ditandai berkas tidak lengkap - kecuali pertanyaan Lokasi (koordinat).
+ * Pemeriksaan format tetap berlaku untuk yang diisi.
+ *
  * @param {object} formulir  formulir Prisma lengkap dengan pertanyaan
  * @param {object} masuk     { [pertanyaanId]: nilai }
  * @param {number|null} entriId  entri yang sedang diubah, null untuk entri baru
  * @param {number[]} [dariEpbb]  id pertanyaan yang isinya masih asli dari EPBB
+ * @param {{ berkasKurang?: boolean }} [opsi]  data ditandai berkas tidak lengkap
  * @returns {Promise<{baris: object[], tarif: object[], foto: object[], errors: object}>}
  */
-async function siapkanJawaban(formulir, masuk, entriId, dariEpbb = []) {
+async function siapkanJawaban(formulir, masuk, entriId, dariEpbb = [], { berkasKurang = false } = {}) {
+  const longgar = Boolean(formulir.simpanBerkasKurang) && berkasKurang;
   const kiriman = masuk && typeof masuk === "object" ? masuk : {};
   const idEpbb = new Set((Array.isArray(dariEpbb) ? dariEpbb : []).map(Number));
   const siap = { baris: [], tarif: [], foto: [], errors: {} };
@@ -66,7 +72,7 @@ async function siapkanJawaban(formulir, masuk, entriId, dariEpbb = []) {
       siap.foto.push({ pertanyaanId: q.id, ids: nilai.map((f) => f.id) });
     }
 
-    if (q.wajib && !nilaiTerisi(q.tipe, nilai)) {
+    if (wajibBerlaku(q, longgar) && !nilaiTerisi(q.tipe, nilai)) {
       siap.errors[q.id] = pesanWajib(q.tipe);
     } else {
       const galat = pesanFormat(q.tipe, nilai);
@@ -86,6 +92,9 @@ async function siapkanJawaban(formulir, masuk, entriId, dariEpbb = []) {
 
   return siap;
 }
+
+/** Kolom wajib tetap wajib, kecuali dilonggarkan - koordinat (Lokasi) tidak pernah. */
+const wajibBerlaku = (q, longgar) => q.wajib && (!longgar || q.tipe === "lokasi");
 
 const CATATAN_BERKAS_MAKS = 500;
 

@@ -226,11 +226,19 @@ router.post(
   "/",
   requireAdmin,
   wrap(async (req, res) => {
-    const { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan, pertanyaan } = bacaPayload(req.body);
+    const { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan, simpanBerkasKurang, pertanyaan } = bacaPayload(req.body);
 
     const hasil = await prisma.$transaction(async (tx) => {
       const f = await tx.formulir.create({
-        data: { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan, urutan: await urutanBerikutnya(tx) },
+        data: {
+          judul,
+          deskripsi,
+          ikon,
+          judulKolomKiri,
+          judulKolomKanan,
+          simpanBerkasKurang,
+          urutan: await urutanBerikutnya(tx),
+        },
       });
       await tulisPertanyaan(tx, f.id, pertanyaan);
       return tx.formulir.findUnique({ where: { id: f.id }, include: includePertanyaan });
@@ -286,14 +294,17 @@ router.put(
   requireAdmin,
   wrap(async (req, res) => {
     const id = parseId(req.params.id);
-    const { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan, pertanyaan } = bacaPayload(req.body);
+    const { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan, simpanBerkasKurang, pertanyaan } = bacaPayload(req.body);
 
     const ada = await prisma.formulir.findUnique({ where: { id } });
     if (!ada) throw notFound("Formulir tidak ditemukan.");
 
     let dihapus = 0;
     const hasil = await prisma.$transaction(async (tx) => {
-      await tx.formulir.update({ where: { id }, data: { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan } });
+      await tx.formulir.update({
+        where: { id },
+        data: { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan, simpanBerkasKurang },
+      });
       dihapus = await tulisPertanyaan(tx, id, pertanyaan);
       return tx.formulir.findUnique({ where: { id }, include: includePertanyaan });
     });

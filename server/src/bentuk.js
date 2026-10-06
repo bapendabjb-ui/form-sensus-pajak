@@ -26,6 +26,7 @@ const bentukFormulir = (f) => ({
   ikon: f.ikon || "",
   judulKolomKiri: f.judulKolomKiri || "",
   judulKolomKanan: f.judulKolomKanan || "",
+  simpanBerkasKurang: Boolean(f.simpanBerkasKurang),
   urutan: f.urutan ?? 0,
   createdAt: f.createdAt,
   pertanyaan: (f.pertanyaan || []).map(bentukPertanyaan),

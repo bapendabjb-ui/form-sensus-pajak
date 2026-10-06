@@ -35,6 +35,7 @@ function bacaPayload(body) {
   const judulKolom = (v) => String(v ?? "").trim().slice(0, 100);
   const judulKolomKiri = judulKolom(body?.judulKolomKiri);
   const judulKolomKanan = judulKolom(body?.judulKolomKanan);
+  const simpanBerkasKurang = Boolean(body?.simpanBerkasKurang);
 
   const masuk = Array.isArray(body?.pertanyaan) ? body.pertanyaan : [];
   const pertanyaan = masuk.map((q, i) => {
@@ -76,7 +77,7 @@ function bacaPayload(body) {
     };
   });
 
-  return { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan, pertanyaan };
+  return { judul, deskripsi, ikon, judulKolomKiri, judulKolomKanan, simpanBerkasKurang, pertanyaan };
 }
 
 /** Judul dibandingkan tanpa beda huruf besar/kecil dan spasi ganda. */
@@ -97,6 +98,7 @@ function susunBerkasBank(formulir, diekspor = new Date()) {
       ikon: f.ikon || "",
       judulKolomKiri: f.judulKolomKiri || "",
       judulKolomKanan: f.judulKolomKanan || "",
+      simpanBerkasKurang: Boolean(f.simpanBerkasKurang),
       pertanyaan: (f.pertanyaan || []).map((q) => ({
         tipe: q.tipe,
         label: q.label,

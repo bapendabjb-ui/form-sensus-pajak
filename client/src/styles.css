@@ -266,6 +266,10 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-switch-knob::after{content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.2); transition:.15s;}
 .fk-switch.is-on .fk-switch-knob{background:var(--brand);}
 .fk-switch.is-on .fk-switch-knob::after{left:16px;}
+/* sakelar pengaturan formulir: teks lebih panjang dengan keterangan di bawahnya */
+.fk-switch-formulir{align-items:flex-start; color:var(--ink); font-size:13.5px; line-height:1.4; margin-top:4px;}
+.fk-switch-formulir .fk-switch-knob{margin-top:1px;}
+.fk-switch-ket{display:block; margin-top:3px; font-size:12.5px; color:var(--muted); font-weight:400;}
 .fk-lt-switch{margin-top:4px;}
 .fk-del{border:0; background:transparent; color:var(--faint); font-size:13px;}
 .fk-del:hover{color:var(--danger);}

@@ -45,6 +45,10 @@ model Formulir {
   /// Judul di atas kolom kiri / kanan halaman isi data (mis. "Subjek Pajak" / "Objek Pajak").
   judulKolomKiri  String @default("") @map("judul_kolom_kiri") @db.VarChar(100)
   judulKolomKanan String @default("") @map("judul_kolom_kanan") @db.VarChar(100)
+  /// Data boleh disimpan walau isian wajib masih kosong, asalkan ditandai
+  /// "Berkas tidak lengkap" - pertanyaan Lokasi (koordinat) tetap wajib.
+  /// Untuk formulir seperti PBB-P2 yang dokumennya sering belum ada di lapangan.
+  simpanBerkasKurang Boolean @default(false) @map("simpan_berkas_kurang")
   /// Urutan tampil di bank formulir - diatur admin lewat seret (drag & drop).
   urutan    Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")

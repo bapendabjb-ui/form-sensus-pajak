@@ -358,11 +358,18 @@ export function pesanFormat(tipe, v) {
  * belum lengkap digitnya -> { [pertanyaanId]: pesan }.
  * Server tetap memvalidasi ulang.
  */
-export function validateRequired(pertanyaan, answers) {
+/**
+ * Kolom wajib berlaku? `longgar` = formulir membolehkan simpan tanpa isian wajib
+ * dan data ditandai berkas tidak lengkap; koordinat (Lokasi) tetap wajib.
+ * Sama dengan server/src/entri.js.
+ */
+export const wajibBerlaku = (q, longgar = false) => q.wajib && (!longgar || q.tipe === "lokasi");
+
+export function validateRequired(pertanyaan, answers, { longgar = false } = {}) {
   const errors = {};
   for (const q of pertanyaan) {
     const v = answers[q.id] !== undefined ? answers[q.id] : emptyValue(q.tipe);
-    if (q.wajib && !isFilled(q.tipe, v)) {
+    if (wajibBerlaku(q, longgar) && !isFilled(q.tipe, v)) {
       errors[q.id] = pesanWajib(q.tipe);
       continue;
     }

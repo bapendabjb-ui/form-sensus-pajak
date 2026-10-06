@@ -14,7 +14,15 @@ import { useDialog } from "../../components/Dialog.jsx";
 import { Loading, ErrorBox } from "../../components/Ui.jsx";
 import FieldInput from "../../components/Fields.jsx";
 import { PitaPengajuan, AjukanHapus } from "../../components/PengajuanHapus.jsx";
-import { fromApi, emptyValue, buildPayload, validateRequired, statusFoto, isFilled } from "../../lib/answers.js";
+import {
+  fromApi,
+  emptyValue,
+  buildPayload,
+  validateRequired,
+  wajibBerlaku,
+  statusFoto,
+  isFilled,
+} from "../../lib/answers.js";
 import { nilaiDariEpbb } from "../../lib/epbb.js";
 import { judulEntri } from "../../lib/ringkas.js";
 import RingkasanLatihan from "../../components/RingkasanLatihan.jsx";
@@ -319,7 +327,22 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
   const setBerkas = (ubah) => {
     berubah.current = true;
     setBerkasState((b) => ({ ...b, ...ubah }));
+    // Formulir yang membolehkan simpan dengan berkas tidak lengkap: tanda merah
+    // "wajib diisi" yang kini tidak berlaku lagi ikut hilang.
+    if (ubah.berkasLengkap === false && formulir?.simpanBerkasKurang) {
+      setErrors((e) => {
+        const sisa = {};
+        for (const q of formulir.pertanyaan) {
+          if (e[q.id] && (q.tipe === "lokasi" || !q.wajib || isFilled(q.tipe, answers[q.id]))) sisa[q.id] = e[q.id];
+        }
+        return sisa;
+      });
+    }
   };
+
+  // Data boleh disimpan tanpa isian wajib? Hanya formulir yang mengizinkannya
+  // dan hanya bila ditandai berkas tidak lengkap; koordinat tetap wajib.
+  const longgar = Boolean(formulir?.simpanBerkasKurang) && !berkas.berkasLengkap;
 
   // Pertanyaan yang diatur admin untuk diisi dari hasil cek NOP (EPBB).
   const targetEpbb = (formulir?.pertanyaan || [])
@@ -361,7 +384,7 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
       return;
     }
 
-    const errs = validateRequired(pertanyaan, answers);
+    const errs = validateRequired(pertanyaan, answers, { longgar });
     if (Object.keys(errs).length) {
       setErrors(errs);
       toast("Periksa kolom yang ditandai merah.", true);
@@ -534,7 +557,7 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
     <div className="fk-field" key={q.id} data-qid={q.id}>
       <label className="fk-q-name">
         {q.label || "(Pertanyaan Tanpa Judul)"}
-        {q.wajib && <span className="fk-star">*</span>}
+        {wajibBerlaku(q, longgar) && <span className="fk-star">*</span>}
         {dariEpbb[q.id] && (
           <span className="fk-epbb-tag" title="Diisi otomatis dari data EPBB. Penanda hilang bila isinya diubah.">
             <IkonEpbb /> Data EPBB
@@ -634,6 +657,8 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
           <p className="fk-q-ket">
             Tandai bila dokumen pendukung belum lengkap, supaya data ini mudah dicari
             "Berkas tidak lengkap".
+            {formulir.simpanBerkasKurang &&
+              " Bila ditandai, data boleh disimpan walau isian wajib belum lengkap — kecuali koordinat."}
           </p>
           <button
             type="button"

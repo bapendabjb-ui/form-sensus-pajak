@@ -380,7 +380,10 @@ router.post(
     if (!formulir) throw badRequest("Formulir tidak ditemukan.");
     if (formulir.pertanyaan.length === 0) throw badRequest("Formulir ini belum punya pertanyaan.");
 
-    const siap = await siapkanJawaban(formulir, req.body?.jawaban, null, req.body?.dariEpbb);
+    const berkas = bacaBerkas(req.body);
+    const siap = await siapkanJawaban(formulir, req.body?.jawaban, null, req.body?.dariEpbb, {
+      berkasKurang: berkas.berkasLengkap === false,
+    });
     if (Object.keys(siap.errors).length) {
       throw new ApiError(422, "Periksa kembali isian yang ditandai merah.", { errors: siap.errors });
     }
@@ -391,7 +394,7 @@ router.post(
         data: {
           kertasKerjaId: id,
           formulirId,
-          ...bacaBerkas(req.body),
+          ...berkas,
           ...bacaRekamKoordinat(req.body),
         },
       });

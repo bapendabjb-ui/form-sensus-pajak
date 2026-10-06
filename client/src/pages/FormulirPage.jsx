@@ -436,6 +436,7 @@ export default function FormulirPage({ admin, onAuthChanged }) {
         ikon: draft.ikon || "",
         judulKolomKiri: (draft.judulKolomKiri || "").trim(),
         judulKolomKanan: (draft.judulKolomKanan || "").trim(),
+        simpanBerkasKurang: Boolean(draft.simpanBerkasKurang),
         pertanyaan: draft.pertanyaan.map((q) => ({
           id: q.id ?? undefined,
           tipe: q.tipe,
@@ -730,6 +731,22 @@ export default function FormulirPage({ admin, onAuthChanged }) {
                 </button>
               ))}
             </div>
+
+            <button
+              type="button"
+              className={"fk-switch fk-switch-formulir" + (draft.simpanBerkasKurang ? " is-on" : "")}
+              onClick={() => patchDraft({ simpanBerkasKurang: !draft.simpanBerkasKurang })}
+              aria-pressed={Boolean(draft.simpanBerkasKurang)}
+            >
+              <span className="fk-switch-knob" />
+              <span>
+                Boleh disimpan tanpa isian wajib bila ditandai <strong>Berkas tidak lengkap</strong>
+                <span className="fk-switch-ket">
+                  Pertanyaan bertipe Lokasi (koordinat) tetap wajib. Cocok untuk formulir seperti PBB-P2 yang
+                  dokumennya sering belum ada di lapangan.
+                </span>
+              </span>
+            </button>
 
             <span className="fk-ikon-pilih-cap">
               Tata letak halaman isi data: atur <strong>Kolom kiri / Kolom kanan</strong> di tiap pertanyaan
