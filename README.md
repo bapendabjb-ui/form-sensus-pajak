@@ -41,9 +41,11 @@ berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengeksporny
 1. **Buat kertas kerja** — nomor 5 digit tampil otomatis; pilih **tim petugas 1–8 orang** dari
    data petugas (petugas nomor 1 = penanggung jawab). Petugas yang belum terdaftar bisa
    didaftarkan langsung dari layar ini. Tekan **Buat kertas kerja**.
-2. **Isi data per formulir** — halaman kertas kerja menampilkan seluruh bank formulir.
-   Pilih formulir → isi → **Simpan**, atau **Simpan & tambah lagi** untuk objek berikutnya
-   dengan formulir yang sama. Hanya formulir yang benar-benar diisi yang tersimpan.
+2. **Isi data per formulir** — tombol melayang **+ Tambah data** di halaman kertas kerja membuka
+   pilihan bank formulir (di HP sebagai lembar dari bawah, di komputer sebagai jendela). Pilih
+   formulir → isi → **Simpan**, atau **Simpan & tambah lagi** untuk objek berikutnya dengan
+   formulir yang sama. Halaman kertas kerja sendiri hanya memuat data yang sudah terkumpul, supaya
+   menambah data baru tidak tertukar dengan membuka data yang ada.
 3. **Foto** — pertanyaan bertipe foto menyediakan **Ambil foto** (kamera belakang) dan
    **Dari galeri**. Foto diperkecil di browser lalu langsung diunggah.
 4. **Susun bank formulir** (admin) — tambah pertanyaan dari bilah **Tambah pertanyaan**, lalu

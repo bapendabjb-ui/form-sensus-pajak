@@ -455,6 +455,18 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-detail-aksi{display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;}
 .fk-bagian{font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); margin:8px 2px -6px;}
 .fk-baris-list{display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:13px; overflow:hidden;}
+/* Tombol "+ Tambah data" melayang di halaman kertas kerja. */
+.fk-fill.ada-fab{padding-bottom:76px;}
+.fk-fab{position:fixed; right:24px; bottom:24px; z-index:35; display:inline-flex; align-items:center; gap:8px; border:0; border-radius:28px; padding:0 20px 0 16px; min-height:52px; background:var(--brand); color:#fff; font-family:inherit; font-size:15px; font-weight:600; box-shadow:0 6px 18px rgba(15,118,110,.35), 0 2px 4px rgba(16,24,32,.15); cursor:pointer;}
+.fk-fab:hover{background:var(--brand-dark);}
+.fk-fab-plus{font-size:24px; font-weight:400; line-height:1; margin-top:-2px;}
+html.fk-ketik .fk-fab{display:none;}
+/* isi lembar pilihan formulir */
+.fk-pilih-form{display:flex; flex-direction:column;}
+.fk-pilih-form .fk-hint{margin:0 4px 6px;}
+.fk-pilih-form .fk-baris{border-radius:10px;}
+.fk-pilih-form-jumlah{font-size:12px; font-weight:600; color:var(--brand-dark);}
+.fk-pilih-form-tambah{display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:var(--brand-tint); color:var(--brand-dark); font-size:20px; flex:none;}
 .fk-baris{display:flex; align-items:center; gap:12px; padding:13px 16px; border:0; border-bottom:1px solid var(--line-soft); background:transparent; text-align:left; color:var(--ink); width:100%; font:inherit;}
 .fk-baris:last-child{border-bottom:0;}
 .fk-baris:hover:not(:disabled){background:#F6F9F9;}
@@ -713,6 +725,12 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-sheet-opsi{display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:52px; padding:12px 14px; border:0; border-bottom:1px solid var(--line-soft); background:transparent; text-align:left; font-size:16px; color:var(--ink); width:100%; border-radius:0;}
 .fk-sheet-opsi:last-child{border-bottom:0;}
 .fk-sheet-opsi:active{background:#F2F5F7;}
+/* Di layar lebar, lembar "tengah" tampil sebagai jendela di tengah layar. */
+@media (min-width:821px){
+  .fk-sheet-latar.is-tengah{align-items:center; padding:24px;}
+  .fk-sheet-latar.is-tengah .fk-sheet{max-width:520px; border-radius:18px; max-height:80vh;}
+  .fk-sheet-latar.is-tengah .fk-sheet-pegangan{display:none;}
+}
 .fk-sheet-opsi.is-selected{color:var(--brand-dark); font-weight:600; background:var(--brand-tint); border-radius:10px; border-bottom-color:transparent;}
 
 /* ---------- dialog konfirmasi (pengganti window.confirm) ---------- */
@@ -955,6 +973,8 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-chip{font-size:13px; padding:6px 11px;}
   .fk-bagian{margin:6px 2px -4px;}
   .fk-baris{min-height:64px; padding:14px;}
+  /* Di atas bilah tab bawah. */
+  .fk-fab{right:16px; bottom:calc(var(--bawah) + 16px);}
   .fk-baris:active:not(:disabled){background:#F2F5F7;}
   .fk-baris-judul{font-size:15px;}
   .fk-baris-ket{font-size:13px;}

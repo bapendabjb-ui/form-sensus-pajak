@@ -6,6 +6,7 @@ import { useToast } from "../../components/Toast.jsx";
 import { useDialog } from "../../components/Dialog.jsx";
 import { Loading, ErrorBox, Empty, StatusPill, BerkasPill } from "../../components/Ui.jsx";
 import PetugasTim from "../../components/PetugasTim.jsx";
+import Sheet from "../../components/Sheet.jsx";
 import { PitaPengajuan, AjukanHapus } from "../../components/PengajuanHapus.jsx";
 import { judulEntri, ringkasEntri, fotoEntri } from "../../lib/ringkas.js";
 import { formatTimestamp } from "../../lib/format.js";
@@ -35,6 +36,18 @@ export function DetailKertasKerja({ id }) {
   const [petugas, setPetugas] = useState([]);
   const [galatTim, setGalatTim] = useState("");
   const [sibuk, setSibuk] = useState(false);
+  // Lembar "Tambah data". Pindah ke formulir menunggu lembarnya tertutup:
+  // lembar memakai satu entri riwayat (tombol Kembali HP menutupnya), dan
+  // entri itu harus dibuang dulu - kalau tidak, Kembali dari formulir perlu
+  // ditekan dua kali.
+  const [pilihForm, setPilihForm] = useState(false);
+  const [tujuan, setTujuan] = useState(null);
+
+  useEffect(() => {
+    if (pilihForm || !tujuan) return;
+    navigate(tujuan);
+    setTujuan(null);
+  }, [pilihForm, tujuan]);
   // Saringan daftar data: "kurang" = berkas tidak lengkap, "lokasi" = koordinat
   // di pertanyaan Lokasi (objek lain, mis. rumah kedua PBB-P2) perlu dicek.
   const [saring, setSaring] = useState(() => (bacaFilterKk() === "kurang" ? "kurang" : null));
@@ -229,7 +242,7 @@ export function DetailKertasKerja({ id }) {
     );
 
   return (
-    <div className="fk-fill">
+    <div className="fk-fill ada-fab">
       {tombolKembali}
 
       <PitaPengajuan
@@ -342,38 +355,54 @@ export function DetailKertasKerja({ id }) {
 
       <LokasiKertasKerja kk={kk} aturan={aturanLokasi} admin={admin} onBerubah={setKk} />
 
-      <div className="fk-bagian">Tambah data</div>
-      {bank.length === 0 ? (
-        <Empty>Belum ada formulir. Minta admin menyusun bank formulir terlebih dahulu.</Empty>
-      ) : (
-        <div className="fk-baris-list">
-          {bank.map((f, i) => {
-            const jumlah = jumlahPerForm.get(f.id) || 0;
-            const kosong = f.jumlahPertanyaan === 0;
-            return (
-              <button
-                type="button"
-                className="fk-baris"
-                key={f.id}
-                onClick={() => navigate(`${urlKk(id)}/isi/${f.id}`)}
-                disabled={kosong}
-              >
-                <span className="fk-baris-ikon">
-                  <IkonFormulir ikon={f.ikon} cadangan={i + 1} />
-                </span>
-                <span className="fk-baris-teks">
-                  <span className="fk-baris-judul">{f.judul}</span>
-                  <span className="fk-baris-ket">
-                    {kosong ? "Belum punya pertanyaan" : f.deskripsi || `${f.jumlahPertanyaan} pertanyaan`}
+      {/* Menambah data hanya lewat tombol + melayang. Daftar formulir tidak lagi
+          ada di halaman, supaya tidak tertukar dengan data yang sudah terkumpul. */}
+      <button type="button" className="fk-fab" onClick={() => setPilihForm(true)} aria-haspopup="dialog">
+        <span className="fk-fab-plus" aria-hidden="true">
+          +
+        </span>
+        Tambah data
+      </button>
+
+      <Sheet open={pilihForm} onClose={() => setPilihForm(false)} title="Tambah data baru" tengah>
+        {bank.length === 0 ? (
+          <Empty>Belum ada formulir. Minta admin menyusun bank formulir terlebih dahulu.</Empty>
+        ) : (
+          <div className="fk-pilih-form">
+            <p className="fk-hint">Pilih formulir untuk data baru. Data yang sudah ada dibuka dari daftar di halaman.</p>
+            {bank.map((f, i) => {
+              const jumlah = jumlahPerForm.get(f.id) || 0;
+              const kosong = f.jumlahPertanyaan === 0;
+              return (
+                <button
+                  type="button"
+                  className="fk-baris"
+                  key={f.id}
+                  onClick={() => {
+                    setTujuan(`${urlKk(id)}/isi/${f.id}`);
+                    setPilihForm(false);
+                  }}
+                  disabled={kosong}
+                >
+                  <span className="fk-baris-ikon">
+                    <IkonFormulir ikon={f.ikon} cadangan={i + 1} />
                   </span>
-                </span>
-                {jumlah > 0 && <span className="fk-baris-jumlah">{jumlah}</span>}
-                <span className="fk-baris-panah">›</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+                  <span className="fk-baris-teks">
+                    <span className="fk-baris-judul">{f.judul}</span>
+                    <span className="fk-baris-ket">
+                      {kosong ? "Belum punya pertanyaan" : f.deskripsi || `${f.jumlahPertanyaan} pertanyaan`}
+                    </span>
+                    {jumlah > 0 && <span className="fk-pilih-form-jumlah">{jumlah} data tersimpan di kertas kerja ini</span>}
+                  </span>
+                  <span className="fk-pilih-form-tambah" aria-hidden="true">
+                    +
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </Sheet>
 
       <div className="fk-bagian-baris">
         <div className="fk-bagian">Data terkumpul{totalData ? ` · ${totalData}` : ""}</div>
@@ -383,7 +412,15 @@ export function DetailKertasKerja({ id }) {
         </span>
       </div>
       {totalData === 0 ? (
-        <Empty>Belum ada data. Pilih salah satu formulir di atas untuk mulai mengisi.</Empty>
+        <Empty
+          action={
+            <button type="button" className="fk-btn" onClick={() => setPilihForm(true)}>
+              + Tambah data
+            </button>
+          }
+        >
+          Belum ada data di kertas kerja ini.
+        </Empty>
       ) : (
         kelompokTampil.map(({ formulir, entri }) => (
           <div className="fk-baris-list" key={formulir.id}>

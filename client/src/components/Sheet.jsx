@@ -8,8 +8,9 @@ import { buangEntriSementara } from "../lib/router.js";
  * - Tombol Kembali HP menutup lembar, bukan meninggalkan halaman: saat dibuka,
  *   satu entri riwayat beralamat sama ditambahkan (router mengabaikannya).
  * - Halaman di belakangnya dikunci agar tidak ikut tergulir.
+ * - `tengah`: di layar lebar tampil sebagai jendela di tengah, bukan dari bawah.
  */
-export default function Sheet({ open, onClose, title, children }) {
+export default function Sheet({ open, onClose, title, children, tengah = false }) {
   const tutupRef = useRef(onClose);
   tutupRef.current = onClose;
   const latarRef = useRef(null);
@@ -60,7 +61,11 @@ export default function Sheet({ open, onClose, title, children }) {
   if (!open) return null;
 
   return createPortal(
-    <div className="fk-sheet-latar" ref={latarRef} onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className={"fk-sheet-latar" + (tengah ? " is-tengah" : "")}
+      ref={latarRef}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className="fk-sheet" role="dialog" aria-modal="true" aria-label={title}>
         <div className="fk-sheet-pegangan" aria-hidden="true" />
         <div className="fk-sheet-head">
