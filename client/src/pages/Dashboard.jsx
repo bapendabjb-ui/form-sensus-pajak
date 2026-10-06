@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import * as api from "../api.js";
 import { Panel, PageHead, Loading, ErrorBox } from "../components/Ui.jsx";
 import { navigate } from "../lib/router.js";
-import { simpanFilterKk } from "../lib/filterKk.js";
+import { simpanFilterKk, simpanCariKk } from "../lib/filterKk.js";
 import { useAdmin } from "../lib/admin.js";
 
 export default function Dashboard() {
@@ -30,6 +30,8 @@ export default function Dashboard() {
   /** Buka daftar kertas kerja dengan saringan tertentu. */
   const lihat = (filter) => () => {
     simpanFilterKk(filter);
+    // Kartu Dashboard menjanjikan jumlah tanpa pencarian; kata kunci lama dibuang.
+    simpanCariKk("");
     navigate("/kertas-kerja");
   };
 

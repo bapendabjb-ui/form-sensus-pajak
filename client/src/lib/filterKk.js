@@ -1,6 +1,7 @@
 /**
- * Filter daftar kertas kerja. Disimpan per tab browser supaya tetap terpakai saat
- * kembali dari detail, dan bisa dipasang dari Dashboard sebelum pindah layar.
+ * Keadaan daftar kertas kerja - saringan, kata kunci pencarian, dan posisi
+ * terakhir. Disimpan per tab browser supaya tetap terpakai saat kembali dari
+ * detail, dan saringan bisa dipasang dari Dashboard sebelum pindah layar.
  */
 
 const KUNCI = "sensus-pajak:filter-kk";
@@ -46,3 +47,48 @@ export function cocokFilterKk(k, f) {
 /** Kertas kerja ringkas yang titik lokasinya perlu dicek (sama dengan saringan server). */
 export const lokasiPerluCek = (k) =>
   k.jumlahData > 0 && ["tanpa", "kantor", "kasar"].includes(k.lokasiStatus);
+
+const KUNCI_CARI = "sensus-pajak:cari-kk";
+const KUNCI_POSISI = "sensus-pajak:posisi-kk";
+
+/** Kata kunci pencarian terakhir di daftar kertas kerja. */
+export function bacaCariKk() {
+  try {
+    return sessionStorage.getItem(KUNCI_CARI) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function simpanCariKk(teks) {
+  try {
+    if (teks) sessionStorage.setItem(KUNCI_CARI, teks);
+    else sessionStorage.removeItem(KUNCI_CARI);
+  } catch {
+    /* penyimpanan tidak tersedia */
+  }
+}
+
+/**
+ * Posisi daftar saat sebuah kertas kerja dibuka: berapa halaman sudah dimuat
+ * dan sejauh mana digulir. Dipulihkan sekali saat kembali ke daftar.
+ */
+export function simpanPosisiKk(hal, gulir) {
+  try {
+    sessionStorage.setItem(KUNCI_POSISI, JSON.stringify({ hal, gulir }));
+  } catch {
+    /* penyimpanan tidak tersedia */
+  }
+}
+
+/** Ambil lalu hapus posisi tersimpan. @returns {{ hal: number, gulir: number } | null} */
+export function ambilPosisiKk() {
+  try {
+    const p = JSON.parse(sessionStorage.getItem(KUNCI_POSISI) || "null");
+    sessionStorage.removeItem(KUNCI_POSISI);
+    if (!p || !Number.isInteger(p.hal) || p.hal < 1 || typeof p.gulir !== "number") return null;
+    return { hal: Math.min(p.hal, 20), gulir: Math.max(0, p.gulir) };
+  } catch {
+    return null;
+  }
+}

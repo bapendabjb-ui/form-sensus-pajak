@@ -6,7 +6,16 @@ import { useToast } from "../../components/Toast.jsx";
 import { useDialog } from "../../components/Dialog.jsx";
 import { PageHead, Loading, ErrorBox, Empty, StatusPill, BerkasPill } from "../../components/Ui.jsx";
 import { formatTimestamp } from "../../lib/format.js";
-import { FILTER_KK, bacaFilterKk, simpanFilterKk, lokasiPerluCek } from "../../lib/filterKk.js";
+import {
+  FILTER_KK,
+  bacaFilterKk,
+  simpanFilterKk,
+  lokasiPerluCek,
+  bacaCariKk,
+  simpanCariKk,
+  simpanPosisiKk,
+  ambilPosisiKk,
+} from "../../lib/filterKk.js";
 import { LABEL_STATUS } from "../../lib/cekLokasi.js";
 import { useAdmin } from "../../lib/admin.js";
 import { navigate } from "../../lib/router.js";
@@ -51,15 +60,22 @@ export function DaftarKertasKerja() {
 
   // Dua state untuk satu kotak: `cari` mengikuti ketikan supaya kotaknya tidak
   // terasa tersendat, `cariKirim` tertinggal di belakangnya dan itulah yang
-  // benar-benar dikirim ke server.
-  const [cari, setCari] = useState("");
-  const [cariKirim, setCariKirim] = useState("");
+  // benar-benar dikirim ke server. Keduanya mulai dari kata kunci terakhir,
+  // supaya kembali dari detail tidak mengosongkan pencarian.
+  const [cari, setCari] = useState(bacaCariKk);
+  const [cariKirim, setCariKirim] = useState(bacaCariKk);
+
+  // Kembali dari detail: muat lagi sebanyak halaman tadi, lalu gulir ke posisi
+  // tadi. Dipakai sekali saja, pada pemuatan pertama.
+  const pulihkan = useRef(ambilPosisiKk());
+  const [gulirTujuan, setGulirTujuan] = useState(null);
 
   // Penanda permintaan terakhir: balasan yang datang terlambat (mis. hasil
   // ketikan sebelumnya) tidak boleh menimpa hasil yang lebih baru.
   const urutan = useRef(0);
 
   useEffect(() => {
+    simpanCariKk(cari.trim() ? cari : "");
     const t = setTimeout(() => setCariKirim(cari), JEDA_CARI_MS);
     return () => clearTimeout(t);
   }, [cari]);
@@ -70,8 +86,17 @@ export function DaftarKertasKerja() {
     setLoading(true);
     setError("");
     try {
-      const hasil = await api.listKertasKerja({ hal: 1, per: PER, cari: cariKirim, saring: filter });
-      if (aku === urutan.current) setData(hasil);
+      let hasil = await api.listKertasKerja({ hal: 1, per: PER, cari: cariKirim, saring: filter });
+      const pulih = pulihkan.current;
+      pulihkan.current = null;
+      while (pulih && hasil.adaLagi && hasil.hal < pulih.hal && aku === urutan.current) {
+        const lagi = await api.listKertasKerja({ hal: hasil.hal + 1, per: PER, cari: cariKirim, saring: filter });
+        hasil = { ...lagi, baris: [...hasil.baris, ...lagi.baris] };
+      }
+      if (aku === urutan.current) {
+        setData(hasil);
+        if (pulih) setGulirTujuan(pulih.gulir);
+      }
     } catch (e) {
       if (aku === urutan.current) setError(e.message);
     } finally {
@@ -82,6 +107,19 @@ export function DaftarKertasKerja() {
   useEffect(() => {
     muat();
   }, [muat]);
+
+  // Gulir ke posisi tadi setelah daftarnya tergambar.
+  useEffect(() => {
+    if (gulirTujuan === null || loading) return;
+    window.scrollTo(0, gulirTujuan);
+    setGulirTujuan(null);
+  }, [gulirTujuan, loading]);
+
+  /** Buka detail sambil mencatat posisi daftar, untuk dipulihkan saat kembali. */
+  const buka = (k) => {
+    simpanPosisiKk(data.hal, window.scrollY);
+    navigate(urlKk(k.id));
+  };
 
   const muatLagi = async () => {
     const aku = urutan.current;
@@ -220,8 +258,8 @@ export function DaftarKertasKerja() {
                     key={k.id}
                     role="link"
                     tabIndex={0}
-                    onClick={() => navigate(urlKk(k.id))}
-                    onKeyDown={(e) => e.key === "Enter" && navigate(urlKk(k.id))}
+                    onClick={() => buka(k)}
+                    onKeyDown={(e) => e.key === "Enter" && buka(k)}
                   >
                     <span className="fk-nomor">{k.nomor}</span>
                     <div className="fk-kk-card-body">
