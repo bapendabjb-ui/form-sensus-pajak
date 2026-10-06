@@ -465,7 +465,6 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 html.fk-ketik .fk-fab{display:none;}
 /* isi lembar pilihan formulir */
 .fk-pilih-form{display:flex; flex-direction:column;}
-.fk-pilih-form .fk-hint{margin:0 4px 6px;}
 .fk-pilih-form .fk-baris{border-radius:10px;}
 .fk-pilih-form-jumlah{font-size:12px; font-weight:600; color:var(--brand-dark);}
 .fk-pilih-form-tambah{display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:var(--brand-tint); color:var(--brand-dark); font-size:20px; flex:none;}

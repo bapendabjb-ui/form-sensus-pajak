@@ -370,7 +370,6 @@ export function DetailKertasKerja({ id }) {
           <Empty>Belum ada formulir. Minta admin menyusun bank formulir terlebih dahulu.</Empty>
         ) : (
           <div className="fk-pilih-form">
-            <p className="fk-hint">Pilih formulir untuk data baru. Data yang sudah ada dibuka dari daftar di halaman.</p>
             {bank.map((f, i) => {
               const jumlah = jumlahPerForm.get(f.id) || 0;
               const kosong = f.jumlahPertanyaan === 0;
@@ -390,9 +389,8 @@ export function DetailKertasKerja({ id }) {
                   </span>
                   <span className="fk-baris-teks">
                     <span className="fk-baris-judul">{f.judul}</span>
-                    <span className="fk-baris-ket">
-                      {kosong ? "Belum punya pertanyaan" : f.deskripsi || `${f.jumlahPertanyaan} pertanyaan`}
-                    </span>
+                    {/* Hanya formulir kosong yang diberi keterangan: tanpa itu tombolnya mati tanpa alasan. */}
+                    {kosong && <span className="fk-baris-ket">Belum punya pertanyaan</span>}
                     {jumlah > 0 && <span className="fk-pilih-form-jumlah">{jumlah} data tersimpan di kertas kerja ini</span>}
                   </span>
                   <span className="fk-pilih-form-tambah" aria-hidden="true">
