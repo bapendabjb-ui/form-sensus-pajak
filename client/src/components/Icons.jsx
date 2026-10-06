@@ -47,8 +47,10 @@ import {
   LayoutGrid,
   Lock,
   MapPin,
+  Maximize2,
   Megaphone,
   MicVocal,
+  Minimize2,
   Motorbike,
   Mountain,
   Music,
@@ -96,6 +98,10 @@ export const IkonMata = () => <Eye size={18} strokeWidth={GARIS} aria-hidden="tr
 export const IkonMataTutup = () => <EyeOff size={18} strokeWidth={GARIS} aria-hidden="true" />;
 
 export const CalIcon =() => <Calendar size={16} strokeWidth={1.5} aria-hidden="true" />;
+
+/** Tombol layar penuh peta: buka / tutup. */
+export const IkonLayarPenuh = () => <Maximize2 size={15} strokeWidth={GARIS} aria-hidden="true" />;
+export const IkonTutupPenuh = () => <Minimize2 size={15} strokeWidth={GARIS} aria-hidden="true" />;
 
 /** Panah dropdown; CSS memutarnya lewat kelas is-open. */
 export const Chevron = ({ open }) => (

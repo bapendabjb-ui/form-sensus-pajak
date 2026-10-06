@@ -592,30 +592,55 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-peta-jenis button{border:0; background:var(--surface); color:var(--muted); font-size:12.5px; font-weight:600; padding:7px 13px; min-height:34px;}
 .fk-peta-jenis button + button{border-left:1px solid var(--line);}
 .fk-peta-jenis button.is-on{background:var(--brand-tint); color:var(--brand-dark);}
-/* Peta Sensus: pilihan titik kertas kerja / data - pilihan utama halaman, jadi selebar layar. */
-.fk-peta-tampilan{display:grid; grid-template-columns:1fr 1fr; width:100%; border-radius:11px;}
-.fk-peta-tampilan button{display:inline-flex; align-items:center; justify-content:center; gap:7px; font-size:14px; min-height:44px;}
-.fk-peta-tampilan + .fk-hint{margin-top:-8px;}
 /* position + z-index membuat konteks tumpuk sendiri: panel Leaflet (z 400+) tidak menutupi bilah atas & lembar pilihan. */
 .fk-peta{position:relative; z-index:0; height:300px; border-radius:10px; overflow:hidden; border:1px solid var(--line-soft); background:#E6EAEF;}
 @media (max-width:560px){ .fk-peta{height:260px;} }
 
 /* ---- peta sebaran (halaman Peta Sensus) ---- */
-/* Lebih tinggi dari peta pemilih titik: di sini peta adalah isi halamannya. */
-.fk-peta.is-sebaran{height:min(62vh,560px);}
-@media (max-width:560px){ .fk-peta.is-sebaran{height:min(58vh,420px);} }
-/* Di komputer peta adalah pekerjaan utama halaman ini (mis. memeriksa
-   koordinat): halaman lebih lebar dan peta setinggi sisa layar. */
+/* Peta adalah isi halaman ini (mis. memeriksa koordinat), jadi perkakasnya
+   diringkas: satu bilah alat - tampilan, saringan, jenis peta, layar penuh -
+   dan satu baris legenda; sisanya untuk peta, setinggi sisa layar. */
+.fk-main:has(.fk-peta-wadah.is-sebaran){gap:12px;}
+.fk-peta-wadah.is-sebaran{flex:1; min-height:360px;}
+.fk-peta-wadah.is-sebaran .fk-peta-alat{justify-content:flex-start;}
+.fk-peta-wadah.is-sebaran .fk-peta-tombol{margin-left:auto;}
+.fk-peta-tampilan button{display:inline-flex; align-items:center; justify-content:center; gap:7px; font-size:13px;}
+.fk-peta-saring{min-width:190px;}
+.fk-peta-saring .fk-select-btn{padding:6px 11px; min-height:34px; font-size:13px; font-weight:500; color:var(--muted);}
+.fk-peta-saring.is-aktif .fk-select-btn{border-color:var(--brand); background:var(--brand-tint); color:var(--brand-dark); font-weight:600;}
+.fk-peta-saring .fk-select-panel{right:auto; min-width:100%; width:max-content;}
+.fk-peta-saring .fk-option{font-size:13.5px;}
+.fk-peta-info{display:flex; align-items:center; justify-content:space-between; gap:4px 14px; flex-wrap:wrap;}
+.fk-peta-keterangan{font-size:12.5px; color:var(--muted);}
+.fk-peta-bingkai{position:relative; flex:1; min-height:0; display:flex; flex-direction:column;}
+.fk-peta.is-sebaran{flex:1; height:auto; min-height:0;}
+/* Tidak ada titik: pesan di atas peta, petanya tetap tampil. */
+.fk-peta-kosong{position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:1; width:max-content; max-width:calc(100% - 24px); padding:9px 14px; background:var(--surface); border:1px solid var(--line); border-radius:10px; box-shadow:0 6px 18px rgba(16,24,32,.12); font-size:13px; color:var(--muted); text-align:center; pointer-events:none;}
+/* Komputer: selebar ruang di samping menu dan sampai dasar layar. */
 @media (min-width:821px){
-  .fk-main:has(.fk-peta.is-sebaran){max-width:1280px;}
-  .fk-peta.is-sebaran{height:max(460px, calc(100vh - 330px));}
+  .fk-main:has(.fk-peta-wadah.is-sebaran){max-width:none; min-height:100vh; padding-bottom:20px;}
+  .fk-peta-wadah.is-sebaran{min-height:460px;}
+}
+/* HP: judul sudah di bilah atas; peta sampai bilah tab bawah. */
+@media (max-width:820px){
+  .fk-main:has(.fk-peta-wadah.is-sebaran){padding-bottom:calc(var(--bawah) + 12px);}
+  .fk-main:has(.fk-peta-wadah.is-sebaran) .fk-page-head{display:none;}
+  .fk-peta-tampilan{display:grid; grid-template-columns:1fr 1fr; width:100%;}
+  .fk-peta-saring{flex:1; min-width:0;}
+  .fk-peta-wadah.is-sebaran .fk-peta-jenis button,
+  .fk-peta-wadah.is-sebaran .fk-peta-penuh,
+  .fk-peta-saring .fk-select-btn{min-height:40px;}
+}
+@media (max-width:560px){
+  .fk-peta-penuh-teks{display:none;}
+  .fk-peta-info .fk-peta-legenda{gap:4px 10px;}
+  .fk-peta-info .fk-legenda{font-size:12px;}
 }
 
-/* Layar penuh: legenda, tombol jenis peta, dan peta menutup seluruh layar. */
-.fk-peta-wadah.is-penuh{position:fixed; inset:0; z-index:70; background:var(--bg); padding:12px 12px calc(12px + env(safe-area-inset-bottom));}
-.fk-peta-wadah.is-penuh .fk-peta{flex:1; height:auto; min-height:0;}
+/* Layar penuh: bilah alat, legenda, dan peta menutup seluruh layar. */
+.fk-peta-wadah.is-penuh{position:fixed; inset:0; z-index:70; min-height:0; background:var(--bg); padding:12px 12px calc(12px + env(safe-area-inset-bottom));}
 .fk-peta-tombol{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
-.fk-peta-penuh{min-height:34px;}
+.fk-peta-penuh{display:inline-flex; align-items:center; gap:6px; min-height:34px;}
 
 /* Titik bulat, bukan pin: sebaran padat lebih terbaca tanpa ekor pin. Gambarnya
    SVG dari svgTitik() di components/peta/bersama.jsx, sama untuk semua peta. */

@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react
 import * as api from "../api.js";
 import { PageHead, Loading, ErrorBox, Empty } from "../components/Ui.jsx";
 import { useToast } from "../components/Toast.jsx";
+import CustomSelect from "../components/CustomSelect.jsx";
 import { useAdmin } from "../lib/admin.js";
 import { navigate } from "../lib/router.js";
 
@@ -112,58 +113,50 @@ export default function PetaPage() {
 
   const jumlahKk = useMemo(() => new Set(tampil.map((t) => t.kertasKerjaId)).size, [tampil]);
 
-  const saringan = (
-    <div className="fk-filter" role="tablist" aria-label="Saring titik">
-      {SARING.map(([kunci, label]) => (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={saring === kunci}
-          key={kunci}
-          className={"fk-filter-btn" + (saring === kunci ? " is-on" : "") + (kunci === "kurang" ? " is-kurang" : "")}
-          onClick={() => setSaring(kunci)}
-        >
-          {label}
-          <span className="fk-filter-jumlah">{titikJenis.filter((t) => cocok(t, kunci)).length}</span>
-        </button>
-      ))}
-    </div>
+  // Saringan berupa satu dropdown, bukan deretan tombol, supaya peta mendapat
+  // ruang sebanyak mungkin. Jumlahnya ikut di label tiap pilihan.
+  const pilihanSaring = SARING.map(([kunci, label]) => ({
+    kunci,
+    teks: `${label} · ${titikJenis.filter((t) => cocok(t, kunci)).length.toLocaleString("id-ID")}`,
+  }));
+
+  const alat = (
+    <>
+      <div className="fk-peta-jenis fk-peta-tampilan" role="radiogroup" aria-label="Tampilkan titik">
+        {TAMPILAN.map(([kunci, label, keterangan]) => (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={tampilan === kunci}
+            key={kunci}
+            className={tampilan === kunci ? "is-on" : ""}
+            title={keterangan}
+            onClick={() => setTampilan(kunci)}
+          >
+            {label}
+            <span className="fk-filter-jumlah">{titik.filter((t) => t.jenis === kunci).length}</span>
+          </button>
+        ))}
+      </div>
+      <div className={"fk-peta-saring" + (saring === "semua" ? "" : " is-aktif")}>
+        <CustomSelect
+          title="Saring titik"
+          value={pilihanSaring.find((p) => p.kunci === saring).teks}
+          options={pilihanSaring.map((p) => p.teks)}
+          onChange={(teks) => setSaring(pilihanSaring.find((p) => p.teks === teks).kunci)}
+        />
+      </div>
+    </>
   );
 
-  let isiPeta;
+  let kosong = "";
   if (titikJenis.length === 0) {
-    isiPeta = (
-      <Empty>
-        {tampilan === "data"
-          ? "Belum ada data yang mengisi pertanyaan Lokasi, mis. Koordinat Objek Pajak."
-          : "Belum ada kertas kerja yang punya lokasi sensus."}
-      </Empty>
-    );
+    kosong =
+      tampilan === "data"
+        ? "Belum ada data yang mengisi pertanyaan Lokasi, mis. Koordinat Objek Pajak."
+        : "Belum ada kertas kerja yang punya lokasi sensus.";
   } else if (tampil.length === 0) {
-    isiPeta = (
-      <>
-        {saringan}
-        <Empty>Tidak ada titik pada saringan ini.</Empty>
-      </>
-    );
-  } else {
-    isiPeta = (
-      <>
-        {saringan}
-        <p className="fk-hint">
-          {tampil.length.toLocaleString("id-ID")} titik dari {jumlahKk.toLocaleString("id-ID")} kertas kerja. Ketuk
-          titik untuk melihat ringkasannya.
-        </p>
-        <Suspense fallback={<Loading label="Memuat peta..." />}>
-          <PetaSebaran
-            titik={tampil}
-            onBuka={bukaData}
-            onCek={admin ? ubahDicek : null}
-            kunciPandang={`${tampilan}|${saring}`}
-          />
-        </Suspense>
-      </>
-    );
+    kosong = "Tidak ada titik pada saringan ini.";
   }
 
   return (
@@ -180,25 +173,20 @@ export default function PetaPage() {
           aktif di perangkatnya.
         </Empty>
       ) : (
-        <>
-          <div className="fk-peta-jenis fk-peta-tampilan" role="radiogroup" aria-label="Tampilkan titik">
-            {TAMPILAN.map(([kunci, label]) => (
-              <button
-                type="button"
-                role="radio"
-                aria-checked={tampilan === kunci}
-                key={kunci}
-                className={tampilan === kunci ? "is-on" : ""}
-                onClick={() => setTampilan(kunci)}
-              >
-                {label}
-                <span className="fk-filter-jumlah">{titik.filter((t) => t.jenis === kunci).length}</span>
-              </button>
-            ))}
-          </div>
-          <p className="fk-hint">{TAMPILAN.find(([k]) => k === tampilan)[2]}</p>
-          {isiPeta}
-        </>
+        <Suspense fallback={<Loading label="Memuat peta..." />}>
+          <PetaSebaran
+            titik={tampil}
+            onBuka={bukaData}
+            onCek={admin ? ubahDicek : null}
+            kunciPandang={`${tampilan}|${saring}`}
+            alat={alat}
+            keterangan={
+              tampil.length > 0 &&
+              `${tampil.length.toLocaleString("id-ID")} titik dari ${jumlahKk.toLocaleString("id-ID")} kertas kerja`
+            }
+            kosong={kosong}
+          />
+        </Suspense>
       )}
     </>
   );
