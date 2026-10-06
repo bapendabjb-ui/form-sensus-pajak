@@ -9,7 +9,7 @@ import PetugasTim from "../../components/PetugasTim.jsx";
 import Sheet from "../../components/Sheet.jsx";
 import { PitaPengajuan, AjukanHapus } from "../../components/PengajuanHapus.jsx";
 import { judulEntri, ringkasEntri, fotoEntri } from "../../lib/ringkas.js";
-import { formatTimestamp } from "../../lib/format.js";
+import { formatWaktu } from "../../lib/format.js";
 import { LABEL_STATUS } from "../../lib/cekLokasi.js";
 import { LokasiKertasKerja, TombolDicek } from "../../components/LokasiObjek.jsx";
 import { useKonfigurasi } from "../../lib/konfigurasi.js";
@@ -260,7 +260,7 @@ export function DetailKertasKerja({ id }) {
           <span className="fk-nomor is-big">{kk.nomor}</span>
           <div className="fk-kk-detail-meta">
             <p className="fk-form-desc">
-              Dibuat {formatTimestamp(kk.createdAt)} · {totalData} data
+              Dibuat {formatWaktu(kk.createdAt)} · {totalData} data
             </p>
           </div>
           <span className="fk-kk-pills">
@@ -365,7 +365,7 @@ export function DetailKertasKerja({ id }) {
         Tambah data
       </button>
 
-      <Sheet open={pilihForm} onClose={() => setPilihForm(false)} title="Tambah data baru" tengah>
+      <Sheet open={pilihForm} onClose={() => setPilihForm(false)} title="Tambah Data Baru" tengah>
         {bank.length === 0 ? (
           <Empty>Belum ada formulir. Minta admin menyusun bank formulir terlebih dahulu.</Empty>
         ) : (

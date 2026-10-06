@@ -5,7 +5,7 @@ import * as api from "../../api.js";
 import { useToast } from "../../components/Toast.jsx";
 import { useDialog } from "../../components/Dialog.jsx";
 import { PageHead, Loading, ErrorBox, Empty, StatusPill, BerkasPill } from "../../components/Ui.jsx";
-import { formatTimestamp } from "../../lib/format.js";
+import { formatWaktu } from "../../lib/format.js";
 import {
   FILTER_KK,
   bacaFilterKk,
@@ -265,7 +265,7 @@ export function DaftarKertasKerja() {
                     <div className="fk-kk-card-body">
                       <div className="fk-lib-title fk-ellipsis">{ringkasTim(timDepanCocok(k.petugas, cariKirim))}</div>
                       <div className="fk-lib-sub fk-ellipsis">
-                        {k.jumlahData} data · {formatTimestamp(k.createdAt)}
+                        {k.jumlahData} data · {formatWaktu(k.createdAt)}
                       </div>
                     </div>
                     {lokasiPerluCek(k) && <span className="fk-pill is-lokasi">{LABEL_STATUS[k.lokasiStatus]}</span>}
