@@ -110,8 +110,8 @@ export default function Dashboard() {
                 {stats.rekapPetugas.map((p, i) => (
                   <div className="fk-lib-row fk-rekap-row" key={p.id}>
                     <span className="fk-peringkat">{i + 1}</span>
-                    <div>
-                      <div className="fk-lib-title fk-ellipsis">{p.nama}</div>
+                    <div className="fk-rekap-nama">
+                      <div className="fk-lib-title">{p.nama}</div>
                       <div className="fk-lib-sub">{Number(p.jumlahData).toLocaleString("id-ID")} data</div>
                     </div>
                     <div className="fk-rekap">
