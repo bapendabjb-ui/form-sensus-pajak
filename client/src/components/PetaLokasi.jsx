@@ -1,5 +1,5 @@
 import { Suspense, lazy, useState } from "react";
-import { useMesinPeta, PilihJenis, PetaMemuat, CatatanCadangan } from "./peta/bersama.jsx";
+import { useMesinPeta, PilihJenis, PetaMemuat, CatatanCadangan, PenahanPeta } from "./peta/bersama.jsx";
 
 // Hanya mesin yang dipakai yang diunduh: Leaflet tidak ikut termuat selama
 // peta Google berjalan, dan sebaliknya.
@@ -36,15 +36,17 @@ export default function PetaLokasi({ titik, onPilih }) {
         <span className="fk-hint-kecil">Ketuk peta atau geser penanda untuk menentukan titik.</span>
         <PilihJenis jenis={jenis} onChange={setJenis} />
       </div>
-      <Suspense
-        fallback={
-          <div className="fk-peta">
-            <PetaMemuat />
-          </div>
-        }
-      >
-        {kanvas}
-      </Suspense>
+      <PenahanPeta>
+        <Suspense
+          fallback={
+            <div className="fk-peta">
+              <PetaMemuat />
+            </div>
+          }
+        >
+          {kanvas}
+        </Suspense>
+      </PenahanPeta>
       {mesin.cadangan && <CatatanCadangan />}
     </div>
   );

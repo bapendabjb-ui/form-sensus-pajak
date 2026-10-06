@@ -1,8 +1,12 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+// Plugin ini menempel pada window.L, yang dipasang oleh "leaflet" di atas -
+// urutan impor ini penting.
+import "leaflet.markercluster";
+import "leaflet.markercluster/dist/MarkerCluster.css";
 import { pasangUbin } from "../../lib/ubinPeta";
-import { PUSAT_AWAL, isiBalon } from "./bersama.jsx";
+import { PUSAT_AWAL, isiBalon, svgTitik, warnaTitik, svgKlaster, KLASTER_ZOOM_MAKS } from "./bersama.jsx";
 
 /**
  * Mesin cadangan Peta Sensus (Leaflet + OpenStreetMap / Esri): banyak titik
@@ -22,13 +26,15 @@ import { PUSAT_AWAL, isiBalon } from "./bersama.jsx";
  * digambar berlubang supaya tidak tertukar dengan titik yang sengaja diukur
  * petugas lewat pertanyaan lokasi - ketelitiannya bisa jauh berbeda.
  */
-const ikonTitik = (t) =>
-  L.divIcon({
-    className: `fk-titik is-${t.status === "selesai" ? "selesai" : "draft"}${t.sumber === "gps" ? " is-rekam" : ""}${t.dicek ? " is-dicek" : ""}`,
-    html: `<span class="fk-titik-isi">${t.dicek ? "✓" : ""}</span>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
+const ikonTitik = (t) => {
+  const { svg, ukuran } = svgTitik({ warna: warnaTitik(t), berlubang: t.sumber === "gps", dicek: t.dicek });
+  return L.divIcon({
+    className: `fk-titik${t.dicek ? " is-dicek" : ""}`,
+    html: svg,
+    iconSize: [ukuran, ukuran],
+    iconAnchor: [ukuran / 2, ukuran / 2],
   });
+};
 
 export default function SebaranLeaflet({ titik = [], onBuka, onCek = null, kunciPandang, jenis }) {
   const wadah = useRef(null);
@@ -43,13 +49,32 @@ export default function SebaranLeaflet({ titik = [], onBuka, onCek = null, kunci
 
   // Buat peta sekali.
   useEffect(() => {
-    const m = L.map(wadah.current, { center: [PUSAT_AWAL.lat, PUSAT_AWAL.lon], zoom: 12 });
+    // maxZoom ditetapkan di sini, bukan menunggu lapisan ubin: lapisan itu
+    // dipasang belakangan (lib/ubinPeta.js menguji OSM dulu), sedangkan
+    // pengelompok titik langsung membutuhkan batas zoom peta.
+    const m = L.map(wadah.current, { center: [PUSAT_AWAL.lat, PUSAT_AWAL.lon], zoom: 12, maxZoom: 19 });
     peta.current = m;
-    lapisanTitik.current = L.layerGroup().addTo(m);
+    // Kelompok titik: hanya yang terlihat yang digambar, zoom tetap ringan.
+    lapisanTitik.current = L.markerClusterGroup({
+      maxClusterRadius: 50,
+      disableClusteringAtZoom: KLASTER_ZOOM_MAKS + 1,
+      showCoverageOnHover: false,
+      spiderfyOnMaxZoom: false,
+      chunkedLoading: true,
+      iconCreateFunction: (kelompok) => {
+        const { svg, ukuran } = svgKlaster(kelompok.getChildCount());
+        return L.divIcon({ className: "fk-klaster", html: svg, iconSize: [ukuran, ukuran], iconAnchor: [ukuran / 2, ukuran / 2] });
+      },
+    }).addTo(m);
 
     const t = setTimeout(() => m.invalidateSize(), 60);
+    // Ukuran wadah berubah tanpa jendela berubah (mis. layar penuh): Leaflet
+    // tidak tahu sendiri, potongan petanya jadi terpotong.
+    const amati = new ResizeObserver(() => m.invalidateSize());
+    amati.observe(wadah.current);
     return () => {
       clearTimeout(t);
+      amati.disconnect();
       m.remove();
       peta.current = null;
       ubin.current = null;
@@ -73,6 +98,7 @@ export default function SebaranLeaflet({ titik = [], onBuka, onCek = null, kunci
     if (!m || !grup) return;
 
     grup.clearLayers();
+    const semua = [];
     for (const t of titik) {
       const penanda = L.marker([t.lat, t.lon], { icon: ikonTitik(t) }).bindPopup(
         isiBalon(t, { bisaCek: Boolean(cekRef.current) })
@@ -90,8 +116,10 @@ export default function SebaranLeaflet({ titik = [], onBuka, onCek = null, kunci
           };
         }
       });
-      grup.addLayer(penanda);
+      semua.push(penanda);
     }
+    // Sekaligus, bukan satu per satu: kelompoknya dihitung sekali saja.
+    grup.addLayers(semua);
 
     // Rapatkan pandangan ke titik yang ada - hanya saat tampilan / saringan
     // berganti. Menandai sudah dicek mengubah daftar titik juga, dan pandangan

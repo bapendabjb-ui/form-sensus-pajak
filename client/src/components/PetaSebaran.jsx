@@ -1,5 +1,13 @@
-import { Suspense, lazy, useState } from "react";
-import { useMesinPeta, PilihJenis, PetaMemuat, CatatanCadangan } from "./peta/bersama.jsx";
+import { Suspense, lazy, useEffect, useState } from "react";
+import {
+  useMesinPeta,
+  PilihJenis,
+  PetaMemuat,
+  CatatanCadangan,
+  IkonTitik,
+  PenahanPeta,
+  WARNA_STATUS,
+} from "./peta/bersama.jsx";
 
 const SebaranGoogle = lazy(() => import("./peta/SebaranGoogle.jsx"));
 const SebaranLeaflet = lazy(() => import("./peta/SebaranLeaflet.jsx"));
@@ -18,7 +26,22 @@ const SebaranLeaflet = lazy(() => import("./peta/SebaranLeaflet.jsx"));
  */
 export default function PetaSebaran({ titik = [], onBuka, onCek = null, kunciPandang }) {
   const [jenis, setJenis] = useState("peta");
+  const [penuh, setPenuh] = useState(false);
   const mesin = useMesinPeta();
+
+  // Layar penuh: Escape menutupnya, dan halaman di belakangnya tidak ikut bergulir.
+  useEffect(() => {
+    if (!penuh) return undefined;
+    const saatTombol = (e) => e.key === "Escape" && setPenuh(false);
+    document.addEventListener("keydown", saatTombol);
+    const html = document.documentElement;
+    const lama = html.style.overflow;
+    html.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", saatTombol);
+      html.style.overflow = lama;
+    };
+  }, [penuh]);
 
   let kanvas = (
     <div className="fk-peta is-sebaran">
@@ -41,37 +64,49 @@ export default function PetaSebaran({ titik = [], onBuka, onCek = null, kunciPan
   }
 
   return (
-    <div className="fk-peta-wadah">
+    <div className={"fk-peta-wadah" + (penuh ? " is-penuh" : "")}>
       <div className="fk-peta-alat">
         <div className="fk-peta-legenda">
           <span className="fk-legenda">
-            <span className="fk-titik-contoh is-selesai" /> Selesai
+            <IkonTitik warna={WARNA_STATUS.selesai} /> Selesai
           </span>
           <span className="fk-legenda">
-            <span className="fk-titik-contoh is-draft" /> Draft
+            <IkonTitik warna={WARNA_STATUS.draft} /> Draft
           </span>
           {titik.some((t) => t.sumber === "gps") && (
             <span className="fk-legenda">
-              <span className="fk-titik-contoh is-rekam" /> Terekam otomatis
+              <IkonTitik warna="#647380" berlubang /> Terekam otomatis
             </span>
           )}
           {titik.some((t) => t.dicek) && (
             <span className="fk-legenda">
-              <span className="fk-titik-contoh is-dicek">✓</span> Sudah dicek
+              <IkonTitik warna={WARNA_STATUS.selesai} dicek /> Sudah dicek
             </span>
           )}
         </div>
-        <PilihJenis jenis={jenis} onChange={setJenis} />
+        <div className="fk-peta-tombol">
+          <PilihJenis jenis={jenis} onChange={setJenis} />
+          <button
+            type="button"
+            className="fk-mini fk-peta-penuh"
+            onClick={() => setPenuh((p) => !p)}
+            aria-pressed={penuh}
+          >
+            {penuh ? "Tutup layar penuh" : "Layar penuh"}
+          </button>
+        </div>
       </div>
-      <Suspense
-        fallback={
-          <div className="fk-peta is-sebaran">
-            <PetaMemuat />
-          </div>
-        }
-      >
-        {kanvas}
-      </Suspense>
+      <PenahanPeta kelas="is-sebaran">
+        <Suspense
+          fallback={
+            <div className="fk-peta is-sebaran">
+              <PetaMemuat />
+            </div>
+          }
+        >
+          {kanvas}
+        </Suspense>
+      </PenahanPeta>
       {mesin.cadangan && <CatatanCadangan />}
     </div>
   );

@@ -6,7 +6,7 @@
  * sendiri diserahkan ke mesin di folder ini.
  */
 
-import { useEffect, useState } from "react";
+import { Component, useEffect, useState } from "react";
 import * as api from "../../api.js";
 import { LAPISAN } from "../../lib/ubinPeta";
 import { googleGagal, onGoogleGagal } from "../../lib/googleMaps.js";
@@ -14,8 +14,65 @@ import { googleGagal, onGoogleGagal } from "../../lib/googleMaps.js";
 /** Pusat Kota Banjarbaru - titik awal bila belum ada koordinat. */
 export const PUSAT_AWAL = { lat: -3.4572, lon: 114.8105 };
 
-/** Warna titik per status kertas kerja - sama dengan .fk-titik di styles.css. */
+/** Warna titik per status kertas kerja - sama dengan --brand / --amber di styles.css. */
 export const WARNA_STATUS = { selesai: "#0F766E", draft: "#B87309" };
+
+/** Warna titik sebuah data peta. */
+export const warnaTitik = (t) => WARNA_STATUS[t.status === "selesai" ? "selesai" : "draft"];
+
+/**
+ * Gambar titik peta (SVG), dipakai peta Google, peta cadangan, dan legenda
+ * supaya ketiganya persis sama.
+ *
+ *   - lingkaran berwarna menurut status, berbingkai putih;
+ *   - berlubang (putih dengan cincin berwarna) untuk posisi GPS terekam otomatis;
+ *   - sudah dicek admin: sedikit lebih besar, dengan centang di tengahnya.
+ *
+ * @returns {{ svg: string, ukuran: number }}
+ */
+export function svgTitik({ warna, berlubang = false, dicek = false }) {
+  const ukuran = dicek ? 22 : 16;
+  const c = ukuran / 2;
+  const r = c - 2;
+  const isi = berlubang
+    ? `<circle cx="${c}" cy="${c}" r="${r}" fill="#fff" stroke="${warna}" stroke-width="3"/>`
+    : `<circle cx="${c}" cy="${c}" r="${r}" fill="${warna}" stroke="#fff" stroke-width="2"/>`;
+  const centang = dicek
+    ? `<path d="M${c - 4.2} ${c + 0.2}l2.8 2.8 5.6-5.8" fill="none" stroke="${berlubang ? warna : "#fff"}" ` +
+      `stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`
+    : "";
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${ukuran}" height="${ukuran}" viewBox="0 0 ${ukuran} ${ukuran}">` +
+    `<circle cx="${c}" cy="${c + 1}" r="${r}" fill="#000" opacity=".22"/>${isi}${centang}</svg>`;
+  return { svg, ukuran };
+}
+
+/**
+ * Titik yang berdekatan dikelompokkan menjadi satu lingkaran berangka sampai
+ * zoom ini; dari zoom berikutnya semua titik tampil satu per satu. Ratusan
+ * titik yang digambar terpisah membuat zoom dan geser tersendat.
+ */
+export const KLASTER_ZOOM_MAKS = 16;
+
+/** Gambar kelompok titik (SVG): lingkaran berangka, makin besar makin banyak isinya. */
+export function svgKlaster(jumlah) {
+  const ukuran = jumlah < 10 ? 32 : jumlah < 100 ? 38 : 44;
+  const c = ukuran / 2;
+  const teks = jumlah > 999 ? "999+" : String(jumlah);
+  const huruf = teks.length > 2 ? 11.5 : 13;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${ukuran}" height="${ukuran}" viewBox="0 0 ${ukuran} ${ukuran}">` +
+    `<circle cx="${c}" cy="${c}" r="${c}" fill="${WARNA_STATUS.selesai}" opacity=".22"/>` +
+    `<circle cx="${c}" cy="${c}" r="${c - 5}" fill="${WARNA_STATUS.selesai}" stroke="#fff" stroke-width="2"/>` +
+    `<text x="${c}" y="${c}" dy=".36em" text-anchor="middle" fill="#fff" font-size="${huruf}" font-weight="700" ` +
+    `font-family="IBM Plex Sans, Segoe UI, Roboto, Arial, sans-serif">${teks}</text></svg>`;
+  return { svg, ukuran };
+}
+
+/** Gambar titik untuk legenda; isinya SVG buatan svgTitik sendiri, bukan data. */
+export function IkonTitik(props) {
+  return <span className="fk-titik-contoh" dangerouslySetInnerHTML={{ __html: svgTitik(props).svg }} />;
+}
 
 /**
  * Mesin peta yang dipakai: { jenis: "tunggu" | "google" | "leaflet", kunci, cadangan }.
@@ -75,6 +132,40 @@ export function PetaMemuat() {
       <span>Memuat peta…</span>
     </div>
   );
+}
+
+/**
+ * Penahan galat mesin peta. Tanpa ini, satu galat di dalam peta (pustaka
+ * pihak ketiga, ubin, Google) mengosongkan seluruh halaman; dengan ini yang
+ * hilang hanya petanya, dan bisa dicoba lagi.
+ */
+export class PenahanPeta extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { galat: null };
+  }
+
+  static getDerivedStateFromError(galat) {
+    return { galat };
+  }
+
+  componentDidCatch(galat) {
+    console.error("[Sensus Pajak] peta gagal:", galat);
+  }
+
+  render() {
+    if (!this.state.galat) return this.props.children;
+    return (
+      <div className={"fk-peta" + (this.props.kelas ? ` ${this.props.kelas}` : "")}>
+        <div className="fk-peta-memuat" role="alert">
+          <span>Peta gagal dimuat.</span>
+          <button type="button" className="fk-mini" onClick={() => this.setState({ galat: null })}>
+            Coba lagi
+          </button>
+        </div>
+      </div>
+    );
+  }
 }
 
 /** Keterangan bahwa peta Google sedang tidak dipakai. */

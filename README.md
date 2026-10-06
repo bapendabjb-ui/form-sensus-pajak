@@ -672,6 +672,14 @@ Kolom **Tempel dari Google Maps** tidak memakai kuota sama sekali.
 Kunci ini memang terbaca browser, karena begitulah Maps JavaScript API bekerja. Pengamannya
 adalah pembatasan domain dan kuota harian di langkah 3–4.
 
+**Peta Sensus yang ringan.** Ratusan titik yang digambar satu per satu membuat zoom dan geser
+tersendat, terutama di peta Google. Karena itu titik yang berdekatan dikelompokkan menjadi satu
+lingkaran berangka (`@googlemaps/markerclusterer` / `leaflet.markercluster`) sampai zoom 16; ketuk
+kelompoknya untuk memperbesar, dan dari zoom 17 semua titik tampil satu per satu. Hanya titik di
+layar yang digambar. Gambar titik dan kelompok (SVG) sama untuk kedua peta
+(`client/src/components/peta/bersama.jsx`). Di komputer peta setinggi sisa layar, dan tombol
+**Layar penuh** tersedia di kedua peta.
+
 **CSP.** Host Google hanya masuk Content-Security-Policy bila kuncinya diisi
 (`server/src/keamanan.js`), mengikuti daftar resmi Google. Daftar itu juga memuat `'unsafe-eval'`,
 yang dibutuhkan Maps JavaScript API. `'unsafe-inline'` sengaja tidak dipakai di `script-src`.

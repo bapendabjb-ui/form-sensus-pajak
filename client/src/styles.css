@@ -604,23 +604,31 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 /* Lebih tinggi dari peta pemilih titik: di sini peta adalah isi halamannya. */
 .fk-peta.is-sebaran{height:min(62vh,560px);}
 @media (max-width:560px){ .fk-peta.is-sebaran{height:min(58vh,420px);} }
+/* Di komputer peta adalah pekerjaan utama halaman ini (mis. memeriksa
+   koordinat): halaman lebih lebar dan peta setinggi sisa layar. */
+@media (min-width:821px){
+  .fk-main:has(.fk-peta.is-sebaran){max-width:1280px;}
+  .fk-peta.is-sebaran{height:max(460px, calc(100vh - 330px));}
+}
 
-/* Titik bulat, bukan pin: sebaran padat lebih terbaca tanpa ekor pin. */
-.fk-titik .fk-titik-isi{display:block; width:16px; height:16px; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.35);}
-.fk-titik.is-selesai .fk-titik-isi{background:var(--brand);}
-.fk-titik.is-draft .fk-titik-isi{background:var(--amber);}
-/* Titik dari koordinat terekam otomatis: berlubang, supaya tidak tertukar
-   dengan titik yang sengaja diukur petugas lewat pertanyaan lokasi. */
-.fk-titik.is-rekam .fk-titik-isi{background:transparent; box-shadow:0 1px 3px rgba(0,0,0,.35), inset 0 0 0 3px currentColor;}
-.fk-titik.is-rekam.is-selesai .fk-titik-isi{color:var(--brand);}
-.fk-titik.is-rekam.is-draft .fk-titik-isi{color:var(--amber);}
+/* Layar penuh: legenda, tombol jenis peta, dan peta menutup seluruh layar. */
+.fk-peta-wadah.is-penuh{position:fixed; inset:0; z-index:70; background:var(--bg); padding:12px 12px calc(12px + env(safe-area-inset-bottom));}
+.fk-peta-wadah.is-penuh .fk-peta{flex:1; height:auto; min-height:0;}
+.fk-peta-tombol{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.fk-peta-penuh{min-height:34px;}
 
-.fk-peta-legenda{display:flex; align-items:center; gap:14px;}
+/* Titik bulat, bukan pin: sebaran padat lebih terbaca tanpa ekor pin. Gambarnya
+   SVG dari svgTitik() di components/peta/bersama.jsx, sama untuk semua peta. */
+.fk-titik{background:none; border:0;}
+.fk-titik svg{display:block;}
+/* Kelompok titik (svgKlaster): ketuk untuk memperbesar ke isinya. */
+.fk-klaster{background:none; border:0; cursor:pointer;}
+.fk-klaster svg{display:block;}
+
+.fk-peta-legenda{display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
 .fk-legenda{display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--muted);}
-.fk-titik-contoh{width:11px; height:11px; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 1px var(--line);}
-.fk-titik-contoh.is-selesai{background:var(--brand);}
-.fk-titik-contoh.is-draft{background:var(--amber);}
-.fk-titik-contoh.is-rekam{background:transparent; box-shadow:0 0 0 1px var(--line), inset 0 0 0 2px var(--muted);}
+.fk-titik-contoh{display:inline-flex; flex:none;}
+.fk-titik-contoh svg{display:block;}
 
 .fk-balon{display:flex; flex-direction:column; gap:3px; min-width:160px;}
 .fk-balon strong{font-size:13.5px; color:var(--ink);}
@@ -634,9 +642,6 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-balon-cek{border:1px solid var(--brand); background:var(--brand); color:#fff; font-size:12px; font-weight:600; padding:6px 10px; border-radius:8px; cursor:pointer;}
 .fk-balon-cek.is-on{border-color:var(--line); background:var(--surface); color:var(--muted);}
 .fk-balon-dicek{font-size:12px; font-weight:600; color:var(--brand-dark);}
-/* titik yang sudah dicek admin: centang di tengahnya */
-.fk-titik.is-dicek .fk-titik-isi{display:grid; place-items:center; color:#fff; font-size:10px; font-weight:700; line-height:1;}
-.fk-titik-contoh.is-dicek{display:inline-grid; place-items:center; width:13px; height:13px; background:var(--brand); color:#fff; font-size:8px; font-weight:700; line-height:1;}
 /* Peta Google digambar di kanvas tersendiri supaya lapisan "memuat" milik React tidak bertabrakan dengannya. */
 .fk-peta-kanvas{position:absolute; inset:0;}
 .fk-peta-memuat{position:absolute; inset:0; z-index:1; display:flex; align-items:center; justify-content:center; gap:10px; background:#E6EAEF; color:var(--muted); font-size:13px;}
