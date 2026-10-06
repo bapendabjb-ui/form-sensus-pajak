@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { muatGoogleMaps, tandaiGoogleGagal } from "../../lib/googleMaps.js";
-import { PUSAT_AWAL, PetaMemuat } from "./bersama.jsx";
+import { PUSAT_AWAL, PetaMemuat, WARNA_SAYA, zoomAkurasi } from "./bersama.jsx";
 
 /**
  * Mesin Google untuk pemilih titik: ketuk peta atau geser penanda. Perilakunya
@@ -14,15 +14,18 @@ import { PUSAT_AWAL, PetaMemuat } from "./bersama.jsx";
  * titik   : { lat, lon } | null
  * onPilih : (lat, lon) => void
  * jenis   : "peta" | "satelit"
+ * posisiSaya : { lat, lon, akurasi } | null - titik biru posisi perangkat
+ * pusatkan   : angka yang naik setiap kali peta perlu dipusatkan ke posisiSaya
  */
 
 /** Satelit memakai "hybrid" supaya nama jalan tetap terbaca di atas citra. */
 const TIPE = { peta: "roadmap", satelit: "hybrid" };
 
-export default function LokasiGoogle({ kunci, titik, onPilih, jenis }) {
+export default function LokasiGoogle({ kunci, titik, onPilih, jenis, posisiSaya, pusatkan }) {
   const wadah = useRef(null);
   const peta = useRef(null);
   const penanda = useRef(null);
+  const saya = useRef(null); // { titik, lingkar }
   const g = useRef(null);
   const pilihRef = useRef(onPilih);
   pilihRef.current = onPilih;
@@ -34,7 +37,7 @@ export default function LokasiGoogle({ kunci, titik, onPilih, jenis }) {
       penanda.current.setPosition(posisi);
       return;
     }
-    penanda.current = new g.current.Marker({ map: peta.current, position: posisi, draggable: true });
+    penanda.current = new g.current.Marker({ map: peta.current, position: posisi, draggable: true, zIndex: 2 });
     penanda.current.addListener("dragend", (e) => pilihRef.current(e.latLng.lat(), e.latLng.lng()));
   };
 
@@ -54,6 +57,8 @@ export default function LokasiGoogle({ kunci, titik, onPilih, jenis }) {
             // Jenis peta diatur tombol aplikasi sendiri, sama dengan peta cadangan.
             disableDefaultUI: true,
             zoomControl: true,
+            // Pojok kanan bawah dipakai tombol "Lokasi saya".
+            zoomControlOptions: { position: lib.ControlPosition.RIGHT_TOP },
             // Satu jari menggeser peta, seperti peta cadangan.
             gestureHandling: "greedy",
             // Mengetuk nama toko tidak membuka balon Google, tetapi menaruh titik.
@@ -77,9 +82,14 @@ export default function LokasiGoogle({ kunci, titik, onPilih, jenis }) {
     return () => {
       batal = true;
       if (penanda.current) penanda.current.setMap(null);
+      if (saya.current) {
+        saya.current.titik.setMap(null);
+        saya.current.lingkar.setMap(null);
+      }
       if (peta.current && g.current) g.current.event.clearInstanceListeners(peta.current);
       peta.current = null;
       penanda.current = null;
+      saya.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -109,6 +119,57 @@ export default function LokasiGoogle({ kunci, titik, onPilih, jenis }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [titik?.lat, titik?.lon, siap]);
+
+  // Titik biru lokasi saya, dengan lingkaran akurasinya. Tidak bisa diketuk:
+  // ketukan di atasnya tetap menaruh titik sensus.
+  useEffect(() => {
+    const m = peta.current;
+    if (!m || !posisiSaya) return;
+    const posisi = { lat: posisiSaya.lat, lng: posisiSaya.lon };
+    const radius = posisiSaya.akurasi ?? 0;
+    if (saya.current) {
+      saya.current.titik.setPosition(posisi);
+      saya.current.lingkar.setCenter(posisi);
+      saya.current.lingkar.setRadius(radius);
+      return;
+    }
+    const lib = g.current;
+    saya.current = {
+      lingkar: new lib.Circle({
+        map: m,
+        center: posisi,
+        radius,
+        clickable: false,
+        strokeColor: WARNA_SAYA,
+        strokeOpacity: 0.35,
+        strokeWeight: 1,
+        fillColor: WARNA_SAYA,
+        fillOpacity: 0.12,
+      }),
+      titik: new lib.Marker({
+        map: m,
+        position: posisi,
+        clickable: false,
+        zIndex: 1,
+        icon: {
+          path: lib.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: WARNA_SAYA,
+          fillOpacity: 1,
+          strokeColor: "#fff",
+          strokeWeight: 3,
+        },
+      }),
+    };
+  }, [posisiSaya, siap]);
+
+  useEffect(() => {
+    const m = peta.current;
+    if (!m || !pusatkan || !posisiSaya) return;
+    m.setZoom(zoomAkurasi(posisiSaya.akurasi));
+    m.panTo({ lat: posisiSaya.lat, lng: posisiSaya.lon });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pusatkan, siap]);
 
   return (
     <div className="fk-peta">

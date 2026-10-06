@@ -20,6 +20,12 @@ export const WARNA_STATUS = { selesai: "#0F766E", draft: "#B87309" };
 /** Warna titik sebuah data peta. */
 export const warnaTitik = (t) => WARNA_STATUS[t.status === "selesai" ? "selesai" : "draft"];
 
+/** Titik biru "Lokasi saya" - biru Google, supaya tidak tertukar dengan penanda titik sensus. */
+export const WARNA_SAYA = "#1A73E8";
+
+/** Zoom saat peta dipusatkan ke lokasi saya: makin kasar GPS-nya, makin jauh, supaya lingkarannya muat. */
+export const zoomAkurasi = (m) => (m == null || m <= 50 ? 18 : m <= 150 ? 17 : m <= 400 ? 16 : 15);
+
 /**
  * Gambar titik peta (SVG), dipakai peta Google, peta cadangan, dan legenda
  * supaya ketiganya persis sama.

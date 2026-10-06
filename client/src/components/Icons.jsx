@@ -45,6 +45,7 @@ import {
   Images,
   Landmark,
   LayoutGrid,
+  LocateFixed,
   Lock,
   MapPin,
   Maximize2,
@@ -98,6 +99,9 @@ export const IkonMata = () => <Eye size={18} strokeWidth={GARIS} aria-hidden="tr
 export const IkonMataTutup = () => <EyeOff size={18} strokeWidth={GARIS} aria-hidden="true" />;
 
 export const CalIcon =() => <Calendar size={16} strokeWidth={1.5} aria-hidden="true" />;
+
+/** Tombol "Lokasi saya" di peta pemilih titik. */
+export const IkonLokasiSaya = () => <LocateFixed size={22} strokeWidth={2} aria-hidden="true" />;
 
 /** Tombol layar penuh peta: buka / tutup. */
 export const IkonLayarPenuh = () => <Maximize2 size={15} strokeWidth={GARIS} aria-hidden="true" />;

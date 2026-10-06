@@ -4,10 +4,9 @@
  *   - StatusGps     : layar isi data baru - posisi perangkat yang akan terekam
  *                     saat disimpan, supaya petugas tahu SEBELUM menyimpan bila
  *                     lokasinya belum ada, kasar, atau masih di kantor.
- *   - LokasiKertasKerja : halaman kertas kerja - titik objek, ringkasan GPS
- *                     data-datanya (bukti kunjungan), dan cara menetapkan
- *                     titiknya: lewat peta / tempel Google Maps, atau Rekam di
- *                     sini saat berada di lokasi.
+ *   - LokasiKertasKerja : halaman kertas kerja - peringatan bila titik objek
+ *                     perlu dicek, dan cara menetapkan titiknya: lewat peta /
+ *                     tempel Google Maps, atau Rekam di sini saat berada di lokasi.
  *
  * Aturan penilaiannya ada di lib/cekLokasi.js (salinan server/src/cekLokasi.js).
  */
@@ -15,7 +14,7 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import * as api from "../api.js";
 import { useToast } from "./Toast.jsx";
-import { nilaiTitik, formatJarak, LABEL_STATUS } from "../lib/cekLokasi.js";
+import { nilaiTitik, LABEL_STATUS } from "../lib/cekLokasi.js";
 import { pantauPosisi } from "../lib/rekamPosisi.js";
 import TempelKoordinat from "./TempelKoordinat.jsx";
 import { formatWaktu, urlPeta } from "../lib/format.js";
@@ -72,32 +71,6 @@ export function StatusGps({ gps, aturan, titikSudahAda = false, onUlangi }) {
       )}
     </div>
   );
-}
-
-/** Keterangan asal titik objek kertas kerja. */
-function asalTitik(lokasi) {
-  const oleh = !lokasi.oleh || lokasi.oleh === "petugas" ? "petugas" : namaAdmin(lokasi.oleh);
-  if (lokasi.sumber === "koreksi") return `Ditetapkan di peta oleh ${oleh}, ${formatWaktu(lokasi.waktu)}.`;
-  if (lokasi.sumber === "rekam") {
-    return `Direkam di lokasi oleh ${oleh} (${meter(lokasi.titik.akurasi)}), ${formatWaktu(lokasi.waktu)}.`;
-  }
-  if (lokasi.sumber === "gps") return `GPS terbaik dari data-datanya (${meter(lokasi.titik.akurasi)}).`;
-  return "Belum ada titik.";
-}
-
-/** "3 data: 2 di lokasi, 1 di kantor" */
-function ringkasGps(gps, aturan) {
-  const total = gps.baik + gps.kasar + gps.kantor + gps.tanpa;
-  if (!total) return "Belum ada data.";
-  const bagian = [
-    [gps.baik, "di lokasi"],
-    [gps.kasar, "kurang akurat"],
-    [gps.kantor, `di area ${namaKantor(aturan)}`],
-    [gps.tanpa, "tanpa GPS"],
-  ]
-    .filter(([n]) => n > 0)
-    .map(([n, teks]) => `${n} ${teks}`);
-  return `${total} data: ${bagian.join(", ")}.`;
 }
 
 /** "admin (budi)", atau cukup "admin" bila tidak ada nama lain untuk disebut. */
@@ -265,30 +238,16 @@ export function LokasiKertasKerja({ kk, aturan, admin, onBerubah }) {
 
         {perluCek && !terkunci && (
           <p className="fk-lokasi-data-peringatan" role="alert">
-            {LABEL_STATUS[lokasi.status]}. Tetapkan lokasi sensusnya di peta, atau tekan <b>Rekam di sini</b>{" "}
-            saat berada di lokasi.
+            {LABEL_STATUS[lokasi.status]}. Tetapkan di peta, atau <b>Rekam di sini</b> saat di lokasi.
           </p>
         )}
 
-        <dl className="fk-lokasi-data-rinci">
-          <dt>Titik sensus</dt>
-          <dd>
-            {asalTitik(lokasi)}
-            {lokasi.jarakM !== null && ` Berjarak ${formatJarak(lokasi.jarakM)} dari GPS petugas di lapangan.`}
-            {lokasi.jauh && <span className="fk-pill is-lokasi">Jauh dari GPS</span>}
-          </dd>
-          <dt>GPS saat pendataan</dt>
-          <dd>{ringkasGps(lokasi.gps, aturan)}</dd>
-          {lokasi.dicek && (
-            <>
-              <dt>Pemeriksaan</dt>
-              <dd className="fk-dicek-ket">
-                ✓ Sudah dicek {namaAdmin(lokasi.dicek.oleh)}, {formatWaktu(lokasi.dicek.waktu)}. Terkunci
-                {admin ? " untuk petugas." : " — hanya admin yang bisa mengubahnya."}
-              </dd>
-            </>
-          )}
-        </dl>
+        {lokasi.dicek && (
+          <p className="fk-lokasi-data-dicek fk-dicek-ket">
+            ✓ Sudah dicek {namaAdmin(lokasi.dicek.oleh)}, {formatWaktu(lokasi.dicek.waktu)}. Terkunci
+            {admin ? " untuk petugas." : " — hanya admin yang bisa mengubahnya."}
+          </p>
+        )}
 
         {peta && (
           <Suspense

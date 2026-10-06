@@ -617,6 +617,16 @@ html.fk-ketik .fk-fab{display:none;}
 .fk-peta{position:relative; z-index:0; height:300px; border-radius:10px; overflow:hidden; border:1px solid var(--line-soft); background:#E6EAEF;}
 @media (max-width:560px){ .fk-peta{height:260px;} }
 
+/* Tombol "Lokasi saya" di pojok kanan bawah peta pemilih titik, seperti di
+   Google Maps. Diberi jarak dari tepi bawah supaya tidak menutupi atribusi peta. */
+.fk-peta-tumpuk{position:relative;}
+.fk-lokasi-saya{position:absolute; right:10px; bottom:30px; z-index:1; width:42px; height:42px; border:0; border-radius:50%; background:#fff; color:#5F6368; display:grid; place-items:center; box-shadow:0 1px 4px rgba(0,0,0,.3);}
+.fk-lokasi-saya:hover{color:var(--ink);}
+.fk-lokasi-saya:focus-visible{outline:2px solid var(--brand); outline-offset:2px;}
+.fk-lokasi-saya.is-aktif{color:#1A73E8;}
+.fk-lokasi-saya.is-mencari svg{animation:fk-kedip 1s ease-in-out infinite;}
+@keyframes fk-kedip{50%{opacity:.35;}}
+
 /* ---- peta sebaran (halaman Peta Sensus) ---- */
 /* Peta adalah isi halaman ini (mis. memeriksa koordinat), jadi perkakasnya
    diringkas: satu bilah alat - tampilan, saringan, jenis peta, layar penuh -
@@ -852,10 +862,7 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-lokasi-data .fk-field{display:flex; flex-direction:column; gap:10px; border-bottom:0;}
 .fk-lokasi-data .fk-q-name{margin-bottom:0;}
 .fk-lokasi-data-peringatan{margin:0; background:#FBF0DC; border:1px solid #EFD9AE; color:#6F4705; border-radius:10px; padding:10px 12px; font-size:13px; line-height:1.45;}
-.fk-lokasi-data-rinci{display:grid; grid-template-columns:max-content 1fr; gap:6px 14px; margin:0; font-size:13px;}
-.fk-lokasi-data-rinci dt{color:var(--muted);}
-.fk-lokasi-data-rinci dd{margin:0; min-width:0; overflow-wrap:anywhere;}
-.fk-lokasi-data-rinci .fk-pill{margin-left:6px;}
+.fk-lokasi-data-dicek{margin:0; font-size:13px;}
 
 /* ---------- latihan petugas ---------- */
 .fk-latihan-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--brand-tint); border:1px solid #BFE0DC; color:var(--brand-dark); border-radius:12px; padding:11px 14px; font-size:13.5px;}
@@ -995,8 +1002,6 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-pengajuan-kartu .fk-pengajuan-aksi > :first-child:nth-last-child(3){grid-column:1 / -1;}
   .fk-ajukan-aksi{padding-bottom:16px;}
   .fk-pengajuan-ringkas{min-height:60px;}
-  .fk-lokasi-data-rinci{grid-template-columns:1fr; gap:2px;}
-  .fk-lokasi-data-rinci dd{margin-bottom:8px;}
   .fk-lokasi-data .fk-lokasi-aksi .fk-btn,
   .fk-lokasi-data .fk-lokasi-aksi .fk-btn-ghost{flex:1 1 140px;}
   /* dialog menempel di dasar layar: sasaran sentuh dekat ibu jari */

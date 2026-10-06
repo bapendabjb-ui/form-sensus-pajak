@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { pasangUbin } from "../../lib/ubinPeta";
-import { PUSAT_AWAL } from "./bersama.jsx";
+import { PUSAT_AWAL, WARNA_SAYA, zoomAkurasi } from "./bersama.jsx";
 
 /**
  * Mesin cadangan pemilih titik (Leaflet + OpenStreetMap / Esri): ketuk peta
@@ -16,6 +16,8 @@ import { PUSAT_AWAL } from "./bersama.jsx";
  * titik   : { lat, lon } | null
  * onPilih : (lat, lon) => void
  * jenis   : "peta" | "satelit"
+ * posisiSaya : { lat, lon, akurasi } | null - titik biru posisi perangkat
+ * pusatkan   : angka yang naik setiap kali peta perlu dipusatkan ke posisiSaya
  */
 
 // Ikon HTML biasa: ikon gambar bawaan Leaflet tidak ikut terbawa oleh Vite.
@@ -26,10 +28,11 @@ const IKON_PIN = L.divIcon({
   iconAnchor: [14, 34],
 });
 
-export default function LokasiLeaflet({ titik, onPilih, jenis }) {
+export default function LokasiLeaflet({ titik, onPilih, jenis, posisiSaya, pusatkan }) {
   const wadah = useRef(null);
   const peta = useRef(null);
   const penanda = useRef(null);
+  const saya = useRef(null); // { titik, lingkar }
   const ubin = useRef(null);
   const pilihRef = useRef(onPilih);
   pilihRef.current = onPilih;
@@ -66,6 +69,7 @@ export default function LokasiLeaflet({ titik, onPilih, jenis }) {
       m.remove();
       peta.current = null;
       penanda.current = null;
+      saya.current = null;
       ubin.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -96,6 +100,47 @@ export default function LokasiLeaflet({ titik, onPilih, jenis }) {
     if (!m.getBounds().contains(ll)) m.setView(ll, Math.max(m.getZoom(), 17));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [titik?.lat, titik?.lon]);
+
+  // Titik biru lokasi saya, dengan lingkaran akurasinya. Tidak bisa diketuk:
+  // ketukan di atasnya tetap menaruh titik sensus. Penanda titik sensus ada di
+  // lapisan penanda, jadi selalu di atas titik biru.
+  useEffect(() => {
+    const m = peta.current;
+    if (!m || !posisiSaya) return;
+    const ll = L.latLng(posisiSaya.lat, posisiSaya.lon);
+    const radius = posisiSaya.akurasi ?? 0;
+    if (saya.current) {
+      saya.current.titik.setLatLng(ll);
+      saya.current.lingkar.setLatLng(ll).setRadius(radius);
+      return;
+    }
+    saya.current = {
+      lingkar: L.circle(ll, {
+        radius,
+        interactive: false,
+        color: WARNA_SAYA,
+        opacity: 0.35,
+        weight: 1,
+        fillColor: WARNA_SAYA,
+        fillOpacity: 0.12,
+      }).addTo(m),
+      titik: L.circleMarker(ll, {
+        radius: 8,
+        interactive: false,
+        color: "#fff",
+        weight: 3,
+        fillColor: WARNA_SAYA,
+        fillOpacity: 1,
+      }).addTo(m),
+    };
+  }, [posisiSaya]);
+
+  useEffect(() => {
+    const m = peta.current;
+    if (!m || !pusatkan || !posisiSaya) return;
+    m.setView([posisiSaya.lat, posisiSaya.lon], zoomAkurasi(posisiSaya.akurasi));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pusatkan]);
 
   return <div className="fk-peta" ref={wadah} />;
 }
