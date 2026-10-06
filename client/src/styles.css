@@ -485,7 +485,10 @@ html.fk-ketik .fk-fab{display:none;}
 .fk-baris-kurang{display:flex; align-items:center; gap:8px; margin-top:5px; min-width:0;}
 .fk-baris-catatan{font-size:12.5px; color:#A5312A; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;}
 .fk-bagian-baris{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin:8px 2px -6px;}
-.fk-bagian-baris .fk-bagian{margin:0;}
+/* Judul daftar data di detail kertas kerja: dibuat menonjol supaya batas
+   antara bagian lokasi di atas dan daftar data mudah ditemukan. */
+.fk-data-judul{display:inline-flex; align-items:center; gap:8px; margin:0; padding-left:10px; border-left:4px solid var(--brand); font-family:'Space Grotesk',sans-serif; font-size:17px; font-weight:700; color:var(--ink); line-height:1.2;}
+.fk-data-judul-jumlah{font-size:12.5px; font-weight:700; background:var(--brand); color:#fff; border-radius:20px; padding:2px 9px;}
 .fk-bagian-baris .fk-filter-btn{padding:5px 11px; font-size:12.5px;}
 .fk-berkas.is-kurang{border-color:#EBC2BD; background:#FDF5F4;}
 .fk-berkas .fk-field{border-bottom:0;}

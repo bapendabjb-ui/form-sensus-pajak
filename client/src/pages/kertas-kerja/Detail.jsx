@@ -228,12 +228,13 @@ export function DetailKertasKerja({ id }) {
         .map((g) => ({ ...g, entri: g.entri.filter(SARING[saringAktif].cocok) }))
         .filter((g) => g.entri.length)
     : kelompok;
-  const tombolSaring = (kunci, label, kelas) =>
+  const tombolSaring = (kunci, label, kelas, keterangan) =>
     SARING[kunci].jumlah > 0 && (
       <button
         type="button"
         className={`fk-filter-btn ${kelas}` + (saringAktif === kunci ? " is-on" : "")}
         aria-pressed={saringAktif === kunci}
+        title={keterangan}
         onClick={() => setSaring((v) => (v === kunci ? null : kunci))}
       >
         {label}
@@ -405,10 +406,13 @@ export function DetailKertasKerja({ id }) {
       </Sheet>
 
       <div className="fk-bagian-baris">
-        <div className="fk-bagian">Data terkumpul{totalData ? ` · ${totalData}` : ""}</div>
+        <h2 className="fk-data-judul">
+          Data terkumpul
+          {totalData > 0 && <span className="fk-data-judul-jumlah">{totalData}</span>}
+        </h2>
         <span className="fk-saring-data">
-          {tombolSaring("kurang", "Hanya berkas tidak lengkap", "is-kurang")}
-          {tombolSaring("lokasi", "Koordinat perlu dicek", "is-lokasi")}
+          {tombolSaring("kurang", "Berkas kurang", "is-kurang", "Tampilkan hanya data yang berkasnya tidak lengkap")}
+          {tombolSaring("lokasi", "Cek koordinat", "is-lokasi", "Tampilkan hanya data yang koordinatnya perlu dicek")}
         </span>
       </div>
       {totalData === 0 ? (
