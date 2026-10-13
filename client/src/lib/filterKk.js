@@ -10,6 +10,7 @@ export const FILTER_KK = [
   ["semua", "Semua"],
   ["draft", "Draft"],
   ["selesai", "Selesai"],
+  ["kosong", "Belum ada data"],
   ["kurang", "Berkas tidak lengkap"],
   ["lokasi", "Lokasi perlu dicek"],
   // Hanya tampil untuk admin: kertas kerja yang lokasi sensusnya belum ditandai sudah dicek.
@@ -38,6 +39,7 @@ export function simpanFilterKk(f) {
 /** Apakah kertas kerja ringkas `k` lolos filter `f`. */
 export function cocokFilterKk(k, f) {
   if (f === "draft" || f === "selesai") return k.status === f;
+  if (f === "kosong") return k.jumlahData === 0;
   if (f === "kurang") return k.jumlahTidakLengkap > 0;
   if (f === "lokasi") return lokasiPerluCek(k);
   if (f === "belumdicek") return k.jumlahData > 0 && !k.lokasiDicek;

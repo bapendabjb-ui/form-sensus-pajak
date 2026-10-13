@@ -43,7 +43,7 @@ const KOSONG = {
   hal: 1,
   total: 0,
   adaLagi: false,
-  jumlah: { semua: 0, draft: 0, selesai: 0, kurang: 0, lokasi: 0, belumdicek: 0 },
+  jumlah: { semua: 0, draft: 0, selesai: 0, kosong: 0, kurang: 0, lokasi: 0, belumdicek: 0 },
 };
 
 export function DaftarKertasKerja() {
@@ -241,6 +241,8 @@ export function DaftarKertasKerja() {
                 ? `Tidak ada kertas kerja yang cocok dengan "${kata}".`
                 : kata
                   ? `Tidak ada hasil "${kata}" pada saringan ini.`
+                  : filter === "kosong"
+                    ? "Semua kertas kerja sudah berisi data."
                   : filter === "kurang"
                     ? "Tidak ada kertas kerja dengan berkas tidak lengkap."
                     : filter === "lokasi"

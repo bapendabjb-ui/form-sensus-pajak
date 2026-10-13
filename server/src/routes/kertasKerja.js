@@ -128,7 +128,7 @@ const bentukRingkas = (k, tidakLengkap) => ({
 const PER_HALAMAN = 20;
 const PER_HALAMAN_MAKS = 100;
 
-const SARINGAN = new Set(["semua", "draft", "selesai", "kurang", "lokasi", "belumdicek"]);
+const SARINGAN = new Set(["semua", "draft", "selesai", "kosong", "kurang", "lokasi", "belumdicek"]);
 
 /** Kata kunci lebih panjang dari ini dipotong; nama petugas pun paling 150 huruf. */
 const CARI_MAKS = 100;
@@ -165,6 +165,8 @@ function syaratCari(cari) {
 /** Syarat WHERE dari saringan status / kelengkapan berkas. */
 function syaratSaring(saring) {
   if (saring === "draft" || saring === "selesai") return { status: saring };
+  // Kertas kerja yang sudah dibuat tetapi belum diisi satu data pun.
+  if (saring === "kosong") return { entri: { none: {} } };
   // "Berkas tidak lengkap" bukan kolom kertas kerja, melainkan sifat entri di
   // dalamnya. EXISTS jauh lebih murah daripada menghitung seluruhnya hanya
   // untuk tahu ada-tidaknya, dan entri_berkas_lengkap_idx sudah menopangnya.
@@ -178,7 +180,7 @@ function syaratSaring(saring) {
 
 /**
  * GET /api/kertas-kerja?hal=1&per=20&cari=&saring=semua
- *   -> { baris, hal, per, total, adaLagi, jumlah: { semua, draft, selesai, kurang, lokasi, belumdicek } }
+ *   -> { baris, hal, per, total, adaLagi, jumlah: { semua, draft, selesai, kosong, kurang, lokasi, belumdicek } }
  *
  * Dipaginasi karena daftar ini bertambah terus sepanjang umur aplikasi dan
  * tidak pernah menyusut. Pencarian, penyaringan, dan angka pada tombol saringan
@@ -213,7 +215,7 @@ router.get(
 
     const hitung = (tambahan) => prisma.kertasKerja.count({ where: { ...cari, ...tambahan } });
 
-    const [list, total, semua, draft, selesai, kurang, lokasi, belumdicek] = await Promise.all([
+    const [list, total, semua, draft, selesai, kosong, kurang, lokasi, belumdicek] = await Promise.all([
       prisma.kertasKerja.findMany({
         where,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -225,6 +227,7 @@ router.get(
       hitung({}),
       hitung(syaratSaring("draft")),
       hitung(syaratSaring("selesai")),
+      hitung(syaratSaring("kosong")),
       hitung(syaratSaring("kurang")),
       hitung(syaratSaring("lokasi")),
       hitung(syaratSaring("belumdicek")),
@@ -238,7 +241,7 @@ router.get(
       per,
       total,
       adaLagi: hal * per < total,
-      jumlah: { semua, draft, selesai, kurang, lokasi, belumdicek },
+      jumlah: { semua, draft, selesai, kosong, kurang, lokasi, belumdicek },
     });
   })
 );

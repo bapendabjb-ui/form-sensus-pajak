@@ -940,7 +940,7 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | `hal`     | `1`     | Halaman, mulai dari 1                                                       |
 | `per`     | `20`    | Baris per halaman, **dibatasi 100**                                         |
 | `cari`    | —       | Penggalan nomor. Karakter non-angka dibuang, jadi `4` menemukan `00004`     |
-| `saring`  | `semua` | `semua` · `draft` · `selesai` · `kurang` (punya data berkas tidak lengkap) · `lokasi` (punya data, titiknya di kantor / kurang akurat / belum ada) · `belumdicek` (punya data, lokasi sensus belum dicek admin) |
+| `saring`  | `semua` | `semua` · `draft` · `selesai` · `kosong` (belum berisi data) · `kurang` (punya data berkas tidak lengkap) · `lokasi` (punya data, titiknya di kantor / kurang akurat / belum ada) · `belumdicek` (punya data, lokasi sensus belum dicek admin) |
 
 Nilai yang tidak masuk akal dibulatkan ke batasnya, bukan ditolak: `per=100000`
 menjadi 100, `hal=0` menjadi 1, dan saringan yang tidak dikenal menjadi `semua`.

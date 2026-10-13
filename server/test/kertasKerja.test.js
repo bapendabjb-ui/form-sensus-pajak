@@ -86,6 +86,7 @@ test("syaratCari memotong kata kunci yang terlalu panjang", () => {
 test("syaratSaring memetakan saringan ke syarat database", () => {
   assert.deepEqual(syaratSaring("draft"), { status: "draft" });
   assert.deepEqual(syaratSaring("selesai"), { status: "selesai" });
+  assert.deepEqual(syaratSaring("kosong"), { entri: { none: {} } });
   // "Berkas tidak lengkap" sifat entri di dalamnya, bukan kolom kertas kerja.
   assert.deepEqual(syaratSaring("kurang"), { entri: { some: { berkasLengkap: false } } });
   // Kertas kerja tanpa data belum punya apa pun untuk diperiksa lokasinya.
