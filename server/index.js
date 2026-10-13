@@ -55,12 +55,7 @@ app.use("/api/dashboard", require("./src/routes/dashboard"));
 app.use("/api/peta", require("./src/routes/peta"));
 app.use("/api/nop", require("./src/routes/nop"));
 app.use("/api/tautan-peta", require("./src/routes/tautanPeta"));
-
-// Data referensi kecamatan & kelurahan untuk pertanyaan bertipe "wilayah".
-app.get("/api/wilayah", (_req, res) => {
-  res.setHeader("Cache-Control", "public, max-age=3600");
-  res.json(require("./src/wilayah").KECAMATAN);
-});
+app.use("/api/wilayah", require("./src/routes/wilayah"));
 
 // Batas aplikasi yang juga dipakai klien - satu sumber angka untuk keduanya.
 // periodeData ikut di sini agar browser tahu kapan draf lamanya harus dibuang;

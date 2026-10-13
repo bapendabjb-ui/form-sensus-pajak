@@ -2,6 +2,8 @@
 
 const config = require("./config");
 const { ApiError } = require("./http");
+const { normalWilayah } = require("./wilayah");
+const { cocokkanAlamat } = require("./wilayahIndonesia");
 
 /**
  * Klien API cek NOP milik EPBB (SISMIOP Banjarbaru) - baca-saja.
@@ -43,6 +45,15 @@ const bersihkan = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
 
 /** "JL. MAWAR" + "NO. 5" -> "JL. MAWAR NO. 5". */
 const gabungJalan = (l) => [bersihkan(l?.jalan), bersihkan(l?.blok_kav_no)].filter(Boolean).join(" ");
+
+/**
+ * Wilayah subjek pajak dari nama kelurahan & kota SISMIOP, dalam bentuk jawaban tersimpan
+ * (kelurahan Banjarbaru lengkap dengan kode SISMIOP-nya). null bila cocoknya tidak tunggal.
+ */
+function wilayahSubjek(l) {
+  const d = cocokkanAlamat(bersihkan(l?.kelurahan), bersihkan(l?.kota));
+  return d ? normalWilayah({ kode_kemendagri: d.kode }) : null;
+}
 
 /** Gabungkan bagian alamat yang terisi, mis. "JL. MAWAR NO. 5, RT 001/RW 002, KEL. X". */
 function susunAlamat(l = {}, penutup = []) {
@@ -180,13 +191,15 @@ async function cekNop(nop) {
       kodeKelurahan: String(d.nop || nop).slice(7, 10),
     },
     // Bagian letak subjek pajak. SISMIOP tidak menyimpan kecamatan wajib pajak, hanya
-    // nama kelurahan & kota (teks bebas, bisa di luar Banjarbaru).
+    // nama kelurahan & kota (teks bebas, bisa di luar Banjarbaru) - kecamatannya dicari
+    // dari data wilayah se-Indonesia.
     rinciSp: {
       jalan: gabungJalan(d.letak_sp),
       rt: bersihkan(d.letak_sp?.rt),
       rw: bersihkan(d.letak_sp?.rw),
       kelurahan: bersihkan(d.letak_sp?.kelurahan),
       kota: bersihkan(d.letak_sp?.kota),
+      wilayah: wilayahSubjek(d.letak_sp),
     },
     luasTanah: Number(d.luas_tanah) || 0,
     luasBangunan: Number(d.luas_bangunan) || 0,
@@ -194,4 +207,4 @@ async function cekNop(nop) {
   };
 }
 
-module.exports = { aktif, cekNop, susunAlamat, SUMBER_EPBB, sumberEpbbSah };
+module.exports = { aktif, cekNop, susunAlamat, wilayahSubjek, SUMBER_EPBB, sumberEpbbSah };

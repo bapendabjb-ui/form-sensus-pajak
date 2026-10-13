@@ -532,6 +532,11 @@ html.fk-ketik .fk-fab{display:none;}
 .fk-wilayah-cap{font-size:12px; font-weight:600; color:var(--muted);}
 .fk-wilayah-hint{grid-column:1 / -1;}
 .fk-wilayah-alih{display:inline; padding:0; color:var(--brand); font-size:12px; text-decoration:underline;}
+.fk-wilayah-penuh{grid-column:1 / -1;}
+.fk-wilayah-rinci{font-size:12.5px; color:var(--ink);}
+.fk-cari-wilayah{max-height:320px;}
+.fk-opsi-wilayah > span{display:flex; flex-direction:column; gap:2px; min-width:0;}
+.fk-opsi-wilayah small{font-size:12px; font-weight:400; color:var(--muted);}
 
 /* NIK / NPWP: dua kolom selebar isian, bertumpuk di layar sempit. */
 .fk-niknpwp-wadah{display:flex; flex-direction:column; gap:10px;}
@@ -945,6 +950,9 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-btn-ghost:active:not(:disabled){background:#F2F5F7;}
   .fk-mini{min-height:38px; padding:8px 12px; font-size:13px;}
   .fk-textbtn{min-height:40px;}
+  /* Tautan di tengah kalimat petunjuk wilayah tetap sebaris; jarak baris yang memperbesar area sentuhnya. */
+  .fk-wilayah-alih{min-height:0; padding:4px 0; font-size:13px;}
+  .fk-wilayah-hint{line-height:2;}
   .fk-add-opt{min-height:44px; font-size:14.5px;}
   .fk-iconbtn,.fk-lt-del{min-width:40px; min-height:40px;}
   .fk-lt-rangetog{min-height:40px; font-size:13px;}

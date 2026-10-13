@@ -56,3 +56,35 @@ test("Excel menyimpan koordinat sebagai angka tanpa dipangkas", async () => {
   assert.equal(lat.numFmt, "0.0######");
   assert.equal(ws.getRow(4).getCell(n - 2).value, "");
 });
+
+test("susunEkspor memecah wilayah per tingkat, Banjarbaru dilengkapi kabupaten & provinsinya", () => {
+  const f = [{ id: 1, judul: "WP", pertanyaan: [{ id: 11, tipe: "wilayah", label: "Alamat" }] }];
+  const isi = (nilai) => ({ kk, e: { formulirId: 1, createdAt: new Date(0), jawaban: [{ pertanyaanId: 11, nilai }] } });
+  const t = susunEkspor(
+    [
+      isi({ kecamatan: "Cempaka", kode_kecamatan: "020", kelurahan: "Palam", kode_kelurahan: "001" }),
+      isi({
+        kecamatan: "Banjarmasin Selatan",
+        kode_kecamatan: "",
+        kelurahan: "Kelayan Selatan",
+        kode_kelurahan: "",
+        kabupaten: "Kota Banjarmasin",
+        provinsi: "Kalimantan Selatan",
+        kode_kemendagri: "63.71.01.1002",
+      }),
+      isi({ kecamatan: "", kode_kecamatan: "", kelurahan: "", kode_kelurahan: "" }),
+    ],
+    f,
+    opsi
+  );
+  assert.deepEqual(t.header.slice(-4), [
+    "WP - Alamat (Kelurahan/Desa)",
+    "WP - Alamat (Kecamatan)",
+    "WP - Alamat (Kabupaten/Kota)",
+    "WP - Alamat (Provinsi)",
+  ]);
+  const ekor = (r) => r.slice(-4).map((c) => c.teks);
+  assert.deepEqual(ekor(t.baris[0]), ["Palam", "Cempaka", "Kota Banjarbaru", "Kalimantan Selatan"]);
+  assert.deepEqual(ekor(t.baris[1]), ["Kelayan Selatan", "Banjarmasin Selatan", "Kota Banjarmasin", "Kalimantan Selatan"]);
+  assert.deepEqual(ekor(t.baris[2]), ["", "", "", ""]);
+});

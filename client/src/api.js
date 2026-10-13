@@ -386,6 +386,9 @@ export function getWilayah() {
   return wilayahCache;
 }
 
+/** Kelurahan/desa se-Indonesia yang cocok dengan ketikan: { hasil: [{ kode, kelurahan, kecamatan, kabupaten, provinsi }], total }. */
+export const cariWilayah = (q) => request(`/wilayah/cari?q=${encodeURIComponent(q)}`);
+
 /* ---------- konfigurasi aplikasi (batas-batas dari server) ---------- */
 
 let konfigurasiCache = null;

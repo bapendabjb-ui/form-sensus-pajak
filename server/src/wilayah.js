@@ -1,9 +1,10 @@
 "use strict";
 
 /**
- * Data wilayah Kota Banjarbaru: kecamatan beserta kelurahannya.
+ * Data wilayah Kota Banjarbaru: kecamatan beserta kelurahannya, berkode SISMIOP.
  * Sumber: "Ref Kecamatan dan Kelurahan.txt". Dipakai pertanyaan bertipe "wilayah"
- * dan disajikan ke klien lewat GET /api/wilayah.
+ * dan disajikan ke klien lewat GET /api/wilayah. Alamat di luar Banjarbaru dicari
+ * dari data se-Indonesia (src/wilayahIndonesia.js).
  */
 
 const KECAMATAN = [
@@ -60,32 +61,26 @@ const KECAMATAN = [
 ];
 
 const { kapitalTiapKata } = require("./nama");
+const { cariKode } = require("./wilayahIndonesia");
+
+/** Kota Banjarbaru dalam kode wilayah Kemendagri. */
+const KODE_BANJARBARU = "63.72.";
+const KABUPATEN_BANJARBARU = "Kota Banjarbaru";
+const PROVINSI_BANJARBARU = "Kalimantan Selatan";
 
 const MAKS_NAMA = 100;
 
 const sama = (a, b) => a.toLowerCase() === b.toLowerCase();
+const teks = (v) => (typeof v === "string" ? v.trim() : "");
+const ketikan = (v) => kapitalTiapKata(teks(v).slice(0, MAKS_NAMA));
 
 /**
- * Bentuk nilai wilayah yang sah dari nama kecamatan/kelurahan kiriman klien.
+ * Cocokkan nama kecamatan/kelurahan ke daftar Banjarbaru.
  *   - kecamatan tidak dikenal          -> kosong seluruhnya
  *   - kelurahan bukan milik kecamatan  -> kelurahan dikosongkan
  *   - hanya kelurahan yang dikirim     -> kecamatan diisi otomatis
- *   - `manual` (alamat di luar Banjarbaru, mis. subjek pajak ber-KTP daerah lain):
- *     nama yang tidak cocok dengan data disimpan apa adanya, tanpa kode.
  */
-function normalWilayah(namaKecamatan, namaKelurahan, manual = false) {
-  if (manual) {
-    const cocok = normalWilayah(namaKecamatan, namaKelurahan);
-    if (cocok.kecamatan && cocok.kelurahan) return cocok;
-    return {
-      kecamatan: kapitalTiapKata(namaKecamatan.slice(0, MAKS_NAMA)),
-      kode_kecamatan: "",
-      kelurahan: kapitalTiapKata(namaKelurahan.slice(0, MAKS_NAMA)),
-      kode_kelurahan: "",
-      manual: true,
-    };
-  }
-
+function wilayahBanjarbaru(namaKecamatan, namaKelurahan) {
   const kosong = { kecamatan: "", kode_kecamatan: "", kelurahan: "", kode_kelurahan: "" };
   let kec = namaKecamatan ? KECAMATAN.find((k) => sama(k.nama, namaKecamatan)) || null : null;
   let kel = null;
@@ -114,4 +109,67 @@ function normalWilayah(namaKecamatan, namaKelurahan, manual = false) {
   };
 }
 
-module.exports = { KECAMATAN, normalWilayah };
+/**
+ * Bentuk nilai wilayah yang sah dari kiriman klien. Ada tiga asal:
+ *   1. Daftar Banjarbaru (lihat wilayahBanjarbaru), berkode SISMIOP - dipakai NOP & EPBB.
+ *   2. Pencarian se-Indonesia (`kode_kemendagri`): semua nama diambil dari data Kemendagri,
+ *      bukan dari kiriman klien. Kelurahan Banjarbaru dikembalikan ke bentuk (1).
+ *   3. `manual` (tidak ketemu di data mana pun): nama disimpan apa adanya, tanpa kode.
+ *      Ketikan yang ternyata ada di daftar Banjarbaru tetap disimpan dalam bentuk (1).
+ */
+function normalWilayah(w = {}) {
+  const kecamatan = teks(w.kecamatan);
+  const kelurahan = teks(w.kelurahan);
+
+  if (teks(w.kode_kemendagri)) {
+    const d = cariKode(teks(w.kode_kemendagri));
+    // Kode yang tidak dikenal lagi (mis. setelah data wilayah diperbarui): namanya tetap disimpan.
+    if (!d) return normalWilayah({ ...w, kode_kemendagri: "", manual: true });
+    if (d.kode.startsWith(KODE_BANJARBARU)) {
+      const lokal = wilayahBanjarbaru(d.kecamatan, d.kelurahan);
+      if (lokal.kelurahan) return lokal;
+    }
+    return {
+      kecamatan: d.kecamatan,
+      kode_kecamatan: "",
+      kelurahan: d.kelurahan,
+      kode_kelurahan: "",
+      kabupaten: d.kabupaten,
+      provinsi: d.provinsi,
+      kode_kemendagri: d.kode,
+    };
+  }
+
+  if (w.manual === true) {
+    const cocok = wilayahBanjarbaru(kecamatan, kelurahan);
+    if (cocok.kecamatan && cocok.kelurahan) return cocok;
+    return {
+      kecamatan: ketikan(kecamatan),
+      kode_kecamatan: "",
+      kelurahan: ketikan(kelurahan),
+      kode_kelurahan: "",
+      kabupaten: ketikan(w.kabupaten),
+      provinsi: ketikan(w.provinsi),
+      manual: true,
+    };
+  }
+
+  return wilayahBanjarbaru(kecamatan, kelurahan);
+}
+
+/**
+ * Keempat tingkat wilayah sebuah jawaban tersimpan. Nilai dari daftar Banjarbaru tidak
+ * menyimpan kabupaten & provinsi - kode SISMIOP-nya sudah pasti Kota Banjarbaru.
+ */
+function rincianWilayah(v) {
+  const o = v && typeof v === "object" ? v : {};
+  const banjarbaru = !!o.kode_kecamatan;
+  return {
+    kelurahan: teks(o.kelurahan),
+    kecamatan: teks(o.kecamatan),
+    kabupaten: banjarbaru ? KABUPATEN_BANJARBARU : teks(o.kabupaten),
+    provinsi: banjarbaru ? PROVINSI_BANJARBARU : teks(o.provinsi),
+  };
+}
+
+module.exports = { KECAMATAN, normalWilayah, rincianWilayah };

@@ -45,14 +45,24 @@ test("normalizeNilai menolak luas negatif", () => {
   assert.deepEqual(normalizeNilai("luas", { tanah: 0, bangunan: 0 }), { tanah: 0, bangunan: 0 });
 });
 
-test("wilayah: di luar Banjarbaru hanya disimpan bila diketik manual", () => {
-  assert.deepEqual(normalizeNilai("wilayah", { kecamatan: "Menteng", kelurahan: "Gondangdia", manual: true }), {
-    kecamatan: "Menteng",
-    kode_kecamatan: "",
-    kelurahan: "Gondangdia",
-    kode_kelurahan: "",
-    manual: true,
-  });
+test("wilayah: ketikan di luar Banjarbaru hanya disimpan bila ditandai manual", () => {
+  assert.deepEqual(
+    normalizeNilai("wilayah", {
+      kecamatan: "Menteng",
+      kelurahan: "Gondangdia",
+      kabupaten: "KOTA ADM. JAKARTA PUSAT",
+      manual: true,
+    }),
+    {
+      kecamatan: "Menteng",
+      kode_kecamatan: "",
+      kelurahan: "Gondangdia",
+      kode_kelurahan: "",
+      kabupaten: "Kota Adm. Jakarta Pusat",
+      provinsi: "",
+      manual: true,
+    }
+  );
   assert.equal(
     normalizeNilai("wilayah", { kecamatan: "banjarmasin selatan", kelurahan: "KELAYAN", manual: true }).kecamatan,
     "Banjarmasin Selatan"
@@ -63,6 +73,32 @@ test("wilayah: di luar Banjarbaru hanya disimpan bila diketik manual", () => {
   assert.equal(cocok.manual, undefined);
   // Tanpa tanda manual, nama yang tidak dikenal tetap ditolak.
   assert.equal(normalizeNilai("wilayah", { kecamatan: "Menteng", kelurahan: "Gondangdia" }).kecamatan, "");
+});
+
+test("wilayah: pilihan se-Indonesia disimpan menurut kode Kemendagri, bukan nama kiriman", () => {
+  assert.deepEqual(
+    normalizeNilai("wilayah", { kode_kemendagri: "31.71.06.1004", kecamatan: "Ngawur", kelurahan: "Ngawur", luar: true }),
+    {
+      kecamatan: "Menteng",
+      kode_kecamatan: "",
+      kelurahan: "Gondangdia",
+      kode_kelurahan: "",
+      kabupaten: "Kota Administrasi Jakarta Pusat",
+      provinsi: "Daerah Khusus Ibukota Jakarta",
+      kode_kemendagri: "31.71.06.1004",
+    }
+  );
+  // Kelurahan Banjarbaru disimpan dalam bentuk daftar Banjarbaru, dengan kode SISMIOP.
+  assert.deepEqual(normalizeNilai("wilayah", { kode_kemendagri: "63.72.04.1001", luar: true }), {
+    kecamatan: "Banjarbaru Utara",
+    kode_kecamatan: "031",
+    kelurahan: "Loktabat Utara",
+    kode_kelurahan: "001",
+  });
+  // Kode yang tidak dikenal (mis. setelah data diperbarui) tidak menghapus nama yang sudah ada.
+  const lama = normalizeNilai("wilayah", { kode_kemendagri: "99.99.99.9999", kecamatan: "Lama", kelurahan: "Lama" });
+  assert.equal(lama.kelurahan, "Lama");
+  assert.equal(lama.manual, true);
 });
 
 test("nilaiTerisi memahami arti 'kosong' tiap tipe", () => {

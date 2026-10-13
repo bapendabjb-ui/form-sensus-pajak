@@ -187,22 +187,26 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │   │   ├── schema.prisma
 │   │   ├── migrations/             migrasi SQL siap `migrate deploy`
 │   │   └── seed.js                 data contoh (formulir + petugas)
+│   ├── data/
+│   │   ├── wilayah-indonesia.tsv   kode & nama wilayah Kemendagri se-Indonesia (dibangkitkan)
+│   │   └── perbarui-wilayah.js     pembangun berkas TSV di atas dari sumbernya
 │   ├── src/
 │   │   ├── config.js               pembacaan .env + guard produksi
 │   │   ├── batas.js                petugasMaks & fotoMaks - satu sumber untuk klien juga
 │   │   ├── auth.js                 bcrypt, JWT (+versi token), middleware admin, seed admin
 │   │   ├── keamanan.js             header keamanan (CSP dll.)
-│   │   ├── laju.js                 pembatas laju bersama (login & cek NOP)
+│   │   ├── laju.js                 pembatas laju bersama (login, cek NOP, cari wilayah)
 │   │   ├── nomor.js                penomoran 5 digit dalam transaksi
 │   │   ├── answers.js              normalisasi & validasi nilai per tipe
 │   │   ├── entri.js                simpan data: jawaban, rincian tarif, tautan foto
 │   │   ├── foto.js                 simpan/hapus berkas foto + pembersih foto yatim (per batch)
 │   │   ├── hapus.js                hapus kertas kerja / data + tutup pengajuan hapusnya
 │   │   ├── pengajuan.js            validasi & bentuk JSON pengajuan hapus
-│   │   ├── wilayah.js              data kecamatan & kelurahan Kota Banjarbaru
+│   │   ├── wilayah.js              data kecamatan & kelurahan Kota Banjarbaru + normalisasi nilai wilayah
+│   │   ├── wilayahIndonesia.js     pencarian kelurahan/desa se-Indonesia (dimuat ke memori saat dipakai)
 │   │   ├── bentuk.js               bentuk keluaran JSON bersama
 │   │   ├── format.js               format tanggal/uang + penyusun CSV (anti rumus)
-│   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, pengajuan, foto, dashboard, peta, nop
+│   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, pengajuan, foto, dashboard, peta, nop, wilayah
 │   └── test/                       tes node:test - logika murni, tanpa database
 │
 ├── uploads/                        foto (lokal; di Railway pakai volume) — tidak di-commit
@@ -487,7 +491,7 @@ Kolom `kertas_kerja.nama_objek` dihapus — nama objek kini diisi lewat pertanya
 | `range`                                                   | `{ "min": angka\|null, "max": angka\|null }`      |
 | `linetariff`                                              | array `{ layanan, jenis, harga_min, harga_max }`  |
 | `foto`                                                    | array `{ id, nama }`                              |
-| `wilayah`                                                 | `{ kecamatan, kode_kecamatan, kelurahan, kode_kelurahan }` |
+| `wilayah`                                                 | `{ kecamatan, kode_kecamatan, kelurahan, kode_kelurahan }`; di luar Banjarbaru ditambah `kabupaten`, `provinsi`, dan `kode_kemendagri` (atau `manual: true`) — lihat [Kecamatan & kelurahan](#kecamatan--kelurahan) |
 | `lokasi`                                                  | `{ lat, lon, akurasi, ketinggian, waktu, sumber }` — `sumber` = `"gps"` / `"peta"` |
 | `rtrw`                                                    | `{ rt, rw }` — dua string tepat 3 digit (`"007"`) |
 | `luas`                                                    | `{ tanah, bangunan }` — m², angka\|null (`0` sah untuk bangunan) |
@@ -698,9 +702,10 @@ yang dibutuhkan Maps JavaScript API. `'unsafe-inline'` sengaja tidak dipakai di 
 
 ## Kecamatan & kelurahan
 
-Tipe pertanyaan **Kecamatan & Kelurahan** memakai data wilayah Kota Banjarbaru di
-`server/src/wilayah.js` (5 kecamatan, 20 kelurahan, lengkap dengan kode), disajikan lewat
-`GET /api/wilayah`.
+Tipe pertanyaan **Kecamatan & Kelurahan** punya tiga cara mengisi.
+
+**1. Daftar Banjarbaru (bawaan).** Data wilayah Kota Banjarbaru di `server/src/wilayah.js`
+(5 kecamatan, 20 kelurahan, berkode SISMIOP), disajikan lewat `GET /api/wilayah`.
 
 - Setelah kecamatan dipilih, daftar kelurahan otomatis hanya berisi kelurahan kecamatan itu.
 - Memilih kelurahan lebih dulu langsung mengisi kecamatannya.
@@ -708,7 +713,36 @@ Tipe pertanyaan **Kecamatan & Kelurahan** memakai data wilayah Kota Banjarbaru d
 - Server memvalidasi ulang pasangannya dan menyimpan kodenya (mis. `020` / `001`), jadi kombinasi
   yang tidak cocok tidak pernah tersimpan. Wajib diisi berarti kecamatan **dan** kelurahan terisi.
 
-Untuk menambah atau mengubah wilayah, sunting `server/src/wilayah.js` lalu deploy ulang.
+**2. Cari se-Indonesia** — untuk alamat di luar Banjarbaru (mis. KTP subjek pajak dari daerah
+lain). Petugas mengetik minimal 3 huruf nama kelurahan/desa, boleh ditambah nama kecamatan atau
+kabupaten (`sukamaju bogor`), lalu memilih dari hasil yang lengkap dengan kecamatan, kabupaten/kota,
+dan provinsinya.
+
+- Datanya kode & nama wilayah Kemendagri (Kepmendagri No 300.2.2-2430 Tahun 2025: 38 provinsi,
+  514 kabupaten/kota, 7.285 kecamatan, 83.762 kelurahan/desa) di `server/data/wilayah-indonesia.tsv`.
+- Data sebesar itu **tidak** dikirim ke browser. Server memuatnya ke memori saat pertama dicari
+  (±18 MB, ±0,1 detik, sekali per proses); tiap pencarian `GET /api/wilayah/cari?q=` memakan
+  beberapa milidetik dan membalas paling banyak 20 baris (±3 KB). Hasil yang namanya persis sama
+  didahulukan, lalu Kalimantan Selatan.
+- Pencarian terbuka (formulir diisi tanpa login), jadi dibatasi **1.000 pencarian per IP per 10 menit**.
+- Tersimpan sebagai `{ kecamatan, kelurahan, kabupaten, provinsi, kode_kemendagri }` (`kode_kecamatan`
+  & `kode_kelurahan` kosong — keduanya khusus kode SISMIOP). Server mengambil semua nama dari data
+  menurut `kode_kemendagri`, bukan dari kiriman browser. Kelurahan Banjarbaru yang terpilih lewat
+  pencarian disimpan dalam bentuk daftar Banjarbaru, lengkap dengan kode SISMIOP-nya.
+
+**3. Ketik manual** — cadangan bila tidak ketemu di data: kecamatan, kelurahan/desa, kabupaten/kota,
+dan provinsi diketik bebas, disimpan dengan `manual: true` tanpa kode.
+
+Di ekspor CSV/Excel, wilayah dipecah per tingkat: `… (Kelurahan/Desa)`, `… (Kecamatan)`,
+`… (Kabupaten/Kota)`, `… (Provinsi)`. Data dari daftar Banjarbaru otomatis berisi *Kota Banjarbaru* /
+*Kalimantan Selatan*; ketikan manual lama yang belum punya kabupaten/provinsi dibiarkan kosong.
+
+Untuk mengubah daftar Banjarbaru, sunting `server/src/wilayah.js`. Bila Kemendagri menerbitkan kode
+wilayah baru, ambil `db/wilayah.sql` terbaru dari [cahyadsn/wilayah](https://github.com/cahyadsn/wilayah)
+(lisensi MIT) lalu jalankan
+`node server/data/perbarui-wilayah.js path/ke/wilayah.sql "Kepmendagri No ... Tahun ..."`. Jawaban
+yang kodenya hilang dari data baru tetap menyimpan namanya (menjadi ketikan manual).
+Keduanya cukup di-deploy ulang, tanpa migrasi database.
 
 ---
 
@@ -782,9 +816,12 @@ browser ──GET /api/nop/:nop──▶ server Sensus Pajak ──GET {EPBB_API
   | Luas tanah / Luas bangunan              | Angka                 | `250,5`                                     |
   | Status bayar                            | Teks / Paragraf       | `Lunas` atau `Belum bayar: 2023, 2025`      |
 
-  ¹ SISMIOP tidak menyimpan kecamatan wajib pajak, hanya nama kelurahan & kota. Kecamatannya dicari
-  dari data wilayah Banjarbaru; wajib pajak yang beralamat di luar Banjarbaru dilewati — pakai
-  sumber *Kelurahan & kota Subjek Pajak* pada pertanyaan teks untuk mereka.
+  ¹ SISMIOP tidak menyimpan kecamatan wajib pajak, hanya nama kelurahan & kota. Server mencocokkan
+  keduanya ke data wilayah se-Indonesia (`KEL. KELAYAN SELATAN` + `BANJARMASIN` → Kec. Banjarmasin
+  Selatan, Kota Banjarmasin); kota boleh berupa nama kabupaten atau kecamatan. Hasilnya hanya dipakai
+  bila cocoknya tunggal. Bila tidak (nama kelurahan kembar dan kotanya kosong), kelurahan dicari di
+  daftar Banjarbaru menurut namanya, dan sisanya diisi sebagai ketikan manual — kecamatannya
+  dilengkapi petugas.
 
 - Formulir diisi tanpa login, jadi `/api/nop` dibatasi **60 pengecekan per IP per 10 menit**.
 - Pemasangan di EPBB: salin `application/config/api_nop.sample.php` menjadi `api_nop.php`, isi

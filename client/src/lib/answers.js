@@ -80,11 +80,20 @@ const lokasiDari = (v) => {
   };
 };
 
+/**
+ * Tiga bentuk: daftar Banjarbaru { kecamatan, kelurahan }; alamat di luar Banjarbaru (mis. KTP
+ * subjek pajak dari daerah lain) yang dipilih dari data se-Indonesia (`luar`, berkode Kemendagri)
+ * atau diketik manual (`manual`) - keduanya ditambah kabupaten & provinsi.
+ */
 const wilayahDari = (v) => {
   const o = v && typeof v === "object" ? v : {};
-  const w = { kecamatan: asString(o.kecamatan).trim(), kelurahan: asString(o.kelurahan).trim() };
-  // Diketik manual: alamat di luar Banjarbaru (mis. KTP subjek pajak dari daerah lain).
-  return o.manual === true ? { ...w, manual: true } : w;
+  const t = (x) => asString(x).trim();
+  const w = { kecamatan: t(o.kecamatan), kelurahan: t(o.kelurahan) };
+  if (o.manual === true) return { ...w, kabupaten: t(o.kabupaten), provinsi: t(o.provinsi), manual: true };
+  if (o.luar === true || t(o.kode_kemendagri)) {
+    return { ...w, kabupaten: t(o.kabupaten), provinsi: t(o.provinsi), kode_kemendagri: t(o.kode_kemendagri), luar: true };
+  }
+  return w;
 };
 
 /** { rt, rw } dengan angka saja, maksimal 3 digit masing-masing. */

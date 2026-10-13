@@ -15,6 +15,7 @@ const ExcelJS = require("exceljs");
 const config = require("./config");
 const { csvNilai, buildCsv, formatNpwp, formatWaktuID, groupNum, keteranganLokasi } = require("./format");
 const { bentukTim, petaJawaban } = require("./bentuk");
+const { rincianWilayah } = require("./wilayah");
 
 const FORMAT_RIBUAN = "#,##0.##";
 // Koordinat tersimpan sampai 7 desimal; FORMAT_RIBUAN akan memangkasnya jadi 2.
@@ -27,7 +28,8 @@ const teks = (s) => ({ teks: s === null || s === undefined ? "" : String(s) });
  * Kolom per pertanyaan. NIK / NPWP dan luas tanah / bangunan dipecah jadi dua kolom
  * supaya bisa difilter (dan luasnya dijumlah) sendiri-sendiri. Lokasi dipecah jadi
  * latitude, longitude, dan keterangan asal titiknya supaya koordinatnya bisa
- * langsung diolah atau diimpor ke aplikasi peta.
+ * langsung diolah atau diimpor ke aplikasi peta. Wilayah dipecah per tingkat
+ * (kelurahan sampai provinsi) supaya alamat di luar Banjarbaru bisa difilter.
  */
 function kolomPertanyaan(formulir, baseUrl) {
   return formulir.flatMap((f) =>
@@ -56,6 +58,16 @@ function kolomPertanyaan(formulir, baseUrl) {
           { f, judul: `${judul} (Latitude)`, sel: koordinat("lat") },
           { f, judul: `${judul} (Longitude)`, sel: koordinat("lon") },
           { f, judul: `${judul} (Keterangan)`, sel: (j) => teks(titik(j) && keteranganLokasi(titik(j))) },
+        ];
+      }
+
+      if (q.tipe === "wilayah") {
+        const tingkat = (k) => (j) => teks(rincianWilayah(j[q.id])[k]);
+        return [
+          { f, judul: `${judul} (Kelurahan/Desa)`, sel: tingkat("kelurahan") },
+          { f, judul: `${judul} (Kecamatan)`, sel: tingkat("kecamatan") },
+          { f, judul: `${judul} (Kabupaten/Kota)`, sel: tingkat("kabupaten") },
+          { f, judul: `${judul} (Provinsi)`, sel: tingkat("provinsi") },
         ];
       }
 

@@ -140,8 +140,11 @@ function csvNilai(tipe, nilai, opsi = {}) {
   if (nilai === null || nilai === undefined) return "";
   switch (tipe) {
     case "wilayah":
+      // Kabupaten & provinsi hanya tersimpan untuk alamat di luar Banjarbaru.
       if (!nilai || typeof nilai !== "object" || !nilai.kecamatan) return "";
-      return nilai.kelurahan ? `Kel. ${nilai.kelurahan}, Kec. ${nilai.kecamatan}` : `Kec. ${nilai.kecamatan}`;
+      return [nilai.kelurahan && `Kel. ${nilai.kelurahan}`, `Kec. ${nilai.kecamatan}`, nilai.kabupaten, nilai.provinsi]
+        .filter(Boolean)
+        .join(", ");
     case "lokasi": {
       // Koordinat desimal — bisa langsung ditempel ke Google Maps / aplikasi peta.
       if (!nilai || typeof nilai !== "object" || nilai.lat === null || nilai.lat === undefined) return "";

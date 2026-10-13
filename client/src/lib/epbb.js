@@ -9,6 +9,7 @@
 
 import { PANJANG_RTRW } from "./format.js";
 import { kapitalTiapKata } from "./kapital.js";
+import { fromApi } from "./answers.js";
 
 export const SUMBER_EPBB = [
   { kunci: "nama_wp", label: "Nama WP", tipe: ["text", "paragraph"] },
@@ -95,10 +96,24 @@ export function nilaiDariEpbb(sumber, data, wilayah = []) {
       v = { rt: rtRw(rinciSp.rt), rw: rtRw(rinciSp.rw) };
       break;
     case "wilayah_sp": {
-      // Subjek pajak hanya punya nama kelurahan: kecamatan dicari dari data wilayah Banjarbaru.
-      // Kelurahan di luar Banjarbaru diisi sebagai ketikan manual; kecamatannya dilengkapi petugas.
+      // Subjek pajak hanya punya nama kelurahan & kota. Server sudah mencocokkannya ke data
+      // wilayah se-Indonesia (rinciSp.wilayah) bila hasilnya tunggal. Bila tidak, kelurahan
+      // dicari di daftar Banjarbaru menurut namanya saja; selebihnya diisi sebagai ketikan
+      // manual dan kecamatannya dilengkapi petugas.
+      if (rinciSp.wilayah) {
+        v = fromApi("wilayah", rinciSp.wilayah);
+        break;
+      }
       const cari = namaKelurahan(rinciSp.kelurahan);
-      let hasil = rinciSp.kelurahan ? { kecamatan: "", kelurahan: kapitalTiapKata(rinciSp.kelurahan), manual: true } : undefined;
+      let hasil = rinciSp.kelurahan
+        ? {
+            kecamatan: "",
+            kelurahan: kapitalTiapKata(rinciSp.kelurahan),
+            kabupaten: kapitalTiapKata(rinciSp.kota || ""),
+            provinsi: "",
+            manual: true,
+          }
+        : undefined;
       for (const k of cari ? wilayah : []) {
         const kel = k.kelurahan.find((l) => namaKelurahan(l.nama) === cari);
         if (kel) {

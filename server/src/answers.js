@@ -121,7 +121,7 @@ function nilaiKosong(tipe) {
   if (tipe === "checkbox" || tipe === "linetariff" || tipe === "foto" || tipe === "telepon") return [];
   if (tipe === "range") return { min: null, max: null };
   if (tipe === "lokasi") return { ...LOKASI_KOSONG };
-  if (tipe === "wilayah") return normalWilayah("", "");
+  if (tipe === "wilayah") return normalWilayah();
   if (tipe === "rtrw") return { rt: "", rw: "" };
   if (tipe === "niknpwp") return { nik: "", npwp: "" };
   if (tipe === "luas") return { tanah: null, bangunan: null };
@@ -185,10 +185,11 @@ function normalizeNilai(tipe, raw) {
     }
 
     case "wilayah": {
-      // { kecamatan, kode_kecamatan, kelurahan, kode_kelurahan[, manual] } — dicocokkan ke data wilayah,
-      // kecuali diketik manual (alamat di luar Banjarbaru).
+      // { kecamatan, kode_kecamatan, kelurahan, kode_kelurahan } dari daftar Banjarbaru, ditambah
+      // { kabupaten, provinsi } untuk alamat di luar Banjarbaru: berkode Kemendagri bila dipilih
+      // dari data se-Indonesia (kode_kemendagri), atau diketik manual (manual: true).
       const obj = raw && typeof raw === "object" ? raw : {};
-      return normalWilayah(toTrimmedString(obj.kecamatan), toTrimmedString(obj.kelurahan), obj.manual === true);
+      return normalWilayah(obj);
     }
 
     case "lokasi": {

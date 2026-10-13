@@ -35,8 +35,9 @@ export function formatNilai(q, nilai) {
     case "foto":
       return Array.isArray(nilai) && nilai.length ? `${nilai.length} foto` : "";
     case "wilayah":
+      // Kabupaten hanya tersimpan untuk alamat di luar Banjarbaru.
       if (!nilai || typeof nilai !== "object" || !nilai.kecamatan) return "";
-      return nilai.kelurahan ? `${nilai.kelurahan}, ${nilai.kecamatan}` : nilai.kecamatan;
+      return [nilai.kelurahan, nilai.kecamatan, nilai.kabupaten].filter(Boolean).join(", ");
     case "lokasi":
       return formatLokasi(nilai, { ringkas: true });
     case "rtrw":

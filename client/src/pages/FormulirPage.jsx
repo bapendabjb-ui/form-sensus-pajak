@@ -154,6 +154,8 @@ function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove, ada
           <p className="fk-hint">
             Petugas memilih kecamatan, lalu daftar kelurahan otomatis menyesuaikan (data wilayah Kota
             Banjarbaru: 5 kecamatan, 20 kelurahan). Memilih kelurahan langsung juga mengisi kecamatannya.
+            Alamat di luar Banjarbaru dicari dari data kelurahan/desa se-Indonesia (Kemendagri), lengkap
+            dengan kabupaten/kota dan provinsinya.
           </p>
         )}
 
