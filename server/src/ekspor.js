@@ -6,23 +6,28 @@
  *
  * Semua memakai susunan yang sama: satu baris per data, kolom pertanyaan
  * dikelompokkan per formulir, sel milik formulir lain dibiarkan kosong.
- * Tiap sel berbentuk { teks, angka? }: CSV memakai teks, Excel memakai angka
- * bila ada supaya bisa dijumlah dan difilter.
+ * Tiap sel berbentuk { teks, angka?, format? }: CSV memakai teks, Excel memakai
+ * angka bila ada supaya bisa dijumlah dan difilter (format angkanya bawaan
+ * FORMAT_RIBUAN bila tidak disebut).
  */
 
 const ExcelJS = require("exceljs");
 const config = require("./config");
-const { csvNilai, buildCsv, formatNpwp, formatWaktuID, groupNum } = require("./format");
+const { csvNilai, buildCsv, formatNpwp, formatWaktuID, groupNum, keteranganLokasi } = require("./format");
 const { bentukTim, petaJawaban } = require("./bentuk");
 
 const FORMAT_RIBUAN = "#,##0.##";
+// Koordinat tersimpan sampai 7 desimal; FORMAT_RIBUAN akan memangkasnya jadi 2.
+const FORMAT_KOORDINAT = "0.0######";
 const KOLOM_NO_DATA = 5;
 
 const teks = (s) => ({ teks: s === null || s === undefined ? "" : String(s) });
 
 /**
  * Kolom per pertanyaan. NIK / NPWP dan luas tanah / bangunan dipecah jadi dua kolom
- * supaya bisa difilter (dan luasnya dijumlah) sendiri-sendiri.
+ * supaya bisa difilter (dan luasnya dijumlah) sendiri-sendiri. Lokasi dipecah jadi
+ * latitude, longitude, dan keterangan asal titiknya supaya koordinatnya bisa
+ * langsung diolah atau diimpor ke aplikasi peta.
  */
 function kolomPertanyaan(formulir, baseUrl) {
   return formulir.flatMap((f) =>
@@ -34,6 +39,23 @@ function kolomPertanyaan(formulir, baseUrl) {
         return [
           { f, judul: `${judul} (NIK)`, sel: (j) => teks(bagian(j).nik) },
           { f, judul: `${judul} (NPWP)`, sel: (j) => teks(formatNpwp(bagian(j).npwp)) },
+        ];
+      }
+
+      if (q.tipe === "lokasi") {
+        const titik = (j) => {
+          const v = j[q.id];
+          return v && typeof v === "object" && v.lat !== null && v.lat !== undefined ? v : null;
+        };
+        const koordinat = (k) => (j) => {
+          const v = titik(j);
+          const n = v ? Number(v[k]) : NaN;
+          return Number.isFinite(n) ? { teks: String(v[k]), angka: n, format: FORMAT_KOORDINAT } : teks("");
+        };
+        return [
+          { f, judul: `${judul} (Latitude)`, sel: koordinat("lat") },
+          { f, judul: `${judul} (Longitude)`, sel: koordinat("lon") },
+          { f, judul: `${judul} (Keterangan)`, sel: (j) => teks(titik(j) && keteranganLokasi(titik(j))) },
         ];
       }
 
@@ -174,7 +196,7 @@ async function keXlsx({ header, baris }, namaSheet) {
     const row = ws.addRow(r.map((c) => (c.angka !== undefined ? c.angka : c.teks)));
     r.forEach((c, i) => {
       // NIK, NPWP, NOP tetap teks sehingga Excel tidak mengubahnya jadi 3,17E+15.
-      if (c.angka !== undefined && i !== KOLOM_NO_DATA) row.getCell(i + 1).numFmt = FORMAT_RIBUAN;
+      if (c.angka !== undefined && i !== KOLOM_NO_DATA) row.getCell(i + 1).numFmt = c.format || FORMAT_RIBUAN;
     });
   }
 

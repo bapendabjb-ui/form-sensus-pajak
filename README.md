@@ -406,6 +406,7 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `imporPetugas.test.js` | Pembacaan .csv/.xlsx daftar petugas & penomoran barisnya               |
 | `peta.test.js`         | Titik tanpa koordinat tidak pernah masuk peta                          |
 | `kertasKerja.test.js`  | Batas paginasi daftar, serta pencarian & penyaringan yang pindah ke server |
+| `ekspor.test.js`       | Lokasi terekspor sebagai kolom latitude & longitude, utuh di Excel     |
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) menjalankan lint, tes,
 build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
@@ -538,7 +539,10 @@ dengan OpenStreetMap / Esri World Imagery sebagai cadangan (lihat [Peta Google](
 - Peta dimuat terpisah (`React.lazy`), jadi pustaka peta hanya diunduh saat peta dibuka.
 - Peta dibuka di titik yang sudah ada; bila masih kosong, di pusat Kota Banjarbaru.
 - Titik dari peta tersimpan dengan `sumber: "peta"` dan `akurasi: null`; tampil berlencana
-  **Dipilih di peta**, dan di CSV/Excel sebagai `-3.44, 114.84 (dipilih di peta)`.
+  **Dipilih di peta**.
+- Di ekspor CSV/Excel, Lokasi dipecah jadi tiga kolom: `… (Latitude)`, `… (Longitude)`, dan
+  `… (Keterangan)` berisi `±12 m` (akurasi GPS) atau `dipilih di peta`. Di Excel koordinatnya angka
+  utuh sampai 7 desimal, jadi bisa disaring, diurutkan, atau diimpor ke aplikasi peta.
 - Petugas bisa mengambil GPS dulu lalu membetulkannya di peta — penanda ikut pindah ke titik GPS.
 - Potongan peta diambil dari internet, jadi **peta butuh koneksi**; Ambil lokasi (GPS) tetap jalan tanpanya.
 

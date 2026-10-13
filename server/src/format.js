@@ -126,6 +126,12 @@ function formatWaktuID(value, timeZone) {
   }).format(d);
 }
 
+/** Asal titik lokasi: "dipilih di peta" / "±12 m" / "" bila akurasinya tidak diketahui. */
+function keteranganLokasi(v) {
+  if (v.sumber === "peta") return "dipilih di peta";
+  return v.akurasi === null || v.akurasi === undefined ? "" : `±${Math.round(v.akurasi)} m`;
+}
+
 /**
  * Representasi satu sel CSV untuk sebuah jawaban.
  * @param {object} [opsi] { baseUrl } dipakai untuk menulis tautan foto lengkap.
@@ -140,10 +146,8 @@ function csvNilai(tipe, nilai, opsi = {}) {
       // Koordinat desimal — bisa langsung ditempel ke Google Maps / aplikasi peta.
       if (!nilai || typeof nilai !== "object" || nilai.lat === null || nilai.lat === undefined) return "";
       const titik = `${nilai.lat}, ${nilai.lon}`;
-      if (nilai.sumber === "peta") return `${titik} (dipilih di peta)`;
-      return nilai.akurasi === null || nilai.akurasi === undefined
-        ? titik
-        : `${titik} (±${Math.round(nilai.akurasi)} m)`;
+      const ket = keteranganLokasi(nilai);
+      return ket ? `${titik} (${ket})` : titik;
     }
     case "foto":
       if (!Array.isArray(nilai)) return "";
@@ -239,6 +243,7 @@ module.exports = {
   formatRtRw,
   formatLuas,
   formatNomorTelepon,
+  keteranganLokasi,
   csvNilai,
   lindungiSelCsv,
   buildCsv,
