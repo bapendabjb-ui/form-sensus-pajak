@@ -37,7 +37,6 @@ import {
   FileText,
   FileX2,
   Fuel,
-  GraduationCap,
   GripVertical,
   Hotel,
   House,
@@ -82,7 +81,6 @@ export const IconUser = () => <Users size={18} strokeWidth={GARIS} aria-hidden="
 export const IconList = () => <ClipboardList size={18} strokeWidth={GARIS} aria-hidden="true" />;
 export const IconUnduh = () => <Download size={18} strokeWidth={GARIS} aria-hidden="true" />;
 export const IconPeta = () => <MapPin size={18} strokeWidth={GARIS} aria-hidden="true" />;
-export const IconLatihan = () => <GraduationCap size={18} strokeWidth={GARIS} aria-hidden="true" />;
 export const IconPengajuan = () => <FileX2 size={18} strokeWidth={GARIS} aria-hidden="true" />;
 
 /** Tombol kembali di bilah atas (HP). */

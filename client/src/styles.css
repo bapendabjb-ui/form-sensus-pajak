@@ -882,7 +882,7 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-pill.is-lokasi{background:#FBF0DC; color:#8A5306;}
 .fk-filter-btn.is-lokasi.is-on{background:#FBF0DC; border-color:#E2BE7C; color:#8A5306;}
 .fk-saring-data{display:flex; gap:6px; flex-wrap:wrap;}
-/* status GPS di atas tombol Simpan (data baru & latihan) */
+/* status GPS di atas tombol Simpan (data baru) */
 .fk-gps-status{display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px solid var(--line); border-radius:12px; padding:11px 14px; font-size:13.5px; background:var(--surface); color:var(--muted);}
 .fk-gps-status.is-baik{background:var(--brand-tint); border-color:#BFE0DC; color:var(--brand-dark);}
 .fk-gps-status.is-waspada{background:#FBF0DC; border-color:#EFD9AE; color:#6F4705;}
@@ -896,24 +896,6 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-lokasi-data .fk-q-name{margin-bottom:0;}
 .fk-lokasi-data-peringatan{margin:0; background:#FBF0DC; border:1px solid #EFD9AE; color:#6F4705; border-radius:10px; padding:10px 12px; font-size:13px; line-height:1.45;}
 .fk-lokasi-data-dicek{margin:0; font-size:13px;}
-
-/* ---------- latihan petugas ---------- */
-.fk-latihan-bar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--brand-tint); border:1px solid #BFE0DC; color:var(--brand-dark); border-radius:12px; padding:11px 14px; font-size:13.5px;}
-.fk-latihan-bar span:last-child{flex:1 1 220px;}
-.fk-latihan-tag{font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:#fff; background:var(--brand); border-radius:6px; padding:3px 8px; flex:none;}
-
-/* hasil latihan */
-.fk-hasil-kepala{text-align:center;}
-.fk-hasil-lencana{display:grid; place-items:center; width:42px; height:42px; margin:0 auto 10px; border-radius:50%; background:var(--brand-tint); color:var(--brand-dark);}
-.fk-hasil-kepala .fk-form-desc{max-width:52ch; margin:6px auto 0;}
-.fk-hasil-judul{font-weight:600; font-size:15px; padding:10px 0 2px;}
-.fk-hasil-baris{display:flex; align-items:baseline; gap:12px; padding:10px 0; border-bottom:1px solid var(--line-soft);}
-.fk-hasil-baris:last-child{border-bottom:0;}
-.fk-hasil-label{flex:1 1 40%; min-width:0; font-size:13px; color:var(--muted);}
-.fk-hasil-nilai{flex:1 1 55%; min-width:0; font-size:14px; overflow-wrap:anywhere;}
-.fk-hasil-baris.is-kosong .fk-hasil-nilai{color:var(--faint); font-style:italic;}
-.fk-hasil-gps.is-gagal{border-color:#EFD9AE; background:#FBF0DC;}
-.fk-hasil-gps.is-gagal .fk-q-ket{color:#6F4705;}
 
 /* ================= responsif: HP & tablet kecil ================= */
 @media (max-width:820px){
@@ -1027,10 +1009,6 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-baris-judul{font-size:15px;}
   .fk-baris-ket{font-size:13px;}
   .fk-baris-foto img{width:46px; height:46px;}
-  .fk-hasil-baris{flex-direction:column; gap:3px; padding:11px 0;}
-  .fk-hasil-label{flex:none;}
-  .fk-hasil-nilai{flex:none; font-size:15px;}
-  .fk-latihan-bar{font-size:13px;}
   .fk-zona-bahaya{justify-content:stretch;}
   .fk-zona-bahaya .fk-btn-danger{width:100%;}
   .fk-pengajuan-aksi{display:grid; grid-template-columns:1fr 1fr; width:100%;}

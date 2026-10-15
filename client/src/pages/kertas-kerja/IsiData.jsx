@@ -1,10 +1,5 @@
 /*
  * Layar isi & ubah satu data lewat formulir, berikut draf otomatisnya.
- *
- * Layar yang sama dipakai untuk latihan petugas (`latihan`): formulirnya asli,
- * validasinya asli, hanya penyimpanannya yang tidak dijalankan. Latihan sengaja
- * memakai layar ini, bukan tiruannya, supaya apa yang dilatih persis sama
- * dengan yang nanti dipakai di lapangan.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -25,7 +20,6 @@ import {
 } from "../../lib/answers.js";
 import { nilaiDariEpbb } from "../../lib/epbb.js";
 import { judulEntri } from "../../lib/ringkas.js";
-import RingkasanLatihan from "../../components/RingkasanLatihan.jsx";
 import { IkonEpbb, CheckIcon } from "../../components/Icons.jsx";
 import { useAdmin } from "../../lib/admin.js";
 import { pantauPosisi, ambilPosisi } from "../../lib/rekamPosisi.js";
@@ -125,7 +119,7 @@ function jawabanUntukDraf(pertanyaan, answers) {
   return hasil;
 }
 
-export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
+export function IsiData({ kkId, formulirId, entriId }) {
   const toast = useToast();
   const { konfirmasi } = useDialog();
   const admin = useAdmin();
@@ -143,7 +137,6 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
   const [error, setError] = useState("");
   const [menyimpan, setMenyimpan] = useState(null); // "simpan" | "lagi" | null
   const [draf, setDraf] = useState(null); // draf tersimpan yang belum dipulihkan
-  const [hasilLatihan, setHasilLatihan] = useState(null); // ringkasan setelah latihan "disimpan"
   // Data baru: kertas kerjanya sudah punya titik yang baik? Bila ya, posisi
   // petugas saat ini (mis. di kantor) tidak lagi perlu dikhawatirkan.
   const [titikKkBaik, setTitikKkBaik] = useState(false);
@@ -153,7 +146,7 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
   const wadah = useRef(null);
   const berubah = useRef(false);
   const aturanLokasi = useKonfigurasi().lokasi || null;
-  // Posisi perangkat untuk data BARU (dan latihan), dipantau sejak layar dibuka
+  // Posisi perangkat untuk data BARU, dipantau sejak layar dibuka
   // supaya GPS sempat mengunci sebelum Simpan dan statusnya terlihat petugas.
   // Mengubah data tidak merekam posisi: GPS asli hanya berganti lewat
   // "Rekam ulang di sini" di panel lokasi.
@@ -161,14 +154,8 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
   const gpsRef = useRef(gps);
   const [ulangGps, setUlangGps] = useState(0);
 
-  const urlKembali = latihan ? "/latihan" : urlKk(kkId);
-  // Latihan tidak menulis draf: isian coba-coba akan tertawarkan lagi saat
-  // petugas mengisi data sungguhan dari formulir yang sama.
-  const kunciDraf = latihan
-    ? ""
-    : entriId
-      ? `sensus-pajak:draf:data-${entriId}`
-      : `sensus-pajak:draf:kk${kkId}-f${formulirId}`;
+  const urlKembali = urlKk(kkId);
+  const kunciDraf = entriId ? `sensus-pajak:draf:data-${entriId}` : `sensus-pajak:draf:kk${kkId}-f${formulirId}`;
 
   useEffect(() => {
     if (entriId) return undefined;
@@ -179,7 +166,6 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
   }, [entriId, ulangGps]);
 
   const hapusDraf = useCallback(() => {
-    if (!kunciDraf) return;
     try {
       localStorage.removeItem(kunciDraf);
     } catch {
@@ -204,12 +190,7 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
     (async () => {
       try {
         let f;
-        if (latihan) {
-          const form = await api.getFormulir(formulirId);
-          if (batal) return;
-          f = form;
-          kosongkan(form);
-        } else if (entriId) {
+        if (entriId) {
           const e = await api.getEntri(entriId);
           if (batal) return;
           f = e.formulir;
@@ -236,13 +217,11 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
 
         await bersihkanDrafLama();
         if (batal) return;
-        if (kunciDraf) {
-          try {
-            const tersimpan = JSON.parse(localStorage.getItem(kunciDraf) || "null");
-            if (tersimpan && tersimpan.answers) setDraf(tersimpan);
-          } catch {
-            /* draf rusak atau penyimpanan tidak tersedia */
-          }
+        try {
+          const tersimpan = JSON.parse(localStorage.getItem(kunciDraf) || "null");
+          if (tersimpan && tersimpan.answers) setDraf(tersimpan);
+        } catch {
+          /* draf rusak atau penyimpanan tidak tersedia */
         }
       } catch (e) {
         if (!batal) setError(e.message);
@@ -253,11 +232,11 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
     return () => {
       batal = true;
     };
-  }, [entriId, formulirId, kkId, kosongkan, kunciDraf, latihan]);
+  }, [entriId, formulirId, kkId, kosongkan, kunciDraf]);
 
   // Simpan draf ke perangkat setiap kali isian berubah (tidak saat tawaran draf lama masih tampil).
   useEffect(() => {
-    if (!formulir || !berubah.current || draf || !kunciDraf) return undefined;
+    if (!formulir || !berubah.current || draf) return undefined;
     const t = setTimeout(() => {
       try {
         localStorage.setItem(
@@ -392,24 +371,6 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
       return;
     }
 
-    // Latihan berhenti di sini. Pemeriksaan di atas sudah dijalankan seluruhnya —
-    // yang dilewati hanya pengiriman ke server.
-    if (latihan) {
-      setMenyimpan(lanjut ? "lagi" : "simpan");
-      const rekam = await ambilPosisi(() => gpsRef.current);
-      setMenyimpan(null);
-      berubah.current = false;
-      if (lanjut) {
-        toast("Isian sudah lengkap. Latihan tidak menyimpan data.");
-        kosongkan(formulir);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
-      setHasilLatihan({ jawaban: buildPayload(pertanyaan, answers), rekam });
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-
     setMenyimpan(lanjut ? "lagi" : "simpan");
 
     // Data baru: minta konfirmasi bila lokasinya perlu diperiksa. Tidak
@@ -490,7 +451,7 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
 
   const tombolKembali = (
     <button type="button" className="fk-textbtn hanya-desktop" onClick={() => kembali(urlKembali)}>
-      {latihan ? "‹ Kembali ke pilihan formulir" : `‹ Kembali ke kertas kerja${nomor ? ` ${nomor}` : ""}`}
+      {`‹ Kembali ke kertas kerja${nomor ? ` ${nomor}` : ""}`}
     </button>
   );
 
@@ -503,23 +464,6 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
       </>
     );
   if (!formulir) return null;
-
-  if (hasilLatihan) {
-    return (
-      <RingkasanLatihan
-        formulir={formulir}
-        jawaban={hasilLatihan.jawaban}
-        rekam={hasilLatihan.rekam}
-        berkas={berkas}
-        onUlang={() => {
-          setHasilLatihan(null);
-          kosongkan(formulir);
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }}
-        onSelesai={() => kembali(urlKembali)}
-      />
-    );
-  }
 
   const { unggah } = statusFoto(formulir.pertanyaan, answers);
   const sibuk = menyimpan !== null;
@@ -597,13 +541,6 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
         />
       )}
 
-      {latihan && (
-        <div className="fk-latihan-bar" role="note">
-          <span className="fk-latihan-tag">Latihan</span>
-          <span>Isilah seperti di lapangan. Tidak ada yang tersimpan — silakan coba sampai terbiasa.</span>
-        </div>
-      )}
-
       {draf && (
         <div className="fk-draf" role="status">
           <span>
@@ -622,7 +559,7 @@ export function IsiData({ kkId, formulirId, entriId, latihan = false }) {
       <section className="fk-panel fk-form fk-form-kepala">
         <div className="fk-form-accent" />
         <span className="fk-opts-cap">
-          {latihan ? "Mode latihan · isian tidak disimpan" : `Kertas kerja ${nomor} · ${entriId ? "ubah data" : "data baru"}`}
+          {`Kertas kerja ${nomor} · ${entriId ? "ubah data" : "data baru"}`}
         </span>
         <h2 className="fk-kk-title-top" style={{ marginTop: 6 }}>
           {formulir.judul}
