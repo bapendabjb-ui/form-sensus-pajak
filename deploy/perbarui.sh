@@ -6,7 +6,8 @@
 #
 # Urutannya sama dengan yang dulu dikerjakan Railway saat deploy:
 # ambil kode -> install -> build frontend -> migrasi database -> restart.
-# Berhenti di langkah pertama yang gagal; aplikasi lama tetap berjalan sampai
+# Sebelumnya, kode yang disunting langsung di server dikembalikan ke versi Git
+# (lihat deploy/jaga-kode.js). Berhenti di langkah pertama yang gagal; aplikasi lama tetap berjalan sampai
 # langkah restart.
 
 set -euo pipefail
@@ -17,6 +18,11 @@ if [ ! -f .env ]; then
   echo "File .env belum ada. Salin dari .env.example lalu isi dulu." >&2
   exit 1
 fi
+
+echo "==> Kembalikan suntingan langsung di server"
+# Kode yang disunting di luar Git (mis. lewat menu Files aaPanel) bisa membuat
+# git pull gagal; suntingannya disimpan sebagai patch lalu kode dikembalikan.
+node deploy/jaga-kode.js
 
 echo "==> Ambil kode terbaru"
 git pull --ff-only
@@ -31,9 +37,12 @@ echo "==> Migrasi database"
 npx prisma migrate deploy
 
 echo "==> Restart aplikasi"
-if pm2 describe sensus-pajak >/dev/null 2>&1; then
+# reload tidak mengganti skrip yang dijalankan PM2: proses lama yang masih
+# menjalankan server/index.js dibuat ulang supaya memakai deploy/mulai.js.
+if pm2 describe sensus-pajak 2>/dev/null | grep -q 'deploy/mulai.js'; then
   pm2 reload sensus-pajak
 else
+  pm2 delete sensus-pajak >/dev/null 2>&1 || true
   pm2 start deploy/ecosystem.config.js
 fi
 pm2 save

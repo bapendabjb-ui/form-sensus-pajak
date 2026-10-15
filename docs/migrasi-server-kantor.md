@@ -457,6 +457,15 @@ Skrip ini mengambil kode terbaru, memasang dependensi, build, menjalankan migras
 lalu me-*reload* aplikasi. Bila satu langkah gagal, skrip berhenti dan aplikasi lama tetap
 berjalan.
 
+**Jangan menyunting kode langsung di server** (menu Files aaPanel, `nano`, dan sejenisnya).
+Pada 15 Oktober 2026, suntingan lewat editor aaPanel merusak `server/src/routes/petugas.js`.
+Aplikasi gagal start dan situs 502 sampai filenya dikembalikan dari Git. Sekarang PM2
+menjalankan [`deploy/mulai.js`](../deploy/mulai.js). Setiap kali aplikasi start atau restart,
+berkas yang dilacak Git dikembalikan ke versi commit. `perbarui.sh` melakukan hal yang sama
+sebelum `git pull`. Suntingannya tidak hilang: tersimpan sebagai patch di
+`/root/sensus-pajak-suntingan/`, dan log PM2 mencatat berkas mana saja yang dikembalikan.
+`.env` dan `uploads/` tidak dilacak Git, jadi tidak tersentuh.
+
 ### Menutup Railway
 
 Tunggu **1–2 minggu** sampai server kantor terbukti lancar dan backup pertama sudah jadi.
@@ -485,6 +494,7 @@ Pastikan arsip Excel (Langkah 8) sudah disimpan, dan bila perlu arsip lengkap ju
 | Log: `JWT_SECRET wajib diisi di produksi`                     | `JWT_SECRET` di `.env` kosong.                                                                            |
 | Log: `gagal terhubung ke database`                            | `DATABASE_URL` di `.env` berubah atau rusak. Jangan ubah baris itu secara manual.                         |
 | `502 Bad Gateway` di alamat baru                              | Aplikasi mati atau port reverse proxy salah. Cek `pm2 status` dan pastikan port sama dengan `PORT` di `.env`. |
+| Log: `PERINGATAN: kode disunting langsung di server…`         | Ada yang menyunting kode di server, dan suntingannya sudah dikembalikan ke versi Git. Lihat isinya di patch yang disebut di log. Bila perubahannya memang perlu, masukkan lewat Git. |
 | Tombol GPS tidak meminta izin lokasi di HP                    | Halaman dibuka lewat `http://` atau IP. Pastikan memakai `https://` + subdomain (Langkah 7).               |
 | Petugas mencari data lamanya                                  | Data lama ada di arsip Excel Railway (Langkah 8), tidak di server kantor.                                  |
 

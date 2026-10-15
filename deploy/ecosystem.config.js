@@ -11,6 +11,9 @@
  * cara menjalankan prosesnya. Satu instance saja: pembatas laju login dan cek
  * NOP menyimpan hitungannya di memori proses (lihat server/src/laju.js), dan
  * penyapuan foto yatim cukup dijalankan satu proses.
+ *
+ * Skripnya deploy/mulai.js, bukan server/index.js langsung: setiap start/restart,
+ * kode yang disunting langsung di server dikembalikan dulu ke versi Git.
  */
 
 const path = require("path");
@@ -20,7 +23,7 @@ module.exports = {
     {
       name: "sensus-pajak",
       cwd: path.join(__dirname, ".."),
-      script: "server/index.js",
+      script: "deploy/mulai.js",
       instances: 1,
       exec_mode: "fork",
       env: { NODE_ENV: "production" },

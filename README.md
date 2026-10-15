@@ -1101,6 +1101,8 @@ agar data wajib pajak tersimpan di Indonesia. Berkas pendukungnya ada di [`deplo
 | [`deploy/pasang.sh`](deploy/pasang.sh)                     | Pemasangan pertama sekali jalan: `.env`, build, database, PM2 |
 | [`deploy/buat-database.sh`](deploy/buat-database.sh)       | Membuat database, user, dan tabel dari nol; menulis `DATABASE_URL` |
 | [`deploy/ecosystem.config.js`](deploy/ecosystem.config.js) | Cara PM2 menjalankan proses aplikasi                      |
+| [`deploy/mulai.js`](deploy/mulai.js)                       | Titik masuk PM2: kembalikan kode ke versi Git, lalu jalankan server |
+| [`deploy/jaga-kode.js`](deploy/jaga-kode.js)               | Simpan suntingan langsung di server sebagai patch, lalu kembalikan kode ke versi Git |
 | [`deploy/perbarui.sh`](deploy/perbarui.sh)               | Pembaruan: pull → install → build → migrasi → reload      |
 | [`server/scripts/tarik-foto.js`](server/scripts/tarik-foto.js) | Menyalin foto dari server lama lewat `/api/foto/:id`   |
 
