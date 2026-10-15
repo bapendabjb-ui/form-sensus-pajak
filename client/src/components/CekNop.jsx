@@ -229,23 +229,30 @@ export default function ModalCekNop({ nop, onClose, isiEpbb, cari = false, onPak
   );
 }
 
+/** "005/002"; bagian yang kosong ditulis "-". */
+const rtRw = (h) => (h.rt || h.rw ? `${h.rt || "-"}/${h.rw || "-"}` : "-");
+
 /**
  * Pencarian objek pajak di EPBB. Semua isian yang diisi harus cocok; nama dan letak
- * dicocokkan per kata, NIK harus persis. Hasilnya paling banyak 20 baris.
+ * dicocokkan per kata, NIK harus persis. Hasilnya 50 per halaman; "Lihat lebih banyak"
+ * meminta halaman berikutnya dengan kata kunci yang sama (server membatasi 500 seluruhnya).
  */
 function CariNop({ hidden, onPilih, onClose }) {
   // Di HP keyboard yang langsung muncul menutupi separuh isian; biarkan petugas memilih kolomnya.
   const hp = useMobile();
   const [kunci, setKunci] = useState({ nama: "", nik: "", letak: "" });
+  // status awal | memuat | ok | gagal. Saat ok: daftar, lebih, dibatasi, dicari (kata kunci
+  // pencarian ini, dipakai lagi oleh "Lihat lebih banyak"), dan tambah { status, pesan }.
   const [hasil, setHasil] = useState({ status: "awal" });
   const hasilRef = useRef(null);
 
-  // Di HP daftar hasil jatuh di bawah formulir: gulir ke sana begitu jawabannya datang.
+  // Di HP daftar hasil jatuh di bawah formulir: gulir ke sana begitu pencarian baru selesai
+  // (bukan saat halaman berikutnya ditambahkan).
   useEffect(() => {
     if (hasil.status === "ok" || hasil.status === "gagal") {
       hasilRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
     }
-  }, [hasil]);
+  }, [hasil.status]);
 
   const ubah = (k) => (e) => setKunci((s) => ({ ...s, [k]: k === "nik" ? hanyaDigit(e.target.value, PANJANG_NIK) : e.target.value }));
   const siap =
@@ -256,13 +263,39 @@ function CariNop({ hidden, onPilih, onClose }) {
     if (!siap || hasil.status === "memuat") return;
     // Tutup keyboard HP supaya hasilnya terlihat.
     document.activeElement?.blur();
+    const dicari = { ...kunci };
     setHasil({ status: "memuat" });
     try {
-      setHasil({ status: "ok", ...(await cariNop(kunci)) });
+      const data = await cariNop(dicari);
+      setHasil({ status: "ok", daftar: data.hasil, lebih: data.lebih, dibatasi: data.dibatasi, dicari, tambah: {} });
     } catch (err) {
       setHasil({ status: "gagal", pesan: err.message });
     }
   };
+
+  const lihatLebih = async () => {
+    const { dicari, daftar } = hasil;
+    setHasil((h) => ({ ...h, tambah: { status: "memuat" } }));
+    try {
+      const data = await cariNop({ ...dicari, mulai: daftar.length });
+      setHasil((h) => {
+        // Sudah diganti pencarian baru selagi menunggu: halaman ini milik pencarian lama.
+        if (h.dicari !== dicari) return h;
+        const ada = new Set(h.daftar.map((x) => x.nop));
+        return {
+          ...h,
+          daftar: [...h.daftar, ...data.hasil.filter((x) => !ada.has(x.nop))],
+          lebih: data.lebih,
+          dibatasi: data.dibatasi,
+          tambah: {},
+        };
+      });
+    } catch (err) {
+      setHasil((h) => (h.dicari === dicari ? { ...h, tambah: { status: "gagal", pesan: err.message } } : h));
+    }
+  };
+
+  const daftar = hasil.status === "ok" ? hasil.daftar : [];
 
   return (
     <div className="fk-cari-nop" hidden={hidden}>
@@ -321,27 +354,65 @@ function CariNop({ hidden, onPilih, onClose }) {
 
       {hasil.status === "gagal" && <p className="fk-dialog-pesan fk-cari-nop-gagal">{hasil.pesan}</p>}
 
-      {hasil.status === "ok" && hasil.hasil.length === 0 && (
+      {hasil.status === "ok" && daftar.length === 0 && (
         <p className="fk-dialog-pesan">Tidak ada objek pajak yang cocok.</p>
       )}
 
-      {hasil.status === "ok" && hasil.hasil.length > 0 && (
+      {daftar.length > 0 && (
         <>
           <ul className="fk-cari-nop-hasil">
-            {hasil.hasil.map((h) => (
+            {daftar.map((h) => (
               <li key={h.nop}>
                 <button type="button" className="fk-cari-nop-item" onClick={() => onPilih(h.nop)}>
                   <span className="fk-cari-nop-nama">{h.namaWp || "-"}</span>
                   <span className="fk-nop-nop">{formatNop(h.nop)}</span>
-                  <span className="fk-cari-nop-letak">{h.letakOp || "-"}</span>
+                  {h.jalanOp && <span className="fk-cari-nop-jalan">{h.jalanOp}</span>}
+                  <span className="fk-cari-nop-rinci">
+                    <span>
+                      <small>RT/RW</small>
+                      {rtRw(h)}
+                    </span>
+                    <span>
+                      <small>Kelurahan</small>
+                      {h.kelurahan || "-"}
+                    </span>
+                    <span>
+                      <small>Kecamatan</small>
+                      {h.kecamatan || "-"}
+                    </span>
+                    <span className="is-lebar">
+                      <small>Luas tanah</small>
+                      {formatLuas(h.luasTanah)}
+                    </span>
+                    <span>
+                      <small>Luas bangunan</small>
+                      {formatLuas(h.luasBangunan)}
+                    </span>
+                  </span>
                 </button>
               </li>
             ))}
           </ul>
+
+          <span className="fk-hint-kecil fk-cari-nop-jumlah">
+            {hasil.dibatasi
+              ? `Menampilkan ${daftar.length} objek pertama. Tambahkan kata kunci untuk mempersempit.`
+              : hasil.lebih
+                ? `Menampilkan ${daftar.length} objek.`
+                : `${daftar.length} objek ditemukan.`}
+          </span>
+          {hasil.tambah.status === "gagal" && (
+            <p className="fk-dialog-pesan fk-cari-nop-gagal">{hasil.tambah.pesan}</p>
+          )}
           {hasil.lebih && (
-            <span className="fk-hint-kecil">
-              Hanya {hasil.hasil.length} hasil pertama yang ditampilkan. Tambahkan kata kunci untuk mempersempit.
-            </span>
+            <button
+              type="button"
+              className="fk-btn-ghost fk-cari-nop-lebih"
+              onClick={lihatLebih}
+              disabled={hasil.tambah.status === "memuat"}
+            >
+              {hasil.tambah.status === "memuat" ? "Memuat..." : "Lihat lebih banyak"}
+            </button>
           )}
         </>
       )}

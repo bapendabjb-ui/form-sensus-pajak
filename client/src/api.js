@@ -371,10 +371,15 @@ export const listPeta = () => request("/peta");
 /** Data objek pajak dari EPBB: { nop, namaWp, letakSp, letakOp, luasTanah, luasBangunan, belumBayar }. */
 export const cekNop = (nop) => request(`/nop/${nop}`);
 
-/** Objek pajak di EPBB menurut nama WP, NIK, dan/atau letak objek: { hasil: [{ nop, namaWp, letakOp }], lebih }. */
-export function cariNop({ nama = "", nik = "", letak = "" }) {
+/**
+ * Satu halaman (maks. 50) objek pajak di EPBB menurut nama WP, NIK, dan/atau letak objek.
+ * mulai = jumlah hasil yang sudah tampil. Balasan: { hasil: [{ nop, namaWp, jalanOp, rt, rw,
+ * kelurahan, kecamatan, luasTanah, luasBangunan }], lebih, dibatasi }.
+ */
+export function cariNop({ nama = "", nik = "", letak = "", mulai = 0 }) {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries({ nama, nik, letak })) if (v.trim()) q.set(k, v.trim());
+  if (mulai > 0) q.set("mulai", String(mulai));
   return request(`/nop/cari?${q}`);
 }
 

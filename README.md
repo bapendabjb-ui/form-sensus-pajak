@@ -836,8 +836,10 @@ pencarian:
 1. Isi satu atau lebih: **Nama wajib pajak**, **NIK**, **Letak objek** (jalan, kelurahan, atau
    kecamatan). Semua yang diisi harus cocok. Nama dan letak dicocokkan per kata: `siti aminah`
    menemukan `HJ. SITI NUR AMINAH`. NIK harus persis 16 digit.
-2. Hasilnya paling banyak 20 objek, urut nama WP, masing-masing berisi nama, NOP, dan letak objek.
-   Bila lebih, petugas diminta menambah kata kunci.
+2. Hasilnya tampil 50 objek per halaman, urut nama WP. Tiap objek berisi nama, NOP, jalan, lalu
+   **RT/RW, kelurahan, kecamatan, luas tanah, dan luas bangunan** masing-masing dengan labelnya.
+   Tombol **Lihat lebih banyak** menambahkan 50 berikutnya ke bawah daftar. Satu pencarian dibatasi
+   500 objek; setelah itu petugas diminta menambah kata kunci.
 3. Memilih satu hasil menampilkan informasi lengkapnya seperti tombol **Lihat**. **Kembali**
    mengembalikan ke daftar hasil tanpa mengulang pencarian.
 4. **Pakai NOP Ini** mengisi kolom NOP. Bila formulir punya kolom bersumber EPBB, tombolnya menjadi
@@ -850,15 +852,21 @@ browser ──GET /api/nop/cari?nama&nik&letak──▶ server ──GET {EPBB_A
 - Pencarian **terbuka tanpa login**, sama seperti cek NOP. Siapa pun yang tahu alamat aplikasi bisa
   mencari nama orang lalu mendapat NOP dan letak objeknya. Sebagai penahan:
   - NIK hanya dipakai untuk mencari dan **tidak pernah dikirim balik**;
-  - hasil pencarian hanya berisi nama, NOP, dan letak objek;
+  - hasil pencarian hanya berisi nama, NOP, letak, dan luas objek;
   - nama dan letak minimal 3 huruf;
-  - `/api/nop/cari` dibatasi **30 pencarian per IP per 10 menit**, terpisah dari batas cek NOP;
+  - satu pencarian paling banyak 500 objek (10 halaman), jadi kata kunci yang terlalu umum
+    (mis. letak `banjarbaru`) tidak bisa dipakai menarik seluruh daftar wajib pajak;
+  - `/api/nop/cari` dibatasi **30 permintaan per IP per 10 menit** (setiap **Lihat lebih banyak**
+    dihitung satu), terpisah dari batas cek NOP;
   - log server tidak mencatat kata kunci pencarian.
 - Di EPBB: `GET api/nop/cari` di `application/controllers/api/Nop.php` (kunci API sama), query di
   `M_api_nop::cari_objek()`. Nama dicari di `DAT_SUBJEK_PAJAK.NM_WP`; NIK di
   `DAT_SUBJEK_PAJAK.SUBJEK_PAJAK_ID` (kolom ini tidak selalu berisi NIK di data SISMIOP, jadi
   NIK yang benar pun bisa tidak ketemu); letak di `JALAN_OP`, `BLOK_KAV_NO_OP`, dan nama
-  kelurahan/kecamatan objek. Batas hasil diatur `api_nop_cari_maks` (bawaan 20).
+  kelurahan/kecamatan objek. Ukuran halaman diatur `api_nop_cari_maks` (bawaan 50); halaman
+  berikutnya diminta dengan `mulai` = jumlah hasil yang sudah tampil. Urutannya nama WP lalu NOP,
+  jadi tidak ada objek yang terulang atau terlewat antarhalaman. Batas 500 dijaga server Sensus Pajak
+  (`CARI_MAKS_TOTAL` di `server/src/epbb.js`).
 - EPBB yang belum diperbarui (berkas `Nop.php` lama) membalas pencarian dengan halaman login.
   Petugas mendapat pesan *Pencarian NOP belum tersedia di EPBB*, sedangkan cek NOP tetap berjalan.
 
@@ -1085,7 +1093,7 @@ Memutuskan pengajuan yang sudah diputuskan dijawab **409**.
 | Method | Endpoint     | Keterangan                                                                                          |
 | ------ | ------------ | --------------------------------------------------------------------------------------------------- |
 | `GET`  | `/nop/:nop`  | `{ nop, namaWp, letakSp, letakOp, rinciOp, luasTanah, luasBangunan, belumBayar: ["2023"] }` · `404` tidak terdaftar · `429` terlalu sering · `502` EPBB bermasalah · `503` belum dikonfigurasi |
-| `GET`  | `/nop/cari`  | `?nama=&nik=&letak=` → `{ hasil: [{ nop, namaWp, letakOp }], lebih }` (maks. 20) · `400` kata kunci kurang · `429` terlalu sering · `502` EPBB bermasalah / belum diperbarui · `503` belum dikonfigurasi |
+| `GET`  | `/nop/cari`  | `?nama=&nik=&letak=&mulai=` → `{ hasil: [{ nop, namaWp, jalanOp, rt, rw, kelurahan, kecamatan, luasTanah, luasBangunan }], lebih, dibatasi }` (50 per halaman, maks. 500) · `400` kata kunci kurang / lewat 500 · `429` terlalu sering · `502` EPBB bermasalah / belum diperbarui · `503` belum dikonfigurasi |
 
 ### Bentuk error
 

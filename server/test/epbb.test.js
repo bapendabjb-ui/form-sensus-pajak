@@ -59,9 +59,12 @@ test("kunciCariNop merapikan kata kunci dan menolak yang terlalu umum", () => {
     nama: "siti aminah",
     nik: "6372010101010001",
     letak: "",
+    mulai: 0,
   });
-  assert.deepEqual(kunciCariNop({ letak: "jl. mawar" }), { nama: "", nik: "", letak: "jl. mawar" });
+  assert.deepEqual(kunciCariNop({ letak: "jl. mawar", mulai: "50" }), { nama: "", nik: "", letak: "jl. mawar", mulai: 50 });
   assert.equal(kunciCariNop({ nama: "x".repeat(100) }).nama.length, 60);
+  // mulai yang bukan bilangan bulat dibaca sebagai halaman pertama.
+  for (const mulai of ["-5", "1.5", "abc", ["50"]]) assert.equal(kunciCariNop({ nama: "siti", mulai }).mulai, 0);
 
   const tolak = (q, pesan) => assert.throws(() => kunciCariNop(q), (e) => e.status === 400 && pesan.test(e.message));
   tolak({}, /Isi nama, NIK, atau letak/);
@@ -71,6 +74,7 @@ test("kunciCariNop merapikan kata kunci dan menolak yang terlalu umum", () => {
   tolak({ nama: "siti", letak: "jl" }, /minimal 3 huruf/);
   tolak({ nik: "637201010101000" }, /NIK harus 16 digit/);
   tolak({ nama: ["siti", "aminah"] }, /Isi nama, NIK, atau letak/);
+  tolak({ nama: "siti", mulai: "500" }, /dibatasi 500 objek/);
 });
 
 /** Jalankan fn dengan fetch tiruan yang membalas `balasan` dan mencatat permintaannya. */
@@ -105,27 +109,68 @@ test("cariNop memanggil api/nop/cari dengan kunci API dan merangkum hasilnya", a
         {
           nop: "637201000300100010",
           nama_wp: " HJ.  SITI AMINAH ",
-          letak_op: { jalan: "JL. MAWAR", blok_kav_no: "NO. 5", rt: "001", rw: "", kelurahan: "GUNTUNG PAYUNG", kecamatan: "LANDASAN ULIN" },
+          letak_op: { jalan: "JL. MAWAR", blok_kav_no: "NO. 5", rt: "001", rw: "", kelurahan: " GUNTUNG  PAYUNG", kecamatan: "LANDASAN ULIN" },
+          luas_tanah: 250.5,
+          luas_bangunan: 72,
         },
       ],
       lebih: true,
     },
   };
   await denganEpbb({ body }, async ({ panggilan }) => {
-    const hasil = await cariNop({ nama: "siti aminah", nik: "", letak: "mawar" });
+    const hasil = await cariNop({ nama: "siti aminah", nik: "", letak: "mawar", mulai: 0 });
     assert.deepEqual(hasil, {
       hasil: [
         {
           nop: "637201000300100010",
           namaWp: "HJ. SITI AMINAH",
-          letakOp: "JL. MAWAR NO. 5, RT 001, KEL. GUNTUNG PAYUNG, KEC. LANDASAN ULIN",
+          jalanOp: "JL. MAWAR NO. 5",
+          rt: "001",
+          rw: "",
+          kelurahan: "GUNTUNG PAYUNG",
+          kecamatan: "LANDASAN ULIN",
+          luasTanah: 250.5,
+          luasBangunan: 72,
         },
       ],
       lebih: true,
+      dibatasi: false,
     });
     assert.equal(panggilan.length, 1);
     assert.equal(panggilan[0].url, "https://epbb.contoh.test/api/nop/cari?nama=siti+aminah&letak=mawar");
     assert.equal(panggilan[0].opsi.headers["X-Api-Key"], "rahasia");
+  });
+});
+
+test("cariNop: halaman berikutnya dan batas total 500 objek", async () => {
+  const halaman = (n, lebih) => ({
+    status: "ok",
+    data: { hasil: Array.from({ length: n }, (_, i) => ({ nop: String(i).padStart(18, "0"), nama_wp: "SITI" })), lebih },
+  });
+
+  await denganEpbb({ body: halaman(50, true) }, async ({ panggilan }) => {
+    const r = await cariNop({ nama: "siti", nik: "", letak: "", mulai: 50 });
+    assert.equal(panggilan[0].url, "https://epbb.contoh.test/api/nop/cari?nama=siti&mulai=50");
+    assert.equal(r.hasil.length, 50);
+    assert.deepEqual([r.lebih, r.dibatasi], [true, false]);
+  });
+
+  // Halaman ke-10 masih punya lanjutan: tidak ditawarkan lagi, petugas diminta mempersempit.
+  await denganEpbb({ body: halaman(50, true) }, async () => {
+    const r = await cariNop({ nama: "siti", nik: "", letak: "", mulai: 450 });
+    assert.deepEqual([r.hasil.length, r.lebih, r.dibatasi], [50, false, true]);
+  });
+
+  // Halaman terakhir yang memang habis tepat di batas: tidak dianggap terpotong.
+  await denganEpbb({ body: halaman(50, false) }, async () => {
+    const r = await cariNop({ nama: "siti", nik: "", letak: "", mulai: 450 });
+    assert.deepEqual([r.lebih, r.dibatasi], [false, false]);
+  });
+
+  // EPBB dengan api_nop_cari_maks lebih besar tetap tidak bisa melewati batas total.
+  await denganEpbb({ body: halaman(100, false) }, async () => {
+    const r = await cariNop({ nama: "siti", nik: "", letak: "", mulai: 450 });
+    assert.deepEqual([r.hasil.length, r.lebih, r.dibatasi], [50, false, true]);
   });
 });
 

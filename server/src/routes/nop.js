@@ -20,8 +20,8 @@ const batasiLaju = pembatas({
 
 /*
  * Pencarian lebih ketat lagi: dengan nama saja orang bisa mendapat NOP dan alamat
- * wajib pajak lain. Pencarian hanya dikirim saat tombol Cari ditekan, jadi 30 per
- * 10 menit masih jauh di atas kebutuhan petugas.
+ * wajib pajak lain. Pencarian hanya dikirim saat tombol Cari atau "Lihat lebih banyak"
+ * ditekan, jadi 30 per 10 menit masih jauh di atas kebutuhan petugas.
  */
 const batasiCari = pembatas({
   jendelaMs: 10 * 60 * 1000,
@@ -29,7 +29,10 @@ const batasiCari = pembatas({
   pesan: "Terlalu banyak pencarian NOP. Tunggu beberapa menit.",
 });
 
-/** GET /api/nop/cari?nama=&nik=&letak= -> { hasil: [{ nop, namaWp, letakOp }], lebih } dari EPBB. */
+/**
+ * GET /api/nop/cari?nama=&nik=&letak=&mulai= -> satu halaman (maks. 50) objek pajak dari EPBB:
+ * { hasil: [{ nop, namaWp, jalanOp, rt, rw, kelurahan, kecamatan, luasTanah, luasBangunan }], lebih, dibatasi }
+ */
 router.get(
   "/cari",
   batasiCari,

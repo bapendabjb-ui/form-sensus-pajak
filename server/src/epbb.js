@@ -23,6 +23,8 @@ const urlCari = () => `${config.epbbApiUrl.replace(/\/+$/, "").replace(/\/cek$/,
 /** Samakan dengan CARI_MIN_HURUF di api/Nop.php EPBB. */
 const CARI_MIN_HURUF = 3;
 const CARI_MAKS_PANJANG = 60;
+/** Hasil terbanyak satu pencarian, seluruh halaman digabung (10 x 50). */
+const CARI_MAKS_TOTAL = 500;
 
 /**
  * Data EPBB yang bisa mengisi pertanyaan lain secara otomatis, beserta tipe
@@ -238,13 +240,15 @@ async function cekNop(nop) {
 /**
  * Kata kunci pencarian NOP dari query string, dirapikan. Aturannya sama dengan api/Nop.php
  * di EPBB, supaya ketikan yang pasti ditolak tidak perlu dikirim ke sana.
- * @returns {{ nama: string, nik: string, letak: string }}
+ * mulai = jumlah hasil yang sudah tampil (tombol "Lihat lebih banyak"), 0 untuk halaman pertama.
+ * @returns {{ nama: string, nik: string, letak: string, mulai: number }}
  */
 function kunciCariNop(q = {}) {
   const teks = (v) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, CARI_MAKS_PANJANG) : "");
   const nama = teks(q.nama);
   const letak = teks(q.letak);
   const nik = typeof q.nik === "string" ? q.nik.replace(/\D/g, "") : "";
+  const mulai = typeof q.mulai === "string" && /^\d{1,6}$/.test(q.mulai) ? Number(q.mulai) : 0;
   const huruf = (s) => s.replace(/[^a-z0-9]/gi, "").length;
 
   if (nik && nik.length !== PANJANG_NIK) throw badRequest(`NIK harus ${PANJANG_NIK} digit.`);
@@ -252,20 +256,30 @@ function kunciCariNop(q = {}) {
     throw badRequest(`Nama dan letak objek minimal ${CARI_MIN_HURUF} huruf.`);
   }
   if (!nama && !nik && !letak) throw badRequest("Isi nama, NIK, atau letak objek.");
-  return { nama, nik, letak };
+  if (mulai >= CARI_MAKS_TOTAL) {
+    throw badRequest(`Hasil pencarian dibatasi ${CARI_MAKS_TOTAL} objek. Tambahkan kata kunci untuk mempersempit.`);
+  }
+  return { nama, nik, letak, mulai };
 }
 
 /**
  * Cari objek pajak menurut nama WP, NIK, dan/atau letak objek. Semua kata kunci yang
- * diisi harus cocok; hasilnya paling banyak 20 baris (api_nop_cari_maks di EPBB).
- * @param {{ nama: string, nik: string, letak: string }} kunci hasil kunciCariNop()
- * @returns {Promise<{ hasil: {nop, namaWp, letakOp}[], lebih: boolean }>} lebih = hasilnya terpotong
+ * diisi harus cocok. Satu halaman berisi paling banyak 50 baris (api_nop_cari_maks di
+ * EPBB); halaman berikutnya diminta dengan mulai = jumlah hasil yang sudah tampil.
+ * Seluruhnya dibatasi CARI_MAKS_TOTAL supaya pencarian yang terlalu umum tidak bisa
+ * dipakai menarik daftar wajib pajak sekota.
+ *
+ * @param {{ nama: string, nik: string, letak: string, mulai: number }} kunci hasil kunciCariNop()
+ * @returns {Promise<{ hasil: object[], lebih: boolean, dibatasi: boolean }>}
+ *   lebih = masih ada halaman berikutnya; dibatasi = masih ada, tetapi batas total tercapai
  */
 async function cariNop(kunci) {
   if (!aktif()) throw new ApiError(503, "Cek NOP belum diaktifkan di server.");
 
+  const mulai = kunci.mulai || 0;
   const q = new URLSearchParams();
   for (const k of ["nama", "nik", "letak"]) if (kunci[k]) q.set(k, kunci[k]);
+  if (mulai) q.set("mulai", String(mulai));
   const url = `${urlCari()}?${q}`;
   const { res, body, teks } = await minta(url);
 
@@ -282,14 +296,25 @@ async function cariNop(kunci) {
   if (body.status === "invalid") throw badRequest(body.message || "Kata kunci pencarian tidak valid.");
   if (!res.ok || body.status !== "ok" || !body.data) throw galatBalasan(res, body);
 
-  const hasil = Array.isArray(body.data.hasil) ? body.data.hasil : [];
+  const semua = Array.isArray(body.data.hasil) ? body.data.hasil : [];
+  const hasil = semua.slice(0, CARI_MAKS_TOTAL - mulai);
+  const masihAda = Boolean(body.data.lebih) || hasil.length < semua.length;
+  const dibatasi = masihAda && mulai + hasil.length >= CARI_MAKS_TOTAL;
   return {
+    // Letak dipisah per bagian supaya daftar hasil mudah dibaca.
     hasil: hasil.map((d) => ({
       nop: String(d.nop || ""),
       namaWp: bersihkan(d.nama_wp),
-      letakOp: letakObjek(d.letak_op),
+      jalanOp: gabungJalan(d.letak_op),
+      rt: bersihkan(d.letak_op?.rt),
+      rw: bersihkan(d.letak_op?.rw),
+      kelurahan: bersihkan(d.letak_op?.kelurahan),
+      kecamatan: bersihkan(d.letak_op?.kecamatan),
+      luasTanah: Number(d.luas_tanah) || 0,
+      luasBangunan: Number(d.luas_bangunan) || 0,
     })),
-    lebih: Boolean(body.data.lebih),
+    lebih: masihAda && !dibatasi,
+    dibatasi,
   };
 }
 
