@@ -782,6 +782,23 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-nop-isi-ganti{color:var(--amber); font-weight:600;}
 .fk-isi-epbb{margin-top:10px; display:flex; flex-direction:column; gap:6px; max-width:360px;}
 .fk-nop-gagal .fk-dialog-pesan{margin-top:4px;}
+.fk-nop-wadah{display:flex; flex-direction:column; gap:2px;}
+
+/* Pencarian NOP menurut nama WP, NIK, atau letak objek (di dalam modal NOP). */
+.fk-cari-nop{display:flex; flex-direction:column; gap:10px; margin-top:14px;}
+.fk-cari-nop[hidden]{display:none;}
+.fk-cari-nop-form{display:flex; flex-direction:column; gap:10px;}
+.fk-cari-nop-form .fk-dialog-aksi{margin-top:4px;}
+.fk-cari-nop-isian{display:flex; flex-direction:column; gap:5px; font-size:13px; font-weight:600; color:var(--muted);}
+.fk-cari-nop-gagal{color:var(--danger); margin:0;}
+/* Titik gulir hasil; margin negatif mengimbangi gap supaya tidak menambah jarak. */
+.fk-cari-nop-jangkar{height:0; margin-bottom:-10px; scroll-margin-top:8px;}
+.fk-cari-nop-hasil{list-style:none; margin:0; padding:0; border:1px solid var(--line-soft); border-radius:12px; overflow:hidden;}
+.fk-cari-nop-hasil li + li{border-top:1px solid var(--line-soft);}
+.fk-cari-nop-item{width:100%; display:flex; flex-direction:column; gap:2px; padding:10px 14px; border:0; background:var(--surface); color:var(--ink); text-align:left; font-size:13px;}
+.fk-cari-nop-item:hover,.fk-cari-nop-item:focus-visible{background:var(--brand-tint);}
+.fk-cari-nop-nama{font-size:14px; font-weight:600;}
+.fk-cari-nop-letak{color:var(--muted); line-height:1.45; overflow-wrap:anywhere;}
 .fk-sheet-opsi svg{color:var(--brand); flex:none;}
 .fk-select-cari{margin-bottom:6px;}
 .fk-cal.is-sheet{position:static; width:auto; border:0; box-shadow:none; padding:4px 2px 6px; margin:0;}
@@ -1020,6 +1037,8 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-dialog-aksi > button{flex:1; min-height:48px;}
   .fk-dialog.fk-nop-modal{max-height:92%;}
   .fk-nop-baris{grid-template-columns:1fr; gap:2px;}
+  .fk-cari-nop-form .fk-dialog-aksi{margin-top:8px;}
+  .fk-cari-nop-item{min-height:48px; padding:12px 14px;}
   .fk-digit-aksi{min-height:48px;}
 
   /* ---- buat kertas kerja & tim ---- */

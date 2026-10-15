@@ -2,7 +2,7 @@
 
 const express = require("express");
 const { wrap, badRequest } = require("../http");
-const { cekNop } = require("../epbb");
+const { cekNop, cariNop, kunciCariNop } = require("../epbb");
 const { PANJANG_NOP } = require("../answers");
 const { pembatas } = require("../laju");
 
@@ -17,6 +17,28 @@ const batasiLaju = pembatas({
   maks: 60,
   pesan: "Terlalu banyak pengecekan NOP. Tunggu beberapa menit.",
 });
+
+/*
+ * Pencarian lebih ketat lagi: dengan nama saja orang bisa mendapat NOP dan alamat
+ * wajib pajak lain. Pencarian hanya dikirim saat tombol Cari ditekan, jadi 30 per
+ * 10 menit masih jauh di atas kebutuhan petugas.
+ */
+const batasiCari = pembatas({
+  jendelaMs: 10 * 60 * 1000,
+  maks: 30,
+  pesan: "Terlalu banyak pencarian NOP. Tunggu beberapa menit.",
+});
+
+/** GET /api/nop/cari?nama=&nik=&letak= -> { hasil: [{ nop, namaWp, letakOp }], lebih } dari EPBB. */
+router.get(
+  "/cari",
+  batasiCari,
+  wrap(async (req, res) => {
+    const kunci = kunciCariNop(req.query);
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await cariNop(kunci));
+  })
+);
 
 /** GET /api/nop/:nop -> data objek pajak dari EPBB (NOP, WP, letak, luas, tahun belum bayar). */
 router.get(

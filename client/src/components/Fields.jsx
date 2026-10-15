@@ -188,12 +188,13 @@ function useCekNopAktif() {
 
 function NopInput({ value, onChange, invalid, isiEpbb }) {
   const cekAktif = useCekNopAktif();
-  const [lihat, setLihat] = useState(false);
+  // null | "lihat" (data NOP yang sudah diketik) | "cari" (cari NOP dari nama, NIK, letak)
+  const [modal, setModal] = useState(null);
   const digit = hanyaDigit(value, PANJANG_NOP);
   const lengkap = digit.length === PANJANG_NOP;
 
   return (
-    <>
+    <div className="fk-nop-wadah">
       <DigitInput
         value={value}
         onChange={onChange}
@@ -210,15 +211,28 @@ function NopInput({ value, onChange, invalid, isiEpbb }) {
               className="fk-btn fk-digit-aksi"
               disabled={!lengkap}
               title={lengkap ? "Lihat data NOP di EPBB" : `Lengkapi ${PANJANG_NOP} digit NOP terlebih dahulu`}
-              onClick={() => setLihat(true)}
+              onClick={() => setModal("lihat")}
             >
               Lihat
             </button>
           )
         }
       />
-      {lihat && <ModalCekNop nop={digit} isiEpbb={isiEpbb} onClose={() => setLihat(false)} />}
-    </>
+      {cekAktif && (
+        <button type="button" className="fk-textbtn is-brand" onClick={() => setModal("cari")}>
+          Cari NOP dari nama, NIK, atau letak objek
+        </button>
+      )}
+      {modal && (
+        <ModalCekNop
+          nop={digit}
+          cari={modal === "cari"}
+          isiEpbb={isiEpbb}
+          onPakai={onChange}
+          onClose={() => setModal(null)}
+        />
+      )}
+    </div>
   );
 }
 

@@ -1,19 +1,28 @@
 "use strict";
 
 const config = require("./config");
-const { ApiError } = require("./http");
+const { ApiError, badRequest } = require("./http");
+const { PANJANG_NIK } = require("./answers");
 const { normalWilayah } = require("./wilayah");
 const { cocokkanAlamat } = require("./wilayahIndonesia");
 
 /**
  * Klien API cek NOP milik EPBB (SISMIOP Banjarbaru) - baca-saja.
  *
- *   GET {EPBB_API_URL}/{nop18}   header X-Api-Key: EPBB_API_KEY
+ *   GET {EPBB_API_URL}/{nop18}                       header X-Api-Key: EPBB_API_KEY
+ *   GET {EPBB_API_URL tanpa /cek}/cari?nama&nik&letak  header yang sama
  *
- * Kunci API hanya ada di server; browser memanggil /api/nop/:nop.
+ * Kunci API hanya ada di server; browser memanggil /api/nop/:nop dan /api/nop/cari.
  */
 
 const aktif = () => Boolean(config.epbbApiUrl && config.epbbApiKey);
+
+/** Alamat pencarian: EPBB_API_URL (.../api/nop/cek) dengan "cek" diganti "cari". */
+const urlCari = () => `${config.epbbApiUrl.replace(/\/+$/, "").replace(/\/cek$/, "")}/cari`;
+
+/** Samakan dengan CARI_MIN_HURUF di api/Nop.php EPBB. */
+const CARI_MIN_HURUF = 3;
+const CARI_MAKS_PANJANG = 60;
 
 /**
  * Data EPBB yang bisa mengisi pertanyaan lain secara otomatis, beserta tipe
@@ -100,17 +109,15 @@ function pesanGalat(kode) {
   return `${pesan} (${kode})`;
 }
 
-/** URL tanpa NOP untuk log. */
-const alamatAman = (url) => url.replace(/\/\d{18}$/, "/{nop}");
+/** URL tanpa NOP dan tanpa kata kunci pencarian (nama, NIK) untuk log. */
+const alamatAman = (url) => url.replace(/\?.*$/, "?...").replace(/\/\d{18}$/, "/{nop}");
 
 /**
- * Cek satu NOP 18 digit.
- * @returns {Promise<{nop, namaWp, letakSp, letakOp, rinciOp, rinciSp, luasTanah, luasBangunan, belumBayar: string[]}>}
+ * GET ke API EPBB. body = balasan JSON, atau null bila balasannya bukan JSON.
+ * EPBB yang tidak bisa dihubungi -> ApiError 502.
+ * @returns {Promise<{res: Response, body: object|null, teks: string}>}
  */
-async function cekNop(nop) {
-  if (!aktif()) throw new ApiError(503, "Cek NOP belum diaktifkan di server.");
-
-  const url = `${config.epbbApiUrl.replace(/\/+$/, "")}/${nop}`;
+async function minta(url) {
   let res;
   try {
     res = await fetch(url, {
@@ -130,6 +137,50 @@ async function cekNop(nop) {
   } catch {
     body = null;
   }
+  return { res, body, teks };
+}
+
+/** Balasan bukan JSON = bukan dari api/Nop.php: URL salah (halaman lain) atau PHP/Oracle error. */
+function galatBukanJson(res, teks, url) {
+  const cuplikan = teks.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+  console.error(`[Sensus Pajak] EPBB membalas ${res.status} bukan JSON - ${alamatAman(url)}:`, cuplikan);
+  return new ApiError(
+    502,
+    res.ok
+      ? `Alamat EPBB_API_URL bukan API cek NOP. (HTTP ${res.status})`
+      : `EPBB error saat memproses NOP. Periksa log PHP/Oracle EPBB. (HTTP ${res.status})`
+  );
+}
+
+/** Balasan JSON yang bukan hasil: kunci API ditolak, API dimatikan, atau galat lain. */
+function galatBalasan(res, body) {
+  if (res.status === 401) {
+    console.error("[Sensus Pajak] EPBB menolak kunci API (401).");
+    return new ApiError(502, "Kunci API ditolak EPBB. Samakan EPBB_API_KEY dengan api_nop_key. (HTTP 401)");
+  }
+  if (res.status === 503) {
+    return new ApiError(502, "API cek NOP di EPBB belum aktif (api_nop_enabled). (HTTP 503)");
+  }
+  console.error(`[Sensus Pajak] EPBB membalas ${res.status}:`, body.message);
+  return new ApiError(502, `EPBB sedang bermasalah: ${body.message || "balasan tidak dikenal"} (HTTP ${res.status})`);
+}
+
+/** "JL. MAWAR NO. 5, RT 005/RW 002, KEL. GUNTUNG PAYUNG, KEC. LANDASAN ULIN". */
+const letakObjek = (l) =>
+  susunAlamat(l, [
+    ["KEL. ", l?.kelurahan],
+    ["KEC. ", l?.kecamatan],
+  ]);
+
+/**
+ * Cek satu NOP 18 digit.
+ * @returns {Promise<{nop, namaWp, letakSp, letakOp, rinciOp, rinciSp, luasTanah, luasBangunan, belumBayar: string[]}>}
+ */
+async function cekNop(nop) {
+  if (!aktif()) throw new ApiError(503, "Cek NOP belum diaktifkan di server.");
+
+  const url = `${config.epbbApiUrl.replace(/\/+$/, "")}/${nop}`;
+  const { res, body, teks } = await minta(url);
 
   // EPBB versi lama membalas NOP tak terdaftar dengan HTTP 404, tetapi server web EPBB
   // mengganti setiap balasan 404 dari PHP dengan halaman login (bukan JSON). URL-nya sendiri
@@ -142,32 +193,12 @@ async function cekNop(nop) {
     throw new ApiError(404, "NOP tidak terdaftar di EPBB.");
   }
 
-  // Balasan bukan JSON = bukan dari api/Nop.php: URL salah (halaman lain) atau PHP/Oracle error.
-  if (!body) {
-    const cuplikan = teks.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
-    console.error(`[Sensus Pajak] EPBB membalas ${res.status} bukan JSON - ${alamatAman(url)}:`, cuplikan);
-    throw new ApiError(
-      502,
-      res.ok
-        ? `Alamat EPBB_API_URL bukan API cek NOP. (HTTP ${res.status})`
-        : `EPBB error saat memproses NOP. Periksa log PHP/Oracle EPBB. (HTTP ${res.status})`
-    );
-  }
+  if (!body) throw galatBukanJson(res, teks, url);
 
   // Api/Nop.php terbaru membalas keduanya dengan HTTP 200 + status; versi lama memakai 404/400.
   if (body.status === "not_found" || res.status === 404) throw new ApiError(404, "NOP tidak terdaftar di EPBB.");
   if (body.status === "invalid" || res.status === 400) throw new ApiError(400, "NOP harus 18 digit.");
-  if (res.status === 401) {
-    console.error("[Sensus Pajak] EPBB menolak kunci API (401).");
-    throw new ApiError(502, "Kunci API ditolak EPBB. Samakan EPBB_API_KEY dengan api_nop_key. (HTTP 401)");
-  }
-  if (res.status === 503) {
-    throw new ApiError(502, "API cek NOP di EPBB belum aktif (api_nop_enabled). (HTTP 503)");
-  }
-  if (!res.ok || body.status !== "ok" || !body.data) {
-    console.error(`[Sensus Pajak] EPBB membalas ${res.status}:`, body.message);
-    throw new ApiError(502, `EPBB sedang bermasalah: ${body.message || "balasan tidak dikenal"} (HTTP ${res.status})`);
-  }
+  if (!res.ok || body.status !== "ok" || !body.data) throw galatBalasan(res, body);
 
   const d = body.data;
   return {
@@ -177,10 +208,7 @@ async function cekNop(nop) {
       ["KEL. ", d.letak_sp?.kelurahan],
       ["", d.letak_sp?.kota],
     ]),
-    letakOp: susunAlamat(d.letak_op, [
-      ["KEL. ", d.letak_op?.kelurahan],
-      ["KEC. ", d.letak_op?.kecamatan],
-    ]),
+    letakOp: letakObjek(d.letak_op),
     // Bagian letak objek pajak untuk pengisian otomatis kolom jalan, RT/RW, dan wilayah.
     // Kode kecamatan & kelurahan diambil dari NOP (digit 5-7 dan 8-10).
     rinciOp: {
@@ -207,4 +235,71 @@ async function cekNop(nop) {
   };
 }
 
-module.exports = { aktif, cekNop, susunAlamat, wilayahSubjek, SUMBER_EPBB, sumberEpbbSah };
+/**
+ * Kata kunci pencarian NOP dari query string, dirapikan. Aturannya sama dengan api/Nop.php
+ * di EPBB, supaya ketikan yang pasti ditolak tidak perlu dikirim ke sana.
+ * @returns {{ nama: string, nik: string, letak: string }}
+ */
+function kunciCariNop(q = {}) {
+  const teks = (v) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, CARI_MAKS_PANJANG) : "");
+  const nama = teks(q.nama);
+  const letak = teks(q.letak);
+  const nik = typeof q.nik === "string" ? q.nik.replace(/\D/g, "") : "";
+  const huruf = (s) => s.replace(/[^a-z0-9]/gi, "").length;
+
+  if (nik && nik.length !== PANJANG_NIK) throw badRequest(`NIK harus ${PANJANG_NIK} digit.`);
+  if ((nama && huruf(nama) < CARI_MIN_HURUF) || (letak && huruf(letak) < CARI_MIN_HURUF)) {
+    throw badRequest(`Nama dan letak objek minimal ${CARI_MIN_HURUF} huruf.`);
+  }
+  if (!nama && !nik && !letak) throw badRequest("Isi nama, NIK, atau letak objek.");
+  return { nama, nik, letak };
+}
+
+/**
+ * Cari objek pajak menurut nama WP, NIK, dan/atau letak objek. Semua kata kunci yang
+ * diisi harus cocok; hasilnya paling banyak 20 baris (api_nop_cari_maks di EPBB).
+ * @param {{ nama: string, nik: string, letak: string }} kunci hasil kunciCariNop()
+ * @returns {Promise<{ hasil: {nop, namaWp, letakOp}[], lebih: boolean }>} lebih = hasilnya terpotong
+ */
+async function cariNop(kunci) {
+  if (!aktif()) throw new ApiError(503, "Cek NOP belum diaktifkan di server.");
+
+  const q = new URLSearchParams();
+  for (const k of ["nama", "nik", "letak"]) if (kunci[k]) q.set(k, kunci[k]);
+  const url = `${urlCari()}?${q}`;
+  const { res, body, teks } = await minta(url);
+
+  // api/Nop.php lama belum punya pencarian: CodeIgniter membalas 404, lalu server web
+  // EPBB menggantinya dengan halaman login.
+  if (!body && res.status === 404) {
+    console.warn(`[Sensus Pajak] EPBB membalas 404 bukan JSON - ${alamatAman(url)}. api/Nop.php belum diperbarui?`);
+    throw new ApiError(
+      502,
+      "Pencarian NOP belum tersedia di EPBB. Unggah api/Nop.php dan M_api_nop.php terbaru ke server EPBB."
+    );
+  }
+  if (!body) throw galatBukanJson(res, teks, url);
+  if (body.status === "invalid") throw badRequest(body.message || "Kata kunci pencarian tidak valid.");
+  if (!res.ok || body.status !== "ok" || !body.data) throw galatBalasan(res, body);
+
+  const hasil = Array.isArray(body.data.hasil) ? body.data.hasil : [];
+  return {
+    hasil: hasil.map((d) => ({
+      nop: String(d.nop || ""),
+      namaWp: bersihkan(d.nama_wp),
+      letakOp: letakObjek(d.letak_op),
+    })),
+    lebih: Boolean(body.data.lebih),
+  };
+}
+
+module.exports = {
+  aktif,
+  cekNop,
+  cariNop,
+  kunciCariNop,
+  susunAlamat,
+  wilayahSubjek,
+  SUMBER_EPBB,
+  sumberEpbbSah,
+};
