@@ -337,9 +337,6 @@ function CariNop({ hidden, onPilih, onClose }) {
             maxLength={60}
           />
         </label>
-        <span className="fk-hint-kecil">
-          Isi salah satu atau lebih; semua yang diisi harus cocok. Nama dan letak minimal {CARI_MIN_HURUF} huruf.
-        </span>
         <div className="fk-dialog-aksi">
           <button type="button" className="fk-btn-ghost" onClick={onClose}>
             Tutup
