@@ -373,20 +373,20 @@ function CariNop({ hidden, onPilih, onClose }) {
                       {rtRw(h)}
                     </span>
                     <span>
-                      <small>Kelurahan</small>
-                      {h.kelurahan || "-"}
-                    </span>
-                    <span>
-                      <small>Kecamatan</small>
-                      {h.kecamatan || "-"}
-                    </span>
-                    <span className="is-lebar">
                       <small>Luas tanah</small>
                       {formatLuas(h.luasTanah)}
                     </span>
                     <span>
                       <small>Luas bangunan</small>
                       {formatLuas(h.luasBangunan)}
+                    </span>
+                    <span className="is-lebar">
+                      <small>Kelurahan</small>
+                      {h.kelurahan || "-"}
+                    </span>
+                    <span>
+                      <small>Kecamatan</small>
+                      {h.kecamatan || "-"}
                     </span>
                   </span>
                 </button>

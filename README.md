@@ -837,7 +837,7 @@ pencarian:
    kecamatan). Semua yang diisi harus cocok. Nama dan letak dicocokkan per kata: `siti aminah`
    menemukan `HJ. SITI NUR AMINAH`. NIK harus persis 16 digit.
 2. Hasilnya tampil 50 objek per halaman, urut nama WP. Tiap objek berisi nama, NOP, jalan, lalu
-   **RT/RW, kelurahan, kecamatan, luas tanah, dan luas bangunan** masing-masing dengan labelnya.
+   dua baris berlabel: **RT/RW, luas tanah, luas bangunan**, lalu **kelurahan, kecamatan**.
    Tombol **Lihat lebih banyak** menambahkan 50 berikutnya ke bawah daftar. Satu pencarian dibatasi
    500 objek; setelah itu petugas diminta menambah kata kunci.
 3. Memilih satu hasil menampilkan informasi lengkapnya seperti tombol **Lihat**. **Kembali**
