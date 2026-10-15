@@ -368,25 +368,29 @@ function CariNop({ hidden, onPilih, onClose }) {
                   <span className="fk-nop-nop">{formatNop(h.nop)}</span>
                   {h.jalanOp && <span className="fk-cari-nop-jalan">{h.jalanOp}</span>}
                   <span className="fk-cari-nop-rinci">
-                    <span>
-                      <small>RT/RW</small>
-                      {rtRw(h)}
+                    <span className="fk-cari-nop-baris is-tiga">
+                      <span>
+                        <small>RT/RW</small>
+                        {rtRw(h)}
+                      </span>
+                      <span>
+                        <small>Luas tanah</small>
+                        {formatLuas(h.luasTanah)}
+                      </span>
+                      <span>
+                        <small>Luas bangunan</small>
+                        {formatLuas(h.luasBangunan)}
+                      </span>
                     </span>
-                    <span>
-                      <small>Luas tanah</small>
-                      {formatLuas(h.luasTanah)}
-                    </span>
-                    <span>
-                      <small>Luas bangunan</small>
-                      {formatLuas(h.luasBangunan)}
-                    </span>
-                    <span className="is-lebar">
-                      <small>Kelurahan</small>
-                      {h.kelurahan || "-"}
-                    </span>
-                    <span>
-                      <small>Kecamatan</small>
-                      {h.kecamatan || "-"}
+                    <span className="fk-cari-nop-baris">
+                      <span>
+                        <small>Kelurahan</small>
+                        {h.kelurahan || "-"}
+                      </span>
+                      <span>
+                        <small>Kecamatan</small>
+                        {h.kecamatan || "-"}
+                      </span>
                     </span>
                   </span>
                 </button>
