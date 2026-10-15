@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { buangEntriSementara } from "../lib/router.js";
+import { useLayarTerlihat } from "../lib/useLayarTerlihat.js";
 
 /**
  * Lembar pilihan dari bawah layar (bottom sheet) untuk HP.
@@ -28,35 +29,17 @@ export default function Sheet({ open, onClose, title, children, tengah = false }
     const overflowLama = html.style.overflow;
     html.style.overflow = "hidden";
 
-    // Keyboard HP tidak memperkecil layar untuk elemen fixed, jadi latar dipasang
-    // tepat di area yang masih terlihat (visualViewport) agar lembar duduk di atas keyboard.
-    // Saat keyboard terbuka (area terlihat jauh lebih pendek dari tinggi penuh), lembar
-    // boleh memakai seluruh ruang di atas keyboard supaya daftar tidak perlu digulir.
-    const vv = window.visualViewport;
-    let tinggiPenuh = Math.max(window.innerHeight, vv?.height || 0);
-    const ikutiLayar = () => {
-      const el = latarRef.current;
-      if (!el || !vv) return;
-      tinggiPenuh = Math.max(tinggiPenuh, vv.height);
-      el.style.top = `${vv.offsetTop}px`;
-      el.style.height = `${vv.height}px`;
-      el.style.bottom = "auto";
-      el.classList.toggle("is-keyboard", vv.height < tinggiPenuh * 0.8);
-    };
-    ikutiLayar();
-    vv?.addEventListener("resize", ikutiLayar);
-    vv?.addEventListener("scroll", ikutiLayar);
-
     return () => {
       window.removeEventListener("popstate", saatKembali);
       document.removeEventListener("keydown", saatTombol);
-      vv?.removeEventListener("resize", ikutiLayar);
-      vv?.removeEventListener("scroll", ikutiLayar);
       html.style.overflow = overflowLama;
       // Ditutup lewat pilihan / tombol Tutup: buang entri riwayat milik lembar ini.
       buangEntriSementara();
     };
   }, [open]);
+
+  // Lembar duduk di atas keyboard HP, tidak tertutup olehnya.
+  useLayarTerlihat(latarRef, open);
 
   if (!open) return null;
 

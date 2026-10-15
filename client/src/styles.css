@@ -1036,6 +1036,8 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-dialog.is-ringkas .fk-dialog-aksi{margin-top:22px;}
   .fk-dialog-aksi > button{flex:1; min-height:48px;}
   .fk-dialog.fk-nop-modal{max-height:92%;}
+  /* Keyboard terbuka: pakai seluruh ruang di atasnya; jarak gestur bawah tertutup keyboard. */
+  .fk-dialog-latar.is-keyboard .fk-dialog.fk-nop-modal{max-height:calc(100% - 8px); padding-bottom:18px;}
   .fk-nop-baris{grid-template-columns:1fr; gap:2px;}
   .fk-cari-nop-form .fk-dialog-aksi{margin-top:8px;}
   .fk-cari-nop-item{min-height:48px; padding:12px 14px;}

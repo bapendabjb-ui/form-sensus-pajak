@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { cekNop, cariNop } from "../api.js";
 import { formatNik, formatNop, hanyaDigit, PANJANG_NIK } from "../lib/format.js";
 import { buangEntriSementara } from "../lib/router.js";
+import { useLayarTerlihat } from "../lib/useLayarTerlihat.js";
+import { useMobile } from "../lib/useMobile.js";
 import { useToast } from "./Toast.jsx";
 
 const formatLuas = (n) => `${Number(n || 0).toLocaleString("id-ID", { maximumFractionDigits: 2 })} m²`;
@@ -31,6 +33,10 @@ export default function ModalCekNop({ nop, onClose, isiEpbb, cari = false, onPak
   const [mengisi, setMengisi] = useState(false);
   const tutupRef = useRef(onClose);
   tutupRef.current = onClose;
+  const latarRef = useRef(null);
+
+  // Pencarian punya kolom isian: modal harus duduk di atas keyboard HP, tidak tertutup olehnya.
+  useLayarTerlihat(latarRef);
 
   const ambil = useCallback(() => {
     if (!nopTampil) return undefined;
@@ -106,7 +112,7 @@ export default function ModalCekNop({ nop, onClose, isiEpbb, cari = false, onPak
   };
 
   return createPortal(
-    <div className="fk-dialog-latar" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fk-dialog-latar" ref={latarRef} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="fk-dialog fk-nop-modal" role="dialog" aria-modal="true" aria-labelledby="fk-nop-judul">
         <h2 className="fk-dialog-judul" id="fk-nop-judul">
           {nopTampil ? "Informasi Objek Pajak" : "Cari NOP di EPBB"}
@@ -228,6 +234,8 @@ export default function ModalCekNop({ nop, onClose, isiEpbb, cari = false, onPak
  * dicocokkan per kata, NIK harus persis. Hasilnya paling banyak 20 baris.
  */
 function CariNop({ hidden, onPilih, onClose }) {
+  // Di HP keyboard yang langsung muncul menutupi separuh isian; biarkan petugas memilih kolomnya.
+  const hp = useMobile();
   const [kunci, setKunci] = useState({ nama: "", nik: "", letak: "" });
   const [hasil, setHasil] = useState({ status: "awal" });
   const hasilRef = useRef(null);
@@ -267,8 +275,9 @@ function CariNop({ hidden, onPilih, onClose }) {
             onChange={ubah("nama")}
             placeholder="Mis. Siti Aminah"
             autoComplete="off"
+            enterKeyHint="search"
             maxLength={60}
-            autoFocus
+            autoFocus={!hp}
           />
         </label>
         <label className="fk-cari-nop-isian">
@@ -280,6 +289,7 @@ function CariNop({ hidden, onPilih, onClose }) {
             placeholder="16 digit"
             inputMode="numeric"
             autoComplete="off"
+            enterKeyHint="search"
           />
         </label>
         <label className="fk-cari-nop-isian">
@@ -290,6 +300,7 @@ function CariNop({ hidden, onPilih, onClose }) {
             onChange={ubah("letak")}
             placeholder="Jalan, kelurahan, atau kecamatan"
             autoComplete="off"
+            enterKeyHint="search"
             maxLength={60}
           />
         </label>
