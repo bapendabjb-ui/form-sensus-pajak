@@ -983,7 +983,7 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 
 ```json
 {
-  "baris": [ { "id": 7, "nomor": "00007", "status": "draft", "petugas": [], "jumlahData": 3, "jumlahTidakLengkap": 1, "lokasiStatus": "kantor" } ],
+  "baris": [ { "id": 7, "nomor": "00007", "status": "draft", "petugas": [], "jumlahData": 3, "jumlahTidakLengkap": 1, "namaData": ["Ahmad Fauzi", "Warung Bu Siti"], "lokasiStatus": "kantor" } ],
   "hal": 1, "per": 20, "total": 137, "adaLagi": true,
   "jumlah": { "semua": 137, "draft": 40, "selesai": 97, "kurang": 12, "lokasi": 5 }
 }
@@ -998,6 +998,10 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 
 Nilai yang tidak masuk akal dibulatkan ke batasnya, bukan ditolak: `per=100000`
 menjadi 100, `hal=0` menjadi 1, dan saringan yang tidak dikenal menjadi `semua`.
+
+`namaData` berisi judul data-data di kertas kerja itu (sama dengan judul di
+"Data terkumpul" pada detail), urut masuk dan tanpa kembar. Kartu daftar
+menampilkan dua yang pertama, sisanya sebagai "+N".
 
 Daftar ini dipaginasi karena tumbuh terus sepanjang umur aplikasi dan tidak
 pernah menyusut. Karena itu **pencarian, penyaringan, dan angka pada tombol

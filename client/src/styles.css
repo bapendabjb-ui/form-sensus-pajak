@@ -82,6 +82,11 @@ body {
 .fk-kk-card-body{flex:1; min-width:0;}
 .fk-lib-title{font-weight:600; font-size:14px;}
 .fk-lib-sub{font-size:12px; color:var(--muted); margin-top:2px;}
+/* nama-nama data di kartu kertas kerja; ikon membedakannya dari nama petugas */
+.fk-kk-nama{display:flex; align-items:center; gap:5px; font-size:13px; margin-top:3px;}
+.fk-kk-nama svg{flex:none; color:var(--muted);}
+.fk-kk-nama .fk-ellipsis{min-width:0;}
+.fk-kk-nama-lain{flex:none; font-size:12px; font-weight:600; color:var(--muted);}
 .fk-pill{font-size:11.5px; font-weight:600; padding:4px 10px; border-radius:20px; white-space:nowrap;}
 .fk-pill.is-draft{background:#FBF0DC; color:var(--amber);}
 .fk-pill.is-done{background:var(--brand-tint); color:var(--brand-dark);}

@@ -90,6 +90,9 @@ export const IconKembali = () => <ChevronLeft size={24} strokeWidth={2.2} aria-h
 
 export const IconLock = () => <Lock size={13} strokeWidth={GARIS} aria-hidden="true" />;
 
+/** Penanda baris nama-nama data di kartu kertas kerja, pembeda dari nama petugas. */
+export const IkonData = () => <FileText size={13} strokeWidth={GARIS} aria-hidden="true" />;
+
 export const CheckIcon = () => <Check size={15} strokeWidth={2} aria-hidden="true" />;
 
 /** Tombol mata pada kolom password: tampilkan / sembunyikan isian. */

@@ -3,9 +3,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-// Ketiganya memang diekspor routes/kertasKerja.js untuk diuji terpisah: murni,
-// dan merekalah yang menentukan baris mana yang ikut terkirim ke klien.
-const { bacaPaginasi, syaratCari, syaratSaring } = require("../src/routes/kertasKerja");
+// Semuanya memang diekspor routes/kertasKerja.js untuk diuji terpisah: murni,
+// dan merekalah yang menentukan apa yang ikut terkirim ke klien.
+const { bacaPaginasi, syaratCari, syaratSaring, susunNamaData } = require("../src/routes/kertasKerja");
 
 /*
  * Paginasi daftar kertas kerja. Query string datang dari klien apa adanya, jadi
@@ -97,4 +97,55 @@ test("syaratSaring memetakan saringan ke syarat database", () => {
   assert.deepEqual(syaratSaring("belumdicek"), { lokasiDicekAt: null, entri: { some: {} } });
   assert.deepEqual(syaratSaring("semua"), {});
   assert.deepEqual(syaratSaring("ngawur"), {});
+});
+
+/*
+ * Nama-nama data di kartu daftar. Judulnya harus sama dengan judul di "Data
+ * terkumpul" pada detail, kalau tidak kartu dan detail menyebut orang berbeda.
+ */
+
+const q = (id, tipe, urutan, wajib = false) => ({ id, tipe, urutan, wajib });
+const jwb = (pertanyaan, nilai) => ({ pertanyaanId: pertanyaan.id, nilai, pertanyaan });
+
+test("susunNamaData memakai judul data per kertas kerja, urut masuk", () => {
+  const nama = q(1, "text", 0, true);
+  const hasil = susunNamaData([
+    { kertasKerjaId: 7, jawaban: [jwb(nama, "Ahmad Fauzi")] },
+    { kertasKerjaId: 8, jawaban: [jwb(nama, "Budi")] },
+    { kertasKerjaId: 7, jawaban: [jwb(nama, " Siti Aminah ")] },
+  ]);
+  assert.deepEqual(hasil.get(7), ["Ahmad Fauzi", "Siti Aminah"]);
+  assert.deepEqual(hasil.get(8), ["Budi"]);
+});
+
+test("susunNamaData mendahulukan pertanyaan wajib, mengikuti urutan formulir", () => {
+  // Jawaban datang tanpa urutan tertentu dari database.
+  const catatan = q(10, "text", 0);
+  const usaha = q(11, "text", 2, true);
+  const pemilik = q(12, "text", 1, true);
+  const hasil = susunNamaData([
+    { kertasKerjaId: 1, jawaban: [jwb(usaha, "Warung Bu Siti"), jwb(catatan, "Tutup"), jwb(pemilik, "Siti")] },
+  ]);
+  assert.deepEqual(hasil.get(1), ["Siti"]);
+});
+
+test("susunNamaData menyebut nama yang sama sekali saja", () => {
+  // Satu wajib pajak yang mengisi dua formulir.
+  const nama = q(1, "text", 0, true);
+  const lain = q(2, "text", 0, true);
+  const hasil = susunNamaData([
+    { kertasKerjaId: 3, jawaban: [jwb(nama, "Ahmad Fauzi")] },
+    { kertasKerjaId: 3, jawaban: [jwb(lain, "AHMAD  FAUZI")] },
+  ]);
+  assert.deepEqual(hasil.get(3), ["Ahmad Fauzi"]);
+});
+
+test("susunNamaData melewati data tanpa judul", () => {
+  const nama = q(1, "text", 0, true);
+  const hasil = susunNamaData([
+    { kertasKerjaId: 4, jawaban: [] },
+    { kertasKerjaId: 4, jawaban: [jwb(nama, "   ")] },
+  ]);
+  assert.equal(hasil.has(4), false, "kartu tanpa nama tidak perlu baris nama");
+  assert.equal(susunNamaData([]).size, 0);
 });

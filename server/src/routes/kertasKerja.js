@@ -17,7 +17,7 @@ const {
 } = require("../entri");
 const { hapusBerkas } = require("../foto");
 const { hapusKertasKerja } = require("../hapus");
-const { includePengajuanTerakhir, bentukPengajuanTerakhir } = require("../pengajuan");
+const { includePengajuanTerakhir, bentukPengajuanTerakhir, TIPE_JUDUL, judulData } = require("../pengajuan");
 const { jawabanLokasiPertama, ringkasLokasiKk, ringkasLokasiEntri, nilaiTitik, gpsTerbaik } = require("../cekLokasi");
 const { perbaruiLokasiKk } = require("../lokasiKk");
 const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require("../bentuk");
@@ -110,7 +110,7 @@ function bentukDetail({ kk, formulir }) {
   };
 }
 
-const bentukRingkas = (k, tidakLengkap) => ({
+const bentukRingkas = (k, tidakLengkap, namaData) => ({
   id: k.id,
   nomor: k.nomor,
   status: k.status,
@@ -118,9 +118,58 @@ const bentukRingkas = (k, tidakLengkap) => ({
   petugas: bentukTim(k.petugas),
   jumlahData: k._count.entri,
   jumlahTidakLengkap: tidakLengkap.get(k.id) || 0,
+  namaData: namaData.get(k.id) || [],
   lokasiStatus: k.lokasiStatus,
   lokasiDicek: Boolean(k.lokasiDicekAt),
 });
+
+/**
+ * Nama-nama data tiap kertas kerja untuk kartu daftar, supaya terlihat siapa
+ * saja yang sudah didata tanpa membuka detailnya. Namanya judul data yang sama
+ * dengan "Data terkumpul" di detail (judulData), urut masuk, tanpa kembar: satu
+ * wajib pajak yang mengisi dua formulir cukup disebut sekali.
+ *
+ * @param {object[]} entri  urut masuk; { kertasKerjaId, jawaban: [{ pertanyaanId, nilai, pertanyaan }] }
+ * @returns {Map<number, string[]>}
+ */
+function susunNamaData(entri) {
+  const perKk = new Map(); // kertasKerjaId -> Map<kunci, judul>
+  for (const e of entri) {
+    // Pertanyaan yang tidak dijawab tidak mungkin menjadi judul, jadi cukup
+    // pertanyaan dari jawaban yang ada - diurutkan seperti di formulir.
+    const pertanyaan = e.jawaban.map((j) => j.pertanyaan).sort((a, b) => a.urutan - b.urutan || a.id - b.id);
+    const judul = judulData(pertanyaan, petaJawaban(e.jawaban));
+    if (!judul) continue;
+
+    if (!perKk.has(e.kertasKerjaId)) perKk.set(e.kertasKerjaId, new Map());
+    const nama = perKk.get(e.kertasKerjaId);
+    const kunci = judul.replace(/\s+/g, " ").toLowerCase();
+    if (!nama.has(kunci)) nama.set(kunci, judul);
+  }
+  return new Map([...perKk].map(([id, nama]) => [id, [...nama.values()]]));
+}
+
+/** Nama-nama data kertas kerja di satu halaman daftar (lihat susunNamaData). */
+async function muatNamaData(kkIds) {
+  if (!kkIds.length) return new Map();
+  const entri = await prisma.entri.findMany({
+    where: { kertasKerjaId: { in: kkIds } },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: {
+      kertasKerjaId: true,
+      // Hanya jawaban yang bisa menjadi judul; foto, lokasi, dan tarif tidak perlu ditarik.
+      jawaban: {
+        where: { pertanyaan: { tipe: { in: [...TIPE_JUDUL] } } },
+        select: {
+          pertanyaanId: true,
+          nilai: true,
+          pertanyaan: { select: { id: true, tipe: true, wajib: true, urutan: true } },
+        },
+      },
+    },
+  });
+  return susunNamaData(entri);
+}
 
 /* ---------- daftar & penomoran ---------- */
 
@@ -233,10 +282,11 @@ router.get(
       hitung(syaratSaring("belumdicek")),
     ]);
 
-    const tidakLengkap = await hitungTidakLengkap(list.map((k) => k.id));
+    const ids = list.map((k) => k.id);
+    const [tidakLengkap, namaData] = await Promise.all([hitungTidakLengkap(ids), muatNamaData(ids)]);
 
     res.json({
-      baris: list.map((k) => bentukRingkas(k, tidakLengkap)),
+      baris: list.map((k) => bentukRingkas(k, tidakLengkap, namaData)),
       hal,
       per,
       total,
@@ -620,8 +670,9 @@ router.get(
 
 module.exports = router;
 
-// Diekspor untuk diuji terpisah: ketiganya murni dan menentukan baris mana yang
-// ikut terkirim, sementara query di atas perlu database.
+// Diekspor untuk diuji terpisah: semuanya murni dan menentukan apa yang ikut
+// terkirim, sementara query di atas perlu database.
 module.exports.bacaPaginasi = bacaPaginasi;
 module.exports.syaratCari = syaratCari;
 module.exports.syaratSaring = syaratSaring;
+module.exports.susunNamaData = susunNamaData;

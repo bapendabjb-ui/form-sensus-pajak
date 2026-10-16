@@ -5,6 +5,7 @@ import * as api from "../../api.js";
 import { useToast } from "../../components/Toast.jsx";
 import { useDialog } from "../../components/Dialog.jsx";
 import { PageHead, Loading, ErrorBox, Empty, StatusPill, BerkasPill } from "../../components/Ui.jsx";
+import { IkonData } from "../../components/Icons.jsx";
 import { formatWaktu } from "../../lib/format.js";
 import {
   FILTER_KK,
@@ -36,6 +37,25 @@ function timDepanCocok(petugas, cari) {
   if (kata.length === 0) return petugas;
   const cocok = (p) => kata.some((w) => p.nama.toLowerCase().includes(w));
   return [...petugas.filter(cocok), ...petugas.filter((p) => !cocok(p))];
+}
+
+/** Nama data yang disebut di kartu; sisanya cukup dihitung ("+3"). */
+const NAMA_TAMPIL = 2;
+
+/**
+ * Siapa saja yang sudah didata di kertas kerja ini - judul data yang sama
+ * dengan "Data terkumpul" di detail. "+N" di luar elipsis supaya tidak ikut
+ * terpotong oleh nama yang panjang.
+ */
+function NamaData({ nama }) {
+  const lain = nama.length - NAMA_TAMPIL;
+  return (
+    <div className="fk-kk-nama" title={nama.join(", ")}>
+      <IkonData />
+      <span className="fk-ellipsis">{nama.slice(0, NAMA_TAMPIL).join(", ")}</span>
+      {lain > 0 && <span className="fk-kk-nama-lain">+{lain}</span>}
+    </div>
+  );
 }
 
 const KOSONG = {
@@ -266,6 +286,7 @@ export function DaftarKertasKerja() {
                     <span className="fk-nomor">{k.nomor}</span>
                     <div className="fk-kk-card-body">
                       <div className="fk-lib-title fk-ellipsis">{ringkasTim(timDepanCocok(k.petugas, cariKirim))}</div>
+                      {k.namaData?.length > 0 && <NamaData nama={k.namaData} />}
                       <div className="fk-lib-sub fk-ellipsis">
                         {k.jumlahData} data · {formatWaktu(k.createdAt)}
                       </div>
