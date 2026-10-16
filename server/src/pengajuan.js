@@ -87,7 +87,6 @@ const bentukPengajuanTerakhir = (rows = []) => (rows[0] ? bentukPengajuan(rows[0
 module.exports = {
   ALASAN_MAKS,
   bacaPengajuan,
-  TIPE_JUDUL,
   judulData,
   judulPengajuanData,
   bentukPengajuan,

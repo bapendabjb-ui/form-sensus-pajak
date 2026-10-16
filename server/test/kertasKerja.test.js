@@ -100,52 +100,77 @@ test("syaratSaring memetakan saringan ke syarat database", () => {
 });
 
 /*
- * Nama-nama data di kartu daftar. Judulnya harus sama dengan judul di "Data
- * terkumpul" pada detail, kalau tidak kartu dan detail menyebut orang berbeda.
+ * Nama orang di kartu daftar. Labelnya diambil dari formulir di server kantor:
+ * pertanyaan wajib pertama di sana bukan nama (alamat, status WP, nama usaha),
+ * jadi nama harus dikenali dari pertanyaannya sendiri.
  */
 
-const q = (id, tipe, urutan, wajib = false) => ({ id, tipe, urutan, wajib });
-const jwb = (pertanyaan, nilai) => ({ pertanyaanId: pertanyaan.id, nilai, pertanyaan });
+const q = (id, label, urutan, lain = {}) => ({ id, tipe: "text", label, urutan, isiEpbb: "", ...lain });
+const jwb = (pertanyaan, nilai) => ({ nilai, pertanyaan });
 
-test("susunNamaData memakai judul data per kertas kerja, urut masuk", () => {
-  const nama = q(1, "text", 0, true);
+test("susunNamaData mengambil nama orang, bukan alamat atau status", () => {
+  // PBB-P2: alamat objek wajib dan lebih dulu; nama subjek bersumber EPBB "Nama WP".
+  const alamat = q(9, "Alamat Objek Pajak", 1, { tipe: "paragraph" });
+  const listrik = q(13, "Daya Listrik", 5);
+  const subjek = q(52, "Nama Subjek Pajak", 7, { isiEpbb: "nama_wp" });
+  // Identitas Wajib Pajak: status (radio) bernilai "Pemilik".
+  const namaWp = q(53, "Nama Wajib Pajak", 1);
+  const status = q(2, "Status Wajib Pajak", 2, { tipe: "radio" });
+
   const hasil = susunNamaData([
-    { kertasKerjaId: 7, jawaban: [jwb(nama, "Ahmad Fauzi")] },
-    { kertasKerjaId: 8, jawaban: [jwb(nama, "Budi")] },
-    { kertasKerjaId: 7, jawaban: [jwb(nama, " Siti Aminah ")] },
+    { kertasKerjaId: 1, jawaban: [jwb(alamat, "JL HIMALAYA No 04"), jwb(listrik, "900"), jwb(subjek, "SUGIMAN")] },
+    { kertasKerjaId: 2, jawaban: [jwb(status, "Pemilik"), jwb(namaWp, " Siti Aminah ")] },
   ]);
-  assert.deepEqual(hasil.get(7), ["Ahmad Fauzi", "Siti Aminah"]);
-  assert.deepEqual(hasil.get(8), ["Budi"]);
+  assert.deepEqual(hasil.get(1), ["SUGIMAN"]);
+  assert.deepEqual(hasil.get(2), ["Siti Aminah"]);
 });
 
-test("susunNamaData mendahulukan pertanyaan wajib, mengikuti urutan formulir", () => {
-  // Jawaban datang tanpa urutan tertentu dari database.
-  const catatan = q(10, "text", 0);
-  const usaha = q(11, "text", 2, true);
-  const pemilik = q(12, "text", 1, true);
+test("susunNamaData mendahulukan pemilik daripada nama usaha", () => {
+  const usaha = q(23, "Nama Usaha", 0);
+  const pemilik = q(24, "Nama Pemilik", 1);
+  const kendaraan = q(19, "Tanda Nomor Kendaraan Bermotor", 0);
+  const terakhir = q(20, "Pemilik Terakhir", 1);
   const hasil = susunNamaData([
-    { kertasKerjaId: 1, jawaban: [jwb(usaha, "Warung Bu Siti"), jwb(catatan, "Tutup"), jwb(pemilik, "Siti")] },
+    // Jawaban datang dari database tanpa urutan tertentu.
+    { kertasKerjaId: 4, jawaban: [jwb(pemilik, "Budi"), jwb(usaha, "Warung Bu Siti")] },
+    { kertasKerjaId: 4, jawaban: [jwb(kendaraan, "DA 1234 XY"), jwb(terakhir, "Ani")] },
   ]);
-  assert.deepEqual(hasil.get(1), ["Siti"]);
+  assert.deepEqual(hasil.get(4), ["Budi", "Ani"]);
 });
 
-test("susunNamaData menyebut nama yang sama sekali saja", () => {
-  // Satu wajib pajak yang mengisi dua formulir.
-  const nama = q(1, "text", 0, true);
-  const lain = q(2, "text", 0, true);
+test("susunNamaData memakai pertanyaan nama pertama yang terisi", () => {
+  const pertama = q(1, "Nama Wajib Pajak", 0);
+  const kedua = q(2, "Nama Penanggung Jawab", 1);
   const hasil = susunNamaData([
-    { kertasKerjaId: 3, jawaban: [jwb(nama, "Ahmad Fauzi")] },
-    { kertasKerjaId: 3, jawaban: [jwb(lain, "AHMAD  FAUZI")] },
+    { kertasKerjaId: 5, jawaban: [jwb(kedua, "Cici"), jwb(pertama, "Ahmad")] },
+    { kertasKerjaId: 6, jawaban: [jwb(kedua, "Cici"), jwb(pertama, "  ")] },
   ]);
-  assert.deepEqual(hasil.get(3), ["Ahmad Fauzi"]);
+  assert.deepEqual(hasil.get(5), ["Ahmad"]);
+  assert.deepEqual(hasil.get(6), ["Cici"]);
 });
 
-test("susunNamaData melewati data tanpa judul", () => {
-  const nama = q(1, "text", 0, true);
+test("susunNamaData menyebut nama yang sama sekali saja, urut masuk", () => {
+  // Satu wajib pajak yang mengisi PBB-P2 lalu Identitas Wajib Pajak.
+  const subjek = q(52, "Nama Subjek Pajak", 7, { isiEpbb: "nama_wp" });
+  const namaWp = q(53, "Nama Wajib Pajak", 1);
   const hasil = susunNamaData([
-    { kertasKerjaId: 4, jawaban: [] },
-    { kertasKerjaId: 4, jawaban: [jwb(nama, "   ")] },
+    { kertasKerjaId: 3, jawaban: [jwb(subjek, "SUGIMAN")] },
+    { kertasKerjaId: 3, jawaban: [jwb(namaWp, "Sugiman")] },
+    { kertasKerjaId: 3, jawaban: [jwb(namaWp, "Budi  Santoso")] },
+    { kertasKerjaId: 3, jawaban: [jwb(namaWp, "budi santoso")] },
   ]);
-  assert.equal(hasil.has(4), false, "kartu tanpa nama tidak perlu baris nama");
+  assert.deepEqual(hasil.get(3), ["SUGIMAN", "Budi  Santoso"]);
+});
+
+test("susunNamaData melewati data tanpa nama orang", () => {
+  const namaWp = q(53, "Nama Wajib Pajak", 1);
+  const tempat = q(60, "Nama Tempat / Objek", 0);
+  const alamatPemilik = q(61, "Alamat Pemilik", 2);
+  const hasil = susunNamaData([
+    { kertasKerjaId: 8, jawaban: [] },
+    { kertasKerjaId: 8, jawaban: [jwb(namaWp, "   ")] },
+    { kertasKerjaId: 8, jawaban: [jwb(tempat, "Kolam Renang Indah"), jwb(alamatPemilik, "Jl. Mawar 3")] },
+  ]);
+  assert.equal(hasil.has(8), false, "kartu tanpa nama orang tidak perlu baris nama");
   assert.equal(susunNamaData([]).size, 0);
 });

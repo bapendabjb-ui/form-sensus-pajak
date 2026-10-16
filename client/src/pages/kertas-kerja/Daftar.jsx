@@ -43,9 +43,9 @@ function timDepanCocok(petugas, cari) {
 const NAMA_TAMPIL = 2;
 
 /**
- * Siapa saja yang sudah didata di kertas kerja ini - judul data yang sama
- * dengan "Data terkumpul" di detail. "+N" di luar elipsis supaya tidak ikut
- * terpotong oleh nama yang panjang.
+ * Siapa saja yang sudah didata di kertas kerja ini - nama wajib pajak/pemilik
+ * dari tiap data (lihat susunNamaData di server). "+N" di luar elipsis supaya
+ * tidak ikut terpotong oleh nama yang panjang.
  */
 function NamaData({ nama }) {
   const lain = nama.length - NAMA_TAMPIL;

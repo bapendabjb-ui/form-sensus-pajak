@@ -999,9 +999,12 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 Nilai yang tidak masuk akal dibulatkan ke batasnya, bukan ditolak: `per=100000`
 menjadi 100, `hal=0` menjadi 1, dan saringan yang tidak dikenal menjadi `semua`.
 
-`namaData` berisi judul data-data di kertas kerja itu (sama dengan judul di
-"Data terkumpul" pada detail), urut masuk dan tanpa kembar. Kartu daftar
-menampilkan dua yang pertama, sisanya sebagai "+N".
+`namaData` berisi nama orang yang sudah didata di kertas kerja itu, urut masuk
+dan tanpa kembar (huruf besar-kecil tidak dibedakan). Tiap data menyumbang
+jawaban pertanyaan nama pertama yang terisi: pertanyaan teks bersumber EPBB
+"Nama WP", atau yang labelnya memuat "nama"/"pemilik" tetapi tidak memuat
+"usaha", "alamat", "tempat", atau "objek". Data tanpa nama orang dilewati.
+Kartu daftar menampilkan dua nama pertama, sisanya sebagai "+N".
 
 Daftar ini dipaginasi karena tumbuh terus sepanjang umur aplikasi dan tidak
 pernah menyusut. Karena itu **pencarian, penyaringan, dan angka pada tombol

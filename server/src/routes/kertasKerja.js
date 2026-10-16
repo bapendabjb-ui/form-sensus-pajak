@@ -17,7 +17,7 @@ const {
 } = require("../entri");
 const { hapusBerkas } = require("../foto");
 const { hapusKertasKerja } = require("../hapus");
-const { includePengajuanTerakhir, bentukPengajuanTerakhir, TIPE_JUDUL, judulData } = require("../pengajuan");
+const { includePengajuanTerakhir, bentukPengajuanTerakhir } = require("../pengajuan");
 const { jawabanLokasiPertama, ringkasLokasiKk, ringkasLokasiEntri, nilaiTitik, gpsTerbaik } = require("../cekLokasi");
 const { perbaruiLokasiKk } = require("../lokasiKk");
 const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require("../bentuk");
@@ -123,30 +123,44 @@ const bentukRingkas = (k, tidakLengkap, namaData) => ({
   lokasiDicek: Boolean(k.lokasiDicekAt),
 });
 
+/*
+ * Pertanyaan yang berisi nama orang: bersumber EPBB "Nama WP", atau berlabel
+ * seperti "Nama Wajib Pajak", "Nama Pemilik", "Pemilik Terakhir". Dikenali
+ * lewat label karena judul data (judulData) tidak cocok untuk ini: pertanyaan
+ * wajib pertama di formulir yang ada adalah alamat objek (PBB-P2), status WP
+ * (Identitas Wajib Pajak), atau nama usaha (PBJT) - bukan nama orangnya.
+ */
+const LABEL_NAMA = /\b(nama|pemilik)\b/i;
+const LABEL_BUKAN_NAMA = /\b(usaha|alamat|tempat|objek)\b/i;
+
+const pertanyaanNama = (q) =>
+  q.tipe === "text" && (q.isiEpbb === "nama_wp" || (LABEL_NAMA.test(q.label) && !LABEL_BUKAN_NAMA.test(q.label)));
+
 /**
- * Nama-nama data tiap kertas kerja untuk kartu daftar, supaya terlihat siapa
- * saja yang sudah didata tanpa membuka detailnya. Namanya judul data yang sama
- * dengan "Data terkumpul" di detail (judulData), urut masuk, tanpa kembar: satu
- * wajib pajak yang mengisi dua formulir cukup disebut sekali.
+ * Nama orang yang sudah didata di tiap kertas kerja, untuk kartu daftar:
+ * diambil dari pertanyaan nama pertama yang terisi di tiap data, urut masuk,
+ * tanpa kembar - "SUGIMAN" di PBB-P2 dan "Sugiman" di Identitas Wajib Pajak
+ * cukup disebut sekali. Data tanpa nama orang dilewati; lebih baik tidak
+ * disebut daripada alamat yang terbaca seperti nama.
  *
- * @param {object[]} entri  urut masuk; { kertasKerjaId, jawaban: [{ pertanyaanId, nilai, pertanyaan }] }
+ * @param {object[]} entri  urut masuk; { kertasKerjaId, jawaban: [{ nilai, pertanyaan }] }
  * @returns {Map<number, string[]>}
  */
 function susunNamaData(entri) {
-  const perKk = new Map(); // kertasKerjaId -> Map<kunci, judul>
+  const perKk = new Map(); // kertasKerjaId -> Map<kunci, nama>
   for (const e of entri) {
-    // Pertanyaan yang tidak dijawab tidak mungkin menjadi judul, jadi cukup
-    // pertanyaan dari jawaban yang ada - diurutkan seperti di formulir.
-    const pertanyaan = e.jawaban.map((j) => j.pertanyaan).sort((a, b) => a.urutan - b.urutan || a.id - b.id);
-    const judul = judulData(pertanyaan, petaJawaban(e.jawaban));
-    if (!judul) continue;
+    const isi = e.jawaban
+      .filter((j) => pertanyaanNama(j.pertanyaan) && typeof j.nilai === "string" && j.nilai.trim())
+      .sort((a, b) => a.pertanyaan.urutan - b.pertanyaan.urutan || a.pertanyaan.id - b.pertanyaan.id)[0];
+    if (!isi) continue;
 
+    const nama = isi.nilai.trim();
+    const kunci = nama.replace(/\s+/g, " ").toLowerCase();
     if (!perKk.has(e.kertasKerjaId)) perKk.set(e.kertasKerjaId, new Map());
-    const nama = perKk.get(e.kertasKerjaId);
-    const kunci = judul.replace(/\s+/g, " ").toLowerCase();
-    if (!nama.has(kunci)) nama.set(kunci, judul);
+    const daftar = perKk.get(e.kertasKerjaId);
+    if (!daftar.has(kunci)) daftar.set(kunci, nama);
   }
-  return new Map([...perKk].map(([id, nama]) => [id, [...nama.values()]]));
+  return new Map([...perKk].map(([id, daftar]) => [id, [...daftar.values()]]));
 }
 
 /** Nama-nama data kertas kerja di satu halaman daftar (lihat susunNamaData). */
@@ -157,13 +171,12 @@ async function muatNamaData(kkIds) {
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     select: {
       kertasKerjaId: true,
-      // Hanya jawaban yang bisa menjadi judul; foto, lokasi, dan tarif tidak perlu ditarik.
+      // Nama selalu pertanyaan teks; foto, lokasi, dan tarif tidak perlu ditarik.
       jawaban: {
-        where: { pertanyaan: { tipe: { in: [...TIPE_JUDUL] } } },
+        where: { pertanyaan: { tipe: "text" } },
         select: {
-          pertanyaanId: true,
           nilai: true,
-          pertanyaan: { select: { id: true, tipe: true, wajib: true, urutan: true } },
+          pertanyaan: { select: { id: true, tipe: true, label: true, isiEpbb: true, urutan: true } },
         },
       },
     },
