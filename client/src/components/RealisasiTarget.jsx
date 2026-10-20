@@ -88,8 +88,8 @@ const LABEL_GRAFIK = {
 };
 
 /**
- * Grafik realisasi: batang per hari / per bulan, atau garis kumulatif sejak
- * hari pertama. Arahkan kursor / sentuh / panah kiri-kanan untuk melihat angkanya.
+ * Grafik realisasi: batang per hari, garis per bulan, atau garis kumulatif
+ * sejak hari pertama. Arahkan kursor / sentuh / panah kiri-kanan untuk melihat angkanya.
  */
 function Grafik({ titik, mode, hariIni }) {
   const wadah = useRef(null);
@@ -104,7 +104,7 @@ function Grafik({ titik, mode, hariIni }) {
 
   const kiri = Math.max(...tik.map((v) => ringkas.format(v).length)) * 6.6 + 10;
   const lebarPlot = Math.max(1, lebar - kiri - KANAN);
-  // Bulanan memasang angka di atas batang; batang tertinggi butuh ruang untuknya.
+  // Bulanan memasang angka di atas titik; titik tertinggi butuh ruang untuknya.
   const ruangAtas = bulanan ? 22 : ATAS;
   const tinggiPlot = TINGGI - ruangAtas - BAWAH;
   const dasar = ruangAtas + tinggiPlot;
@@ -176,30 +176,37 @@ function Grafik({ titik, mode, hariIni }) {
             </text>
           ))}
 
-          {!kumulatif ? (
+          {mode === "harian" ? (
             nilai.map((v, i) => {
               if (v <= 0) return null;
               const w = Math.min(24, Math.max(1, pita - 2));
               return (
-                <g key={titik[i].tanggal}>
-                  <path
-                    d={batang(x(i) - w / 2, y(v), w, dasar - y(v))}
-                    className={"fk-grafik-batang" + (i === aktif ? " is-aktif" : "")}
-                  />
-                  {bulanan && pita >= 48 && (
-                    <text x={x(i)} y={y(v) - 6} textAnchor="middle" className="fk-grafik-nilai">
-                      {angka(v)}
-                    </text>
-                  )}
-                </g>
+                <path
+                  key={titik[i].tanggal}
+                  d={batang(x(i) - w / 2, y(v), w, dasar - y(v))}
+                  className={"fk-grafik-batang" + (i === aktif ? " is-aktif" : "")}
+                />
               );
             })
           ) : (
             <>
-              <path d={area} className="fk-grafik-area" />
+              {kumulatif && <path d={area} className="fk-grafik-area" />}
               <path d={garis} className="fk-grafik-garis" />
               {aktif !== null && <line x1={x(aktif)} x2={x(aktif)} y1={ruangAtas} y2={dasar} className="fk-grafik-silang" />}
-              <circle cx={x(aktif ?? n - 1)} cy={y(nilai[aktif ?? n - 1])} r={4} className="fk-grafik-titik" />
+              {kumulatif ? (
+                <circle cx={x(aktif ?? n - 1)} cy={y(nilai[aktif ?? n - 1])} r={4} className="fk-grafik-titik" />
+              ) : (
+                nilai.map((v, i) => (
+                  <g key={titik[i].tanggal}>
+                    <circle cx={x(i)} cy={y(v)} r={i === aktif ? 5 : 4} className="fk-grafik-titik" />
+                    {pita >= 48 && (
+                      <text x={x(i)} y={y(v) - 10} textAnchor="middle" className="fk-grafik-nilai">
+                        {angka(v)}
+                      </text>
+                    )}
+                  </g>
+                ))
+              )}
             </>
           )}
 
