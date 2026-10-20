@@ -93,6 +93,7 @@ body {
 .fk-grafik-dasar{stroke:var(--line); stroke-width:1;}
 .fk-grafik-batang{fill:var(--brand);}
 .fk-grafik-batang.is-aktif{fill:var(--brand-dark);}
+.fk-grafik-nilai{font-size:11px; font-weight:600; fill:var(--ink); font-variant-numeric:tabular-nums;}
 .fk-grafik-area{fill:var(--brand); fill-opacity:.1;}
 .fk-grafik-garis{fill:none; stroke:var(--brand); stroke-width:2; stroke-linejoin:round; stroke-linecap:round;}
 .fk-grafik-silang{stroke:var(--faint); stroke-width:1;}

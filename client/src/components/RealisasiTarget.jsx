@@ -18,6 +18,22 @@ const fmtPendek = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "sho
 const fmtLengkap = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 const fmtHari = new Intl.DateTimeFormat("id-ID", { weekday: "short", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 const fmtBulan = new Intl.DateTimeFormat("id-ID", { month: "short", year: "numeric", timeZone: "UTC" });
+const fmtBulanPanjang = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" });
+
+/** Deret harian -> deret bulanan; `kumulatif` = jumlah sampai akhir bulan itu (atau hari ini). */
+function perBulan(harian) {
+  const bulan = [];
+  for (const h of harian) {
+    const akhir = bulan[bulan.length - 1];
+    if (akhir && akhir.tanggal.slice(0, 7) === h.tanggal.slice(0, 7)) {
+      akhir.jumlah += h.jumlah;
+      akhir.kumulatif = h.kumulatif;
+    } else {
+      bulan.push({ tanggal: `${h.tanggal.slice(0, 7)}-01`, jumlah: h.jumlah, kumulatif: h.kumulatif });
+    }
+  }
+  return bulan;
+}
 
 function persen(nilai, target) {
   const p = (nilai / target) * 100;
@@ -65,31 +81,40 @@ function useLebar(ref) {
   return lebar;
 }
 
+const LABEL_GRAFIK = {
+  harian: "Grafik kertas kerja per hari. Gunakan panah kiri dan kanan untuk membaca per tanggal.",
+  bulanan: "Grafik kertas kerja per bulan. Gunakan panah kiri dan kanan untuk membaca per bulan.",
+  kumulatif: "Grafik jumlah kumulatif kertas kerja. Gunakan panah kiri dan kanan untuk membaca per tanggal.",
+};
+
 /**
- * Grafik realisasi: batang per hari, atau garis kumulatif sejak hari pertama.
- * Arahkan kursor / sentuh / panah kiri-kanan untuk melihat angka per tanggal.
+ * Grafik realisasi: batang per hari / per bulan, atau garis kumulatif sejak
+ * hari pertama. Arahkan kursor / sentuh / panah kiri-kanan untuk melihat angkanya.
  */
-function Grafik({ titik, mode }) {
+function Grafik({ titik, mode, hariIni }) {
   const wadah = useRef(null);
   const lebar = useLebar(wadah);
   const [aktif, setAktif] = useState(null);
 
-  const harian = mode === "harian";
-  const nilai = titik.map((t) => (harian ? t.jumlah : t.kumulatif));
+  const kumulatif = mode === "kumulatif";
+  const bulanan = mode === "bulanan";
+  const nilai = titik.map((t) => (kumulatif ? t.kumulatif : t.jumlah));
   const n = titik.length;
   const { atas, tik } = skalaY(Math.max(...nilai));
 
   const kiri = Math.max(...tik.map((v) => ringkas.format(v).length)) * 6.6 + 10;
   const lebarPlot = Math.max(1, lebar - kiri - KANAN);
-  const tinggiPlot = TINGGI - ATAS - BAWAH;
-  const dasar = ATAS + tinggiPlot;
+  // Bulanan memasang angka di atas batang; batang tertinggi butuh ruang untuknya.
+  const ruangAtas = bulanan ? 22 : ATAS;
+  const tinggiPlot = TINGGI - ruangAtas - BAWAH;
+  const dasar = ruangAtas + tinggiPlot;
   const y = (v) => dasar - (v / atas) * tinggiPlot;
   const pita = lebarPlot / n;
-  const x = (i) => (harian ? kiri + (i + 0.5) * pita : n === 1 ? kiri + lebarPlot / 2 : kiri + (i * lebarPlot) / (n - 1));
+  const x = (i) => (!kumulatif ? kiri + (i + 0.5) * pita : n === 1 ? kiri + lebarPlot / 2 : kiri + (i * lebarPlot) / (n - 1));
 
   const pilihDari = (e) => {
     const px = e.clientX - e.currentTarget.getBoundingClientRect().left;
-    const i = harian ? Math.floor((px - kiri) / pita) : n === 1 ? 0 : Math.round(((px - kiri) / lebarPlot) * (n - 1));
+    const i = !kumulatif ? Math.floor((px - kiri) / pita) : n === 1 ? 0 : Math.round(((px - kiri) / lebarPlot) * (n - 1));
     setAktif(Math.min(n - 1, Math.max(0, i)));
   };
 
@@ -100,10 +125,25 @@ function Grafik({ titik, mode }) {
     setAktif((a) => Math.min(n - 1, Math.max(0, (a ?? n - 1) + geser)));
   };
 
-  // Label tanggal: awal, tengah, akhir - cukup untuk membaca rentang tanpa berdesakan.
-  const labelX = n === 1 ? [0] : n >= 5 && lebar > 300 ? [0, Math.floor((n - 1) / 2), n - 1] : [0, n - 1];
-  const jangkar = (i) => (n === 1 ? "middle" : i === 0 ? "start" : i === n - 1 ? "end" : "middle");
-  const posLabel = (i) => (n === 1 ? x(0) : i === 0 ? kiri : i === n - 1 ? kiri + lebarPlot : x(i));
+  // Bulanan: tiap bulan diberi label bila muat. Selebihnya awal, tengah, akhir -
+  // cukup untuk membaca rentang tanpa berdesakan.
+  const semuaLabel = bulanan && pita >= 64;
+  const labelX = semuaLabel
+    ? titik.map((_, i) => i)
+    : n === 1
+      ? [0]
+      : n >= 5 && lebar > 300
+        ? [0, Math.floor((n - 1) / 2), n - 1]
+        : [0, n - 1];
+  const jangkar = (i) => (semuaLabel || n === 1 ? "middle" : i === 0 ? "start" : i === n - 1 ? "end" : "middle");
+  const posLabel = (i) => (semuaLabel || n === 1 ? x(i) : i === 0 ? kiri : i === n - 1 ? kiri + lebarPlot : x(i));
+  const teksX = (iso) => (bulanan ? fmtBulan : fmtPendek).format(keTanggal(iso));
+  // Bulan berjalan belum genap; tooltip menyebut sampai tanggal berapa.
+  const judulTip = (iso) =>
+    bulanan
+      ? fmtBulanPanjang.format(keTanggal(iso)) +
+        (iso.slice(0, 7) === hariIni.slice(0, 7) ? `, s.d. ${fmtPendek.format(keTanggal(hariIni))}` : "")
+      : fmtHari.format(keTanggal(iso));
 
   const garis = nilai.map((v, i) => `${i ? "L" : "M"}${x(i)},${y(v)}`).join("");
   const area = `${garis}L${x(n - 1)},${dasar}L${x(0)},${dasar}Z`;
@@ -115,11 +155,7 @@ function Grafik({ titik, mode }) {
       className="fk-grafik"
       tabIndex={0}
       role="group"
-      aria-label={
-        harian
-          ? "Grafik kertas kerja per hari. Gunakan panah kiri dan kanan untuk membaca per tanggal."
-          : "Grafik jumlah kumulatif kertas kerja. Gunakan panah kiri dan kanan untuk membaca per tanggal."
-      }
+      aria-label={LABEL_GRAFIK[mode]}
       onKeyDown={tombol}
       onFocus={() => setAktif((a) => a ?? n - 1)}
       onBlur={() => setAktif(null)}
@@ -136,27 +172,33 @@ function Grafik({ titik, mode }) {
           ))}
           {labelX.map((i) => (
             <text key={i} x={posLabel(i)} y={TINGGI - 6} textAnchor={jangkar(i)} className="fk-grafik-sumbu">
-              {fmtPendek.format(keTanggal(titik[i].tanggal))}
+              {teksX(titik[i].tanggal)}
             </text>
           ))}
 
-          {harian ? (
+          {!kumulatif ? (
             nilai.map((v, i) => {
               if (v <= 0) return null;
               const w = Math.min(24, Math.max(1, pita - 2));
               return (
-                <path
-                  key={titik[i].tanggal}
-                  d={batang(x(i) - w / 2, y(v), w, dasar - y(v))}
-                  className={"fk-grafik-batang" + (i === aktif ? " is-aktif" : "")}
-                />
+                <g key={titik[i].tanggal}>
+                  <path
+                    d={batang(x(i) - w / 2, y(v), w, dasar - y(v))}
+                    className={"fk-grafik-batang" + (i === aktif ? " is-aktif" : "")}
+                  />
+                  {bulanan && pita >= 48 && (
+                    <text x={x(i)} y={y(v) - 6} textAnchor="middle" className="fk-grafik-nilai">
+                      {angka(v)}
+                    </text>
+                  )}
+                </g>
               );
             })
           ) : (
             <>
               <path d={area} className="fk-grafik-area" />
               <path d={garis} className="fk-grafik-garis" />
-              {aktif !== null && <line x1={x(aktif)} x2={x(aktif)} y1={ATAS} y2={dasar} className="fk-grafik-silang" />}
+              {aktif !== null && <line x1={x(aktif)} x2={x(aktif)} y1={ruangAtas} y2={dasar} className="fk-grafik-silang" />}
               <circle cx={x(aktif ?? n - 1)} cy={y(nilai[aktif ?? n - 1])} r={4} className="fk-grafik-titik" />
             </>
           )}
@@ -180,9 +222,9 @@ function Grafik({ titik, mode }) {
           style={x(aktif) < lebar / 2 ? { left: x(aktif) + 12 } : { right: lebar - x(aktif) + 12 }}
           aria-live="polite"
         >
-          <b>{angka(harian ? t.jumlah : t.kumulatif)} kertas kerja</b>
-          <span>{fmtHari.format(keTanggal(t.tanggal))}</span>
-          <span>{harian ? `Kumulatif ${angka(t.kumulatif)}` : `+${angka(t.jumlah)} hari itu`}</span>
+          <b>{angka(kumulatif ? t.kumulatif : t.jumlah)} kertas kerja</b>
+          <span>{judulTip(t.tanggal)}</span>
+          <span>{kumulatif ? `+${angka(t.jumlah)} hari itu` : `Kumulatif ${angka(t.kumulatif)}`}</span>
         </div>
       )}
     </div>
@@ -199,15 +241,15 @@ export default function RealisasiTarget({ realisasi }) {
   const laju = harian.slice(-HARI_LAJU).reduce((s, h) => s + h.jumlah, 0) / HARI_LAJU;
   const lebarIsi = Math.min(100, (jumlah / target) * 100);
 
-  const titik = mode === "harian" ? harian.slice(-HARI_BATANG) : harian;
-  const keterangan =
-    mode === "harian"
-      ? harian.length > HARI_BATANG
-        ? `Kertas kerja baru per hari, ${HARI_BATANG} hari terakhir`
-        : "Kertas kerja baru per hari"
-      : harian.length
-        ? `Jumlah kertas kerja sejak ${fmtLengkap.format(keTanggal(harian[0].tanggal))}`
-        : "Jumlah kertas kerja";
+  const titik = mode === "harian" ? harian.slice(-HARI_BATANG) : mode === "bulanan" ? perBulan(harian) : harian;
+  const keterangan = {
+    harian:
+      harian.length > HARI_BATANG ? `Kertas kerja baru per hari, ${HARI_BATANG} hari terakhir` : "Kertas kerja baru per hari",
+    bulanan: "Kertas kerja baru per bulan",
+    kumulatif: harian.length
+      ? `Jumlah kertas kerja sejak ${fmtLengkap.format(keTanggal(harian[0].tanggal))}`
+      : "Jumlah kertas kerja",
+  }[mode];
 
   return (
     <Panel title="Realisasi Kertas Kerja">
@@ -251,6 +293,7 @@ export default function RealisasiTarget({ realisasi }) {
         <div className="fk-filter">
           {[
             ["harian", "Harian"],
+            ["bulanan", "Bulanan"],
             ["kumulatif", "Kumulatif"],
           ].map(([k, label]) => (
             <button
@@ -269,7 +312,7 @@ export default function RealisasiTarget({ realisasi }) {
       {harian.length === 0 ? (
         <div className="fk-lt-empty">Belum ada kertas kerja.</div>
       ) : (
-        <Grafik key={mode} titik={titik} mode={mode} />
+        <Grafik key={mode} titik={titik} mode={mode} hariIni={hariIni} />
       )}
     </Panel>
   );
