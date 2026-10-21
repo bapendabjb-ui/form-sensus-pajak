@@ -1,12 +1,29 @@
 "use strict";
 
+const zlib = require("zlib");
+const { promisify } = require("util");
 const express = require("express");
 const prisma = require("../prisma");
 const { wrap } = require("../http");
 const { bentukTim } = require("../bentuk");
 const { adaTitik, titikKk } = require("../cekLokasi");
+const { pembatas } = require("../laju");
+const { simpanSementara } = require("../simpanSementara");
+
+const gzip = promisify(zlib.gzip);
 
 const router = express.Router();
+
+/*
+ * Endpoint ini terbuka tanpa login dan memuat seluruh kertas kerja sekaligus,
+ * jadi permintaan per IP dibatasi. Batasnya longgar karena satu kantor bisa
+ * keluar lewat satu IP, dan permintaan yang terlayani dari simpanan murah.
+ */
+const batasiLaju = pembatas({
+  jendelaMs: 10 * 60 * 1000,
+  maks: 120,
+  pesan: "Peta terlalu sering dimuat. Tunggu beberapa menit.",
+});
 
 /**
  * Judul singkat sebuah titik: jawaban teks pertama pada entri, mis. nama wajib
@@ -14,6 +31,9 @@ const router = express.Router();
  * Kosong bila entri belum punya jawaban teks - balon lalu jatuh ke nama formulir.
  */
 const TIPE_JUDUL = new Set(["text", "dropdown", "radio", "paragraph"]);
+
+/** Hanya jawaban bertipe ini yang dibaca susunTitikPeta; sisanya tidak perlu dimuat. */
+const TIPE_DIBACA = [...TIPE_JUDUL, "lokasi"];
 
 function judulEntri(jawaban = []) {
   for (const j of jawaban) {
@@ -92,49 +112,72 @@ function susunTitikPeta(kks) {
 }
 
 /**
- * GET /api/peta -> titik hasil sensus: satu per kertas kerja (lokasi sensus,
- * jenis "kk") dan satu per data berkoordinat (pertanyaan Lokasi, jenis "data").
+ * Jawaban GET /api/peta yang siap kirim: JSON beserta versi gzip-nya, supaya
+ * pemampatan isi sebesar ini cukup sekali per perubahan data, tidak per pembuka.
  *
  * Jawaban lokasi kosong tetap tersimpan sebagai { lat: null, lon: null }, jadi
  * penyaringannya dilakukan di aplikasi, tidak bisa diserahkan ke database
  * melalui kolom JSON.
  */
-router.get(
-  "/",
-  wrap(async (_req, res) => {
-    const kks = await prisma.kertasKerja.findMany({
-      where: { entri: { some: {} } },
-      select: {
-        id: true,
-        nomor: true,
-        status: true,
-        titikLat: true,
-        titikLon: true,
-        titikAkurasi: true,
-        titikSumber: true,
-        lokasiDicekAt: true,
-        petugas: { include: { petugas: true } },
-        entri: {
-          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-          select: {
-            id: true,
-            rekamLat: true,
-            rekamLon: true,
-            rekamAkurasi: true,
-            koordinatDicekAt: true,
-            berkasLengkap: true,
-            catatanBerkas: true,
-            updatedAt: true,
-            formulir: { select: { judul: true } },
-            jawaban: {
-              select: { nilai: true, pertanyaan: { select: { tipe: true, urutan: true } } },
-              orderBy: { pertanyaan: { urutan: "asc" } },
-            },
+async function susunJawabanPeta() {
+  const kks = await prisma.kertasKerja.findMany({
+    where: { entri: { some: {} } },
+    select: {
+      id: true,
+      nomor: true,
+      status: true,
+      titikLat: true,
+      titikLon: true,
+      titikAkurasi: true,
+      titikSumber: true,
+      lokasiDicekAt: true,
+      petugas: { include: { petugas: true } },
+      entri: {
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: {
+          id: true,
+          rekamLat: true,
+          rekamLon: true,
+          rekamAkurasi: true,
+          koordinatDicekAt: true,
+          berkasLengkap: true,
+          catatanBerkas: true,
+          updatedAt: true,
+          formulir: { select: { judul: true } },
+          jawaban: {
+            where: { pertanyaan: { tipe: { in: TIPE_DIBACA } } },
+            select: { nilai: true, pertanyaan: { select: { tipe: true, urutan: true } } },
+            orderBy: { pertanyaan: { urutan: "asc" } },
           },
         },
       },
-    });
-    res.json(susunTitikPeta(kks));
+    },
+  });
+  const json = Buffer.from(JSON.stringify(susunTitikPeta(kks)));
+  return { json, gzip: await gzip(json) };
+}
+
+// Dipakai bersama semua pembuka peta sampai ada data yang berubah (lihat src/simpanSementara.js).
+const bacaJawabanPeta = simpanSementara({ umurMs: 60 * 1000, susun: susunJawabanPeta });
+
+/**
+ * GET /api/peta -> titik hasil sensus: satu per kertas kerja (lokasi sensus,
+ * jenis "kk") dan satu per data berkoordinat (pertanyaan Lokasi, jenis "data").
+ */
+router.get(
+  "/",
+  batasiLaju,
+  wrap(async (req, res) => {
+    const jawaban = await bacaJawabanPeta();
+    res.setHeader("Cache-Control", "no-cache");
+    res.vary("Accept-Encoding");
+    res.type("json");
+    if (req.acceptsEncodings("gzip")) {
+      // Middleware compression melewati respons yang sudah ber-Content-Encoding.
+      res.setHeader("Content-Encoding", "gzip");
+      return res.send(jawaban.gzip);
+    }
+    return res.send(jawaban.json);
   })
 );
 

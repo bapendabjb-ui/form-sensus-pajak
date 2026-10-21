@@ -20,6 +20,7 @@ const { ApiError } = require("./src/http");
 const { ensureAdminSeed } = require("./src/auth");
 const { headerKeamanan } = require("./src/keamanan");
 const { ensureCounter } = require("./src/nomor");
+const { catatPerubahan } = require("./src/simpanSementara");
 const { siapkanFolder, sapuFotoYatim } = require("./src/foto");
 const seedDemo = require("./prisma/seed");
 
@@ -43,6 +44,9 @@ if (config.corsOrigin) {
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "sensus-pajak", env: config.nodeEnv, time: new Date().toISOString() });
 });
+
+// Setiap permintaan tulis membuat jawaban yang disimpan sementara (GET /api/peta) usang.
+app.use("/api", catatPerubahan);
 
 app.use("/api/auth", require("./src/routes/auth"));
 app.use("/api/petugas", require("./src/routes/petugas"));
