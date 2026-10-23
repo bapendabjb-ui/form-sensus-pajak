@@ -970,6 +970,7 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 | `POST`   | `/kertas-kerja`                   | `{ petugasIds: [1..8 id] }` → nomor otomatis              |
 | `GET`    | `/kertas-kerja/:id`               | Tim petugas, seluruh entri, definisi formulir yang diisi  |
 | `PUT`    | `/kertas-kerja/:id/petugas`       | 🔒 `{ petugasIds }` — ganti tim                           |
+| `POST`   | `/kertas-kerja/tambah-petugas`    | 🔒 `{ kertasKerjaIds, petugasIds }` — tambahkan petugas ke banyak tim sekaligus (anggota lama tetap; tim yang akan lebih dari 8 orang dilewati) → `{ ditambahkan, sudahAda, penuh, tidakDitemukan }` |
 | `PUT`    | `/kertas-kerja/:id/status`        | `{ status }` — `selesai` butuh minimal 1 data (**422**)   |
 | `PUT`    | `/kertas-kerja/:id/titik`         | `{ lat, lon }` atau `{ hapus: true }` — tetapkan titik objek lewat peta / kembali ke GPS data. Terbuka; admin yang login tercatat namanya |
 | `PUT`    | `/kertas-kerja/:id/lokasi-dicek`  | 🔒 `{ dicek }` — tandai lokasi sensus sudah dicek (terkunci untuk petugas). **422** bila belum ada titik |

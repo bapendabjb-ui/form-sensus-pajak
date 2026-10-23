@@ -46,6 +46,57 @@ async function bacaTim(body) {
   return ids;
 }
 
+/** Kertas kerja paling banyak dalam satu kali tambah petugas massal. */
+const MASSAL_MAKS = 500;
+
+/** Baca & periksa daftar kertasKerjaIds untuk tambah petugas massal. */
+function bacaIdKertasKerja(body) {
+  const mentah = Array.isArray(body?.kertasKerjaIds) ? body.kertasKerjaIds : [];
+  const ids = [...new Set(mentah.map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+  if (ids.length === 0) throw badRequest("Pilih minimal satu kertas kerja.");
+  if (ids.length > MASSAL_MAKS) {
+    throw badRequest(`Paling banyak ${MASSAL_MAKS} kertas kerja sekaligus.`);
+  }
+  return ids;
+}
+
+/**
+ * Rencana menambahkan petugas ke banyak tim sekaligus.
+ *
+ * daftarKk : [{ id, nomor, anggota: [{ petugasId, urutan }] }]
+ * -> { baris (untuk createMany), ditambahkan, sudahAda, penuh } - tiga yang
+ *    terakhir berisi nomor kertas kerja, untuk dilaporkan ke admin.
+ *
+ * Anggota baru ditaruh di belakang tim, jadi penanggung jawab (urutan 0) tidak
+ * bergeser. Petugas yang sudah ada di tim dilewati. Tim yang akan melebihi
+ * batas dilewati seluruhnya, bukan diisi sebagian: "sebagian masuk" sulit
+ * dijelaskan di layar dan sulit dibetulkan sesudahnya.
+ */
+function rencanaTambahTim(daftarKk, petugasIds, maks = PETUGAS_MAKS) {
+  const baris = [];
+  const ditambahkan = [];
+  const sudahAda = [];
+  const penuh = [];
+
+  for (const kk of daftarKk) {
+    const ada = new Set(kk.anggota.map((a) => a.petugasId));
+    const baru = petugasIds.filter((id) => !ada.has(id));
+    if (baru.length === 0) {
+      sudahAda.push(kk.nomor);
+      continue;
+    }
+    if (ada.size + baru.length > maks) {
+      penuh.push(kk.nomor);
+      continue;
+    }
+    let urutan = kk.anggota.reduce((m, a) => Math.max(m, a.urutan), -1);
+    for (const petugasId of baru) baris.push({ kertasKerjaId: kk.id, petugasId, urutan: ++urutan });
+    ditambahkan.push(kk.nomor);
+  }
+
+  return { baris, ditambahkan, sudahAda, penuh };
+}
+
 /* ---------- pemuatan ---------- */
 
 /** Kertas kerja + tim + seluruh entri beserta definisi formulir yang dipakai. */
@@ -400,6 +451,45 @@ router.put(
   })
 );
 
+/**
+ * POST /api/kertas-kerja/tambah-petugas  { kertasKerjaIds: [], petugasIds: [] }
+ *   -> { ditambahkan, sudahAda, penuh, tidakDitemukan }
+ *
+ * Masukkan petugas yang sudah terdaftar ke tim banyak kertas kerja sekaligus,
+ * mis. anggota yang lupa dipilih saat kertas kerja dibuat. Anggota lama tetap;
+ * aturan lengkapnya di rencanaTambahTim. Khusus admin, sama seperti mengganti
+ * tim satu per satu.
+ */
+router.post(
+  "/tambah-petugas",
+  requireAdmin,
+  wrap(async (req, res) => {
+    const petugasIds = await bacaTim(req.body);
+    const kkIds = bacaIdKertasKerja(req.body);
+
+    const hasil = await prisma.$transaction(async (tx) => {
+      const daftar = await tx.kertasKerja.findMany({
+        where: { id: { in: kkIds } },
+        orderBy: { nomor: "asc" },
+        select: { id: true, nomor: true, petugas: { select: { petugasId: true, urutan: true } } },
+      });
+      const rencana = rencanaTambahTim(
+        daftar.map((k) => ({ id: k.id, nomor: k.nomor, anggota: k.petugas })),
+        petugasIds
+      );
+      // skipDuplicates: bila tim yang sama sedang diganti admin lain di saat
+      // bersamaan, bentrok indeks unik cukup dilewati, bukan menggagalkan semua.
+      if (rencana.baris.length) {
+        await tx.kertasKerjaPetugas.createMany({ data: rencana.baris, skipDuplicates: true });
+      }
+      return { ...rencana, tidakDitemukan: kkIds.length - daftar.length };
+    });
+
+    const { ditambahkan, sudahAda, penuh, tidakDitemukan } = hasil;
+    res.json({ ditambahkan, sudahAda, penuh, tidakDitemukan });
+  })
+);
+
 /** PUT /api/kertas-kerja/:id/status  { status: "draft" | "selesai" } */
 router.put(
   "/:id/status",
@@ -689,3 +779,5 @@ module.exports.bacaPaginasi = bacaPaginasi;
 module.exports.syaratCari = syaratCari;
 module.exports.syaratSaring = syaratSaring;
 module.exports.susunNamaData = susunNamaData;
+module.exports.bacaIdKertasKerja = bacaIdKertasKerja;
+module.exports.rencanaTambahTim = rencanaTambahTim;

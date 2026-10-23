@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "../../api.js";
 import { useToast } from "../../components/Toast.jsx";
 import { useDialog } from "../../components/Dialog.jsx";
-import { PageHead, Loading, ErrorBox, Empty, StatusPill, BerkasPill } from "../../components/Ui.jsx";
-import { IkonData } from "../../components/Icons.jsx";
+import { PageHead, Panel, Loading, ErrorBox, Empty, StatusPill, BerkasPill } from "../../components/Ui.jsx";
+import PetugasTim from "../../components/PetugasTim.jsx";
+import { IkonData, CheckIcon } from "../../components/Icons.jsx";
 import { formatWaktu } from "../../lib/format.js";
 import {
   FILTER_KK,
@@ -19,7 +20,8 @@ import {
 } from "../../lib/filterKk.js";
 import { LABEL_STATUS } from "../../lib/cekLokasi.js";
 import { useAdmin } from "../../lib/admin.js";
-import { navigate } from "../../lib/router.js";
+import { useKonfigurasi } from "../../lib/konfigurasi.js";
+import { navigate, pasangPenjaga } from "../../lib/router.js";
 import { urlKk, unduh, ringkasTim } from "./bersama.js";
 
 /** Baris per pemuatan. Sama dengan bawaan server; ditulis agar terbaca di sini. */
@@ -58,6 +60,21 @@ function NamaData({ nama }) {
   );
 }
 
+/** "00012, 00015, 00018 +4 lainnya" - daftar nomor yang tidak memanjang tanpa batas. */
+const daftarNomor = (nomor, tampil = 5) =>
+  nomor.length > tampil ? `${nomor.slice(0, tampil).join(", ")} +${nomor.length - tampil} lainnya` : nomor.join(", ");
+
+/** Laporan satu kalimat hasil tambah petugas massal (lihat POST /kertas-kerja/tambah-petugas). */
+function ringkasHasilTambah({ ditambahkan, sudahAda, penuh, tidakDitemukan }, maks) {
+  const bagian = [
+    ditambahkan.length ? `Petugas ditambahkan ke ${ditambahkan.length} kertas kerja.` : "Tidak ada tim yang berubah.",
+  ];
+  if (sudahAda.length) bagian.push(`${sudahAda.length} sudah berisi petugas tersebut.`);
+  if (penuh.length) bagian.push(`${penuh.length} dilewati karena tim akan lebih dari ${maks} orang: ${daftarNomor(penuh)}.`);
+  if (tidakDitemukan) bagian.push(`${tidakDitemukan} sudah dihapus.`);
+  return bagian.join(" ");
+}
+
 const KOSONG = {
   baris: [],
   hal: 1,
@@ -70,6 +87,7 @@ export function DaftarKertasKerja() {
   const toast = useToast();
   const { konfirmasi } = useDialog();
   const admin = useAdmin();
+  const { petugasMaks } = useKonfigurasi();
   const unduhKe = unduh(toast);
 
   const [data, setData] = useState(KOSONG);
@@ -93,6 +111,17 @@ export function DaftarKertasKerja() {
   // Penanda permintaan terakhir: balasan yang datang terlambat (mis. hasil
   // ketikan sebelumnya) tidak boleh menimpa hasil yang lebih baru.
   const urutan = useRef(0);
+
+  // Mode pilih (khusus admin): centang banyak kertas kerja, lalu tambahkan
+  // petugas ke semua timnya sekaligus. Pilihan bertahan walau kata kunci atau
+  // saringan diganti, supaya bisa dikumpulkan dari beberapa pencarian.
+  const [memilih, setMemilih] = useState(false);
+  const [terpilih, setTerpilih] = useState(() => new Map()); // id -> nomor
+  const [timTambah, setTimTambah] = useState(null); // null = masih memilih kertas kerja
+  const [daftarPetugas, setDaftarPetugas] = useState([]);
+  const [galatTim, setGalatTim] = useState("");
+  const [menambah, setMenambah] = useState(false);
+  const gulirPilih = useRef(0);
 
   useEffect(() => {
     simpanCariKk(cari.trim() ? cari : "");
@@ -172,6 +201,72 @@ export function DaftarKertasKerja() {
     if (!admin && filter === "belumdicek") pilihFilter("semua");
   }, [admin, filter]);
 
+  const keluarPilih = () => {
+    setMemilih(false);
+    setTerpilih(new Map());
+    setTimTambah(null);
+    setGalatTim("");
+  };
+
+  // Mode pilih ikut berakhir bila admin keluar; tambah petugas massal khusus admin.
+  useEffect(() => {
+    if (!admin) keluarPilih();
+  }, [admin]);
+
+  // Pilihan yang sudah dikumpulkan tidak boleh hilang hanya karena salah ketuk menu.
+  const adaPilihan = terpilih.size > 0;
+  useEffect(() => (adaPilihan ? pasangPenjaga(() => true) : undefined), [adaPilihan]);
+
+  const centang = (k) =>
+    setTerpilih((m) => {
+      const baru = new Map(m);
+      if (baru.has(k.id)) baru.delete(k.id);
+      else baru.set(k.id, k.nomor);
+      return baru;
+    });
+
+  /** Ke langkah kedua: pilih petugas yang akan ditambahkan. */
+  const lanjutTambah = async () => {
+    try {
+      setDaftarPetugas(await api.listPetugas());
+      gulirPilih.current = window.scrollY;
+      setTimTambah([null]);
+      setGalatTim("");
+      window.scrollTo(0, 0);
+    } catch (e) {
+      toast(e.message, true);
+    }
+  };
+
+  const kembaliPilih = () => {
+    setTimTambah(null);
+    setGalatTim("");
+    setGulirTujuan(gulirPilih.current);
+  };
+
+  const simpanTambah = async () => {
+    const ids = timTambah.filter(Boolean);
+    if (!ids.length) {
+      setGalatTim("Pilih minimal satu petugas.");
+      return;
+    }
+    setMenambah(true);
+    try {
+      const hasil = await api.tambahPetugasMassal([...terpilih.keys()], ids);
+      // Yang dilewati ditampilkan lebih lama (gaya galat) supaya sempat dibaca.
+      toast(ringkasHasilTambah(hasil, petugasMaks), hasil.penuh.length > 0 || hasil.tidakDitemukan > 0);
+      keluarPilih();
+      // Muat ulang sebanyak halaman tadi supaya nama tim di kartu terbaru,
+      // tanpa melempar admin kembali ke atas daftar.
+      pulihkan.current = { hal: data.hal, gulir: gulirPilih.current };
+      await muat();
+    } catch (e) {
+      toast(e.message, true);
+    } finally {
+      setMenambah(false);
+    }
+  };
+
   const hapus = async (k) => {
     const ya = await konfirmasi({
       judul: `Hapus kertas kerja ${k.nomor}?`,
@@ -200,17 +295,73 @@ export function DaftarKertasKerja() {
   // Belum ada kertas kerja sama sekali, bukan sekadar tidak ada yang cocok.
   const benarBenarKosong = !kata && filter === "semua" && total === 0;
 
+  // "Pilih semua" hanya menyangkut kartu yang sedang tampil.
+  const semuaTampilTerpilih = baris.length > 0 && baris.every((k) => terpilih.has(k.id));
+  const centangSemua = () =>
+    setTerpilih((m) => {
+      const baru = new Map(m);
+      for (const k of baris) {
+        if (semuaTampilTerpilih) baru.delete(k.id);
+        else baru.set(k.id, k.nomor);
+      }
+      return baru;
+    });
+
   return (
     <>
       <PageHead title="Kertas Kerja" sub="Satu Nomor, Satu Tim Petugas, Data Per Formulir.">
-        <button type="button" className="fk-btn" onClick={buat}>
-          + Buat kertas kerja
-        </button>
+        <div className="fk-head-aksi">
+          {admin && !memilih && !benarBenarKosong && (
+            <button type="button" className="fk-btn-ghost" onClick={() => setMemilih(true)}>
+              Tambah petugas massal
+            </button>
+          )}
+          <button type="button" className="fk-btn" onClick={buat}>
+            + Buat kertas kerja
+          </button>
+        </div>
       </PageHead>
 
       {error && <ErrorBox onRetry={muat}>{error}</ErrorBox>}
 
-      {loading && baris.length === 0 && !error ? (
+      {timTambah ? (
+        <>
+          <Panel
+            title={`Tambah petugas ke ${terpilih.size} kertas kerja`}
+            sub="Anggota lama tetap. Petugas baru ditaruh di belakang tim, jadi penanggung jawabnya tidak berubah."
+          >
+            <p className="fk-hint" style={{ marginTop: 0, marginBottom: 12 }}>
+              {daftarNomor([...terpilih.values()].sort(), 12)}
+            </p>
+            <PetugasTim
+              judul="Petugas yang ditambahkan"
+              maks={petugasMaks - 1}
+              petugas={daftarPetugas}
+              value={timTambah}
+              onChange={(v) => {
+                setTimTambah(v);
+                setGalatTim("");
+              }}
+              onPetugasBaru={(p) =>
+                setDaftarPetugas((list) => [...list, p].sort((a, b) => a.nama.localeCompare(b.nama, "id")))
+              }
+              galat={galatTim}
+            />
+            <p className="fk-hint">
+              Kertas kerja yang timnya akan lebih dari {petugasMaks} orang dilewati, tidak diisi sebagian.
+            </p>
+          </Panel>
+
+          <div className="fk-form-actions fk-sticky-actions">
+            <button type="button" className="fk-btn-ghost" onClick={kembaliPilih} disabled={menambah}>
+              Kembali
+            </button>
+            <button type="button" className="fk-btn" onClick={simpanTambah} disabled={menambah}>
+              {menambah ? "Menyimpan..." : "Tambahkan"}
+            </button>
+          </div>
+        </>
+      ) : loading && baris.length === 0 && !error ? (
         <Loading label="Memuat kertas kerja..." />
       ) : benarBenarKosong ? (
         <Empty
@@ -253,6 +404,13 @@ export function DaftarKertasKerja() {
             ))}
           </div>
 
+          {memilih && (
+            <p className="fk-hint fk-pilih-petunjuk">
+              Ketuk kertas kerja yang timnya akan ditambah petugas. Cari nama rekan setimnya untuk menemukannya lebih
+              cepat; pilihan tetap tersimpan walau pencarian diganti.
+            </p>
+          )}
+
           {/* Pesan kosong membedakan sebabnya: kata kunci tidak menemukan apa pun,
               atau kata kunci menemukan tetapi saringannya yang menyisihkan semua. */}
           {baris.length === 0 ? (
@@ -274,48 +432,63 @@ export function DaftarKertasKerja() {
           ) : (
             <>
               <div className="fk-kk-list">
-                {baris.map((k) => (
-                  <div
-                    className="fk-kk-card is-clickable"
-                    key={k.id}
-                    role="link"
-                    tabIndex={0}
-                    onClick={() => buka(k)}
-                    onKeyDown={(e) => e.key === "Enter" && buka(k)}
-                  >
-                    <span className="fk-nomor">{k.nomor}</span>
-                    <div className="fk-kk-card-body">
-                      <div className="fk-lib-title fk-ellipsis">{ringkasTim(timDepanCocok(k.petugas, cariKirim))}</div>
-                      {k.namaData?.length > 0 && <NamaData nama={k.namaData} />}
-                      <div className="fk-lib-sub fk-ellipsis">
-                        {k.jumlahData} data · {formatWaktu(k.createdAt)}
+                {baris.map((k) => {
+                  const dipilih = terpilih.has(k.id);
+                  const aksi = memilih ? () => centang(k) : () => buka(k);
+                  return (
+                    <div
+                      className={"fk-kk-card is-clickable" + (dipilih ? " is-on" : "")}
+                      key={k.id}
+                      role={memilih ? "checkbox" : "link"}
+                      aria-checked={memilih ? dipilih : undefined}
+                      tabIndex={0}
+                      onClick={aksi}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || (memilih && e.key === " ")) {
+                          e.preventDefault();
+                          aksi();
+                        }
+                      }}
+                    >
+                      {memilih && (
+                        <span className="fk-ind fk-ind-check" aria-hidden="true">
+                          {dipilih && <CheckIcon />}
+                        </span>
+                      )}
+                      <span className="fk-nomor">{k.nomor}</span>
+                      <div className="fk-kk-card-body">
+                        <div className="fk-lib-title fk-ellipsis">{ringkasTim(timDepanCocok(k.petugas, cariKirim))}</div>
+                        {k.namaData?.length > 0 && <NamaData nama={k.namaData} />}
+                        <div className="fk-lib-sub fk-ellipsis">
+                          {k.jumlahData} data · {formatWaktu(k.createdAt)}
+                        </div>
                       </div>
+                      {lokasiPerluCek(k) && <span className="fk-pill is-lokasi">{LABEL_STATUS[k.lokasiStatus]}</span>}
+                      {k.lokasiDicek && (
+                        <span className="fk-pill is-done" title="Lokasi sensus sudah dicek admin">
+                          ✓ Dicek
+                        </span>
+                      )}
+                      <BerkasPill jumlah={k.jumlahTidakLengkap} />
+                      <StatusPill status={k.status} />
+                      {/* Aksi tambahan hanya di desktop; di HP semuanya ada di halaman kertas kerja.
+                          Seluruhnya khusus admin: ekspor maupun hapus. */}
+                      {admin && !memilih && (
+                        <div className="fk-kk-card-actions" onClick={(e) => e.stopPropagation()}>
+                          <button type="button" className="fk-mini" onClick={() => unduhKe(api.unduhExcel(k.id))}>
+                            Excel
+                          </button>
+                          <button type="button" className="fk-mini" onClick={() => unduhKe(api.unduhCsv(k.id))}>
+                            CSV
+                          </button>
+                          <button type="button" className="fk-mini is-danger" onClick={() => hapus(k)}>
+                            Hapus
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    {lokasiPerluCek(k) && <span className="fk-pill is-lokasi">{LABEL_STATUS[k.lokasiStatus]}</span>}
-                    {k.lokasiDicek && (
-                      <span className="fk-pill is-done" title="Lokasi sensus sudah dicek admin">
-                        ✓ Dicek
-                      </span>
-                    )}
-                    <BerkasPill jumlah={k.jumlahTidakLengkap} />
-                    <StatusPill status={k.status} />
-                    {/* Aksi tambahan hanya di desktop; di HP semuanya ada di halaman kertas kerja.
-                        Seluruhnya khusus admin: ekspor maupun hapus. */}
-                    {admin && (
-                      <div className="fk-kk-card-actions" onClick={(e) => e.stopPropagation()}>
-                        <button type="button" className="fk-mini" onClick={() => unduhKe(api.unduhExcel(k.id))}>
-                          Excel
-                        </button>
-                        <button type="button" className="fk-mini" onClick={() => unduhKe(api.unduhCsv(k.id))}>
-                          CSV
-                        </button>
-                        <button type="button" className="fk-mini is-danger" onClick={() => hapus(k)}>
-                          Hapus
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="fk-muat-lagi">
@@ -329,6 +502,20 @@ export function DaftarKertasKerja() {
                 )}
               </div>
             </>
+          )}
+
+          {memilih && (
+            <div className="fk-form-actions fk-sticky-actions">
+              <button type="button" className="fk-btn-ghost" onClick={keluarPilih}>
+                Batal
+              </button>
+              <button type="button" className="fk-btn-ghost" onClick={centangSemua} disabled={baris.length === 0}>
+                {semuaTampilTerpilih ? "Lepas semua" : "Pilih semua"}
+              </button>
+              <button type="button" className="fk-btn" onClick={lanjutTambah} disabled={terpilih.size === 0}>
+                Lanjut ({terpilih.size})
+              </button>
+            </div>
           )}
         </>
       )}

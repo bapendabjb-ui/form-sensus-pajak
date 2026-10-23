@@ -210,6 +210,9 @@ export const createKertasKerja = (petugasIds) =>
   request("/kertas-kerja", { method: "POST", body: { petugasIds } });
 export const updateTimKertasKerja = (id, petugasIds) =>
   request(`/kertas-kerja/${id}/petugas`, { method: "PUT", body: { petugasIds }, auth: true });
+/** Tambahkan petugas ke tim banyak kertas kerja sekaligus. Khusus admin. */
+export const tambahPetugasMassal = (kertasKerjaIds, petugasIds) =>
+  request("/kertas-kerja/tambah-petugas", { method: "POST", body: { kertasKerjaIds, petugasIds }, auth: true });
 export const setStatusKertasKerja = (id, status) =>
   request(`/kertas-kerja/${id}/status`, { method: "PUT", body: { status } });
 export const deleteKertasKerja = (id) => request(`/kertas-kerja/${id}`, { method: "DELETE", auth: true });

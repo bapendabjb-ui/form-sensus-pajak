@@ -174,3 +174,67 @@ test("susunNamaData melewati data tanpa nama orang", () => {
   assert.equal(hasil.has(8), false, "kartu tanpa nama orang tidak perlu baris nama");
   assert.equal(susunNamaData([]).size, 0);
 });
+
+/*
+ * Tambah petugas massal: anggota yang lupa dipilih dimasukkan ke banyak tim
+ * sekaligus. Yang dijaga: anggota lama dan penanggung jawab tidak bergeser,
+ * dan batas 8 orang tetap berlaku per tim.
+ */
+
+const { bacaIdKertasKerja, rencanaTambahTim } = require("../src/routes/kertasKerja");
+
+const kk = (id, nomor, ...petugasIds) => ({
+  id,
+  nomor,
+  anggota: petugasIds.map((petugasId, urutan) => ({ petugasId, urutan })),
+});
+
+test("rencanaTambahTim menaruh anggota baru di belakang tim", () => {
+  const hasil = rencanaTambahTim([kk(1, "00001", 10, 11), kk(2, "00002", 12)], [20, 21]);
+  assert.deepEqual(hasil.baris, [
+    { kertasKerjaId: 1, petugasId: 20, urutan: 2 },
+    { kertasKerjaId: 1, petugasId: 21, urutan: 3 },
+    { kertasKerjaId: 2, petugasId: 20, urutan: 1 },
+    { kertasKerjaId: 2, petugasId: 21, urutan: 2 },
+  ]);
+  assert.deepEqual(hasil.ditambahkan, ["00001", "00002"]);
+  assert.deepEqual(hasil.sudahAda, []);
+  assert.deepEqual(hasil.penuh, []);
+});
+
+test("rencanaTambahTim melewati petugas yang sudah ada di tim", () => {
+  const hasil = rencanaTambahTim([kk(1, "00001", 10, 20), kk(2, "00002", 20, 21)], [20, 21]);
+  assert.deepEqual(hasil.baris, [{ kertasKerjaId: 1, petugasId: 21, urutan: 2 }]);
+  assert.deepEqual(hasil.ditambahkan, ["00001"]);
+  assert.deepEqual(hasil.sudahAda, ["00002"], "semua yang diminta sudah ada: tidak diubah");
+});
+
+test("rencanaTambahTim melanjutkan dari urutan terbesar, bukan jumlah anggota", () => {
+  // Urutan bisa berlubang; anggota baru tetap harus di belakang, tidak menyalip.
+  const tim = { id: 5, nomor: "00005", anggota: [{ petugasId: 1, urutan: 0 }, { petugasId: 2, urutan: 4 }] };
+  assert.deepEqual(rencanaTambahTim([tim], [3]).baris, [{ kertasKerjaId: 5, petugasId: 3, urutan: 5 }]);
+});
+
+test("rencanaTambahTim melewati seluruh tim yang akan melebihi batas", () => {
+  const hampirPenuh = kk(1, "00001", 1, 2, 3, 4, 5, 6, 7);
+  const hasil = rencanaTambahTim([hampirPenuh, kk(2, "00002", 1)], [20, 21], 8);
+  assert.deepEqual(hasil.penuh, ["00001"], "tidak diisi sebagian");
+  assert.deepEqual(hasil.ditambahkan, ["00002"]);
+  assert.ok(hasil.baris.every((b) => b.kertasKerjaId === 2));
+
+  // Tepat sampai batas masih boleh.
+  assert.deepEqual(rencanaTambahTim([hampirPenuh], [20], 8).ditambahkan, ["00001"]);
+});
+
+test("bacaIdKertasKerja membuang id ngawur dan duplikat", () => {
+  assert.deepEqual(bacaIdKertasKerja({ kertasKerjaIds: [3, "3", 4, -1, 0, 1.5, "x", null] }), [3, 4]);
+});
+
+test("bacaIdKertasKerja menolak daftar kosong atau terlalu banyak", () => {
+  assert.throws(() => bacaIdKertasKerja({}), /minimal satu kertas kerja/);
+  assert.throws(() => bacaIdKertasKerja({ kertasKerjaIds: [] }), /minimal satu kertas kerja/);
+  assert.throws(() => bacaIdKertasKerja({ kertasKerjaIds: "1,2" }), /minimal satu kertas kerja/);
+  const banyak = Array.from({ length: 501 }, (_, i) => i + 1);
+  assert.throws(() => bacaIdKertasKerja({ kertasKerjaIds: banyak }), /Paling banyak 500/);
+  assert.equal(bacaIdKertasKerja({ kertasKerjaIds: banyak.slice(0, 500) }).length, 500);
+});

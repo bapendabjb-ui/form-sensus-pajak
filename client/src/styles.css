@@ -136,6 +136,11 @@ body {
 .fk-mini{border:1px solid var(--line); background:var(--surface); color:var(--muted); font-size:12px; font-weight:500; padding:5px 10px; border-radius:8px;}
 .fk-mini:hover{border-color:var(--brand); color:var(--brand);}
 .fk-mini.is-danger:hover{border-color:var(--danger); color:var(--danger);}
+/* mode pilih: tambah petugas ke banyak kertas kerja sekaligus (khusus admin) */
+.fk-head-aksi{display:flex; gap:8px; flex-wrap:wrap;}
+.fk-kk-card.is-on{border-color:var(--brand); background:var(--brand-tint);}
+.fk-kk-card.is-on .fk-ind{border-color:var(--brand);}
+.fk-pilih-petunjuk{margin:0 0 10px;}
 
 /* ================= wizard ================= */
 .fk-steps{display:flex; gap:8px; flex-wrap:wrap;}
@@ -1025,6 +1030,9 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
   .fk-kk-card{padding:14px; gap:12px;}
   .fk-kk-card:active{background:#F6F9F9;}
   .fk-kk-card .fk-kk-card-actions{display:none;}
+  .fk-kk-card.is-on:active{background:var(--brand-tint);}
+  .fk-head-aksi{display:grid; gap:8px;}
+  .fk-head-aksi > *{width:100%;}
   .fk-lib-title{font-size:15px;}
   .fk-lib-sub{font-size:12.5px;}
 

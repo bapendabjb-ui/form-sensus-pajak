@@ -15,11 +15,13 @@ const labelPetugas = (p) => (p.nip ? `${p.nama} — ${p.nip}` : p.nama);
  * value         : array id petugas; null = baris yang belum dipilih
  * onChange      : (arrayBaru) => void
  * onPetugasBaru : (petugas) => void, dipanggil setelah petugas baru didaftarkan
+ * judul, maks   : opsional, untuk tambah petugas massal (bukan tim utuh)
  */
-export default function PetugasTim({ petugas, value, onChange, onPetugasBaru, galat }) {
+export default function PetugasTim({ petugas, value, onChange, onPetugasBaru, galat, judul = "Petugas pendataan", maks }) {
   const toast = useToast();
   const admin = useAdmin();
-  const { petugasMaks } = useKonfigurasi();
+  const konfigurasi = useKonfigurasi();
+  const petugasMaks = maks ?? konfigurasi.petugasMaks;
   const baris = value && value.length ? value : [null];
   const [formBaru, setFormBaru] = useState(null); // { nama, nip } | null
   const [menyimpan, setMenyimpan] = useState(false);
@@ -59,7 +61,7 @@ export default function PetugasTim({ petugas, value, onChange, onPetugasBaru, ga
     <div className="fk-tim">
       <div className="fk-tim-head">
         <span className="fk-q-name" style={{ margin: 0 }}>
-          Petugas pendataan <span className="fk-star">*</span>
+          {judul} <span className="fk-star">*</span>
         </span>
         <span className={"fk-tim-hitung" + (terisi >= petugasMaks ? " is-penuh" : "")}>
           {terisi} dari {petugasMaks}
