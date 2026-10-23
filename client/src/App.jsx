@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import * as api from "./api.js";
 import { ToastProvider } from "./components/Toast.jsx";
 import { DialogProvider } from "./components/Dialog.jsx";
-import { Empty } from "./components/Ui.jsx";
+import { Empty, Loading } from "./components/Ui.jsx";
 import { Lambang, IconKembali, IconGrid, IconDoc, IconUser, IconList, IconLock, IconUnduh, IconPeta, IconPengajuan } from "./components/Icons.jsx";
 import LoginAdmin from "./components/LoginAdmin.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -13,8 +13,8 @@ import AkunPage from "./pages/AkunPage.jsx";
 import EksporPage from "./pages/EksporPage.jsx";
 import PetaPage from "./pages/PetaPage.jsx";
 import PengajuanPage from "./pages/PengajuanPage.jsx";
-import { AdminContext } from "./lib/admin.js";
-import { bersihkanDrafLama } from "./lib/konfigurasi.js";
+import { AdminContext, SesiContext } from "./lib/admin.js";
+import { bersihkanDrafLama, useKonfigurasi } from "./lib/konfigurasi.js";
 import { useLokasi, navigate, kembali, cocokkanRute } from "./lib/router.js";
 
 const NAV = [
@@ -62,10 +62,35 @@ function usePenandaKetik() {
   }, []);
 }
 
+/**
+ * Layar saat admin mewajibkan login: hanya kartu login, tanpa menu, supaya
+ * tidak ada layar yang tampak bisa dibuka padahal setiap datanya akan ditolak.
+ */
+function LayarMasuk() {
+  return (
+    <main className="fk-gerbang">
+      <div className="fk-gerbang-merek">
+        <Lambang />
+        <span>Sensus Pajak</span>
+      </div>
+      <LoginAdmin
+        judul="Masuk"
+        sub="Gunakan username dan password yang dibagikan admin."
+        khususAdmin={false}
+        onLoggedIn={() => {}}
+      />
+    </main>
+  );
+}
+
 function Shell() {
   const lokasi = useLokasi();
   const rute = cocokkanRute(lokasi);
-  const [admin, setAdmin] = useState(api.isLoggedIn());
+  // { role: "admin" | "petugas", nama, ... } atau null. Status login berubah lewat onAuthChange.
+  const [sesi, setSesi] = useState(api.getSesi());
+  const admin = sesi?.role === "admin";
+  const konfigurasi = useKonfigurasi();
+  const [perluMasuk, setPerluMasuk] = useState(api.isPerluMasuk());
 
   usePenandaKetik();
 
@@ -75,11 +100,14 @@ function Shell() {
   }, []);
 
   // Ikuti perubahan status login (termasuk token kedaluwarsa saat request).
-  useEffect(() => api.onAuthChange(setAdmin), []);
+  useEffect(() => api.onAuthChange(setSesi), []);
 
-  // Verifikasi token tersimpan saat aplikasi dibuka.
+  // Server menolak karena login diwajibkan (mis. admin baru saja menyalakannya).
+  useEffect(() => api.onPerluMasuk(setPerluMasuk), []);
+
+  // Verifikasi sesi tersimpan saat aplikasi dibuka; sesi petugas sekalian diperpanjang.
   useEffect(() => {
-    api.cekSesi().then((ok) => setAdmin(ok));
+    api.cekSesi().then(setSesi);
   }, []);
 
   useEffect(() => {
@@ -93,9 +121,11 @@ function Shell() {
   }, [rute.fokus]);
 
   const keluar = () => {
-    api.clearToken();
+    api.keluar();
     navigate("/");
   };
+
+  const segarkanSesi = () => setSesi(api.getSesi());
 
   const masuk = () => navigate("/masuk");
 
@@ -132,21 +162,32 @@ function Shell() {
       halaman = <PetugasPage />;
       break;
     case "ekspor":
-      halaman = <EksporPage admin={admin} onAuthChanged={() => setAdmin(api.isLoggedIn())} />;
+      halaman = <EksporPage admin={admin} onAuthChanged={segarkanSesi} />;
       break;
     case "formulir":
-      halaman = <FormulirPage admin={admin} onAuthChanged={() => setAdmin(api.isLoggedIn())} />;
+      halaman = <FormulirPage admin={admin} onAuthChanged={segarkanSesi} />;
       break;
     case "pengajuan":
-      halaman = <PengajuanPage admin={admin} onAuthChanged={() => setAdmin(api.isLoggedIn())} />;
+      halaman = <PengajuanPage admin={admin} onAuthChanged={segarkanSesi} />;
       break;
     case "masuk":
       // Setelah berhasil masuk, kembali ke layar yang tadi ditinggalkan.
-      halaman = <LoginAdmin onLoggedIn={() => kembali("/")} />;
+      halaman = (
+        <LoginAdmin
+          judul="Masuk"
+          sub="Petugas dan admin masuk dengan akun masing-masing."
+          khususAdmin={false}
+          onLoggedIn={() => kembali("/")}
+        />
+      );
       break;
     case "akun":
-      // Belum login: tampilkan login di tempat; status admin berubah lewat onAuthChange.
-      halaman = admin ? <AkunPage onKeluar={keluar} /> : <LoginAdmin onLoggedIn={() => {}} />;
+      // Belum login: tampilkan login di tempat; status login berubah lewat onAuthChange.
+      halaman = sesi ? (
+        <AkunPage sesi={sesi} onKeluar={keluar} />
+      ) : (
+        <LoginAdmin judul="Masuk" sub="Petugas dan admin masuk dengan akun masing-masing." khususAdmin={false} onLoggedIn={() => {}} />
+      );
       break;
     default:
       halaman = (
@@ -161,6 +202,11 @@ function Shell() {
         </Empty>
       );
   }
+
+  // Tanpa sesi, tunggu konfigurasi dulu: layar yang sempat tampil lalu berganti
+  // jadi layar login membingungkan petugas yang baru pertama membuka aplikasi.
+  if (!sesi && !konfigurasi.dimuat) return <Loading label="Membuka aplikasi..." />;
+  if (!sesi && (konfigurasi.wajibLogin || perluMasuk)) return <LayarMasuk />;
 
   return (
     <div className={"fk-app" + (rute.fokus ? " is-fokus" : "")}>
@@ -189,9 +235,11 @@ function Shell() {
         </nav>
 
         <div className="fk-side-foot">
-          {admin ? (
+          {sesi ? (
             <div className="fk-admin-row">
-              <span className="fk-admin-badge">● Admin</span>
+              <span className="fk-admin-badge fk-ellipsis" title={sesi.nama}>
+                ● {admin ? "Admin" : sesi.nama}
+              </span>
               <span className="fk-side-aksi">
                 <button type="button" className="fk-side-akun" onClick={() => navigate("/akun")}>
                   Akun
@@ -204,7 +252,7 @@ function Shell() {
           ) : (
             <button type="button" className="fk-side-masuk" onClick={masuk}>
               <IconLock />
-              <span>Masuk admin</span>
+              <span>Masuk</span>
             </button>
           )}
         </div>
@@ -220,7 +268,7 @@ function Shell() {
           <Lambang className="fk-appbar-logo" />
         )}
         <h1 className="fk-appbar-judul">{rute.nama === "dashboard" ? "Sensus Pajak" : rute.judul}</h1>
-        {admin ? (
+        {sesi ? (
           // Di HP, Keluar ada di halaman Akun supaya tidak tertekan tanpa sengaja.
           rute.nama !== "akun" && (
             <button type="button" className="fk-appbar-aksi" onClick={() => navigate("/akun")}>
@@ -239,7 +287,9 @@ function Shell() {
       <div className="fk-content">
         <main className="fk-main">
           {/* Hanya halaman yang perlu tahu status admin; sidebar & bilah atas memakai `admin` langsung. */}
-          <AdminContext.Provider value={admin}>{halaman}</AdminContext.Provider>
+          <AdminContext.Provider value={admin}>
+            <SesiContext.Provider value={sesi}>{halaman}</SesiContext.Provider>
+          </AdminContext.Provider>
         </main>
       </div>
 

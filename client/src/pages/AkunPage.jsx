@@ -7,8 +7,9 @@ import PasswordInput from "../components/PasswordInput.jsx";
 const PASSWORD_MIN = 8;
 const KOSONG = { lama: "", baru: "", ulang: "" };
 
-/** Akun admin: ganti password & keluar. */
-export default function AkunPage({ onKeluar }) {
+/** Akun sendiri (admin maupun petugas): ganti password & keluar. */
+export default function AkunPage({ sesi, onKeluar }) {
+  const admin = sesi?.role === "admin";
   const toast = useToast();
   const [form, setForm] = useState(KOSONG);
   const [galat, setGalat] = useState({});
@@ -32,7 +33,7 @@ export default function AkunPage({ onKeluar }) {
     try {
       await api.gantiPassword(form.lama, form.baru);
       setForm(KOSONG);
-      toast("Password admin berhasil diganti.");
+      toast(admin ? "Password admin berhasil diganti." : "Password berhasil diganti. HP lain yang memakai akun ini ikut keluar.");
     } catch (e) {
       if (e.message === "Password lama salah.") setGalat({ lama: e.message });
       else toast(e.message, true);
@@ -60,7 +61,11 @@ export default function AkunPage({ onKeluar }) {
 
   return (
     <>
-      <PageHead title="Akun Admin" sub="Ganti Password Dan Keluar Dari Sesi Admin." />
+      {admin ? (
+        <PageHead title="Akun Admin" sub="Ganti Password Dan Keluar Dari Sesi Admin." />
+      ) : (
+        <PageHead title="Akun Saya" sub={`Masuk sebagai ${sesi?.nama || "petugas"}${sesi?.username ? ` (${sesi.username})` : ""}.`} />
+      )}
 
       <Panel title="Ganti Password">
         <div className="fk-akun-form">
@@ -76,8 +81,14 @@ export default function AkunPage({ onKeluar }) {
       </Panel>
 
       <Panel title="Sesi">
+        {!admin && (
+          <p className="fk-hint" style={{ marginTop: 0, marginBottom: 12 }}>
+            HP ini diingat selama aplikasi dibuka paling tidak sebulan sekali. Keluar hanya bila HP
+            akan dipakai orang lain; setelah itu username dan password perlu dimasukkan lagi.
+          </p>
+        )}
         <button type="button" className="fk-btn-ghost" onClick={onKeluar}>
-          Keluar dari admin
+          {admin ? "Keluar dari admin" : "Keluar dari HP ini"}
         </button>
       </Panel>
     </>

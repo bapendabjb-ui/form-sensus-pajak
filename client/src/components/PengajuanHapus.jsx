@@ -14,6 +14,7 @@ import { IconLock } from "./Icons.jsx";
 import { useToast } from "./Toast.jsx";
 import { useDialog } from "./Dialog.jsx";
 import { formatWaktu } from "../lib/format.js";
+import { useSesi } from "../lib/admin.js";
 
 const NAMA = { kertas_kerja: "kertas kerja", entri: "data" };
 
@@ -118,8 +119,12 @@ export function PitaPengajuan({ pengajuan, admin, pesanHapus, onDisetujui, onBer
  */
 export function AjukanHapus({ jenis, sasaranId, tim = [], pengajuan, onTerkirim }) {
   const toast = useToast();
+  const sesi = useSesi();
   const [buka, setBuka] = useState(false);
-  const [petugasId, setPetugasId] = useState(null);
+  // Petugas yang sedang masuk dan ada di tim ini langsung terpilih sebagai pengaju.
+  const [petugasId, setPetugasId] = useState(() =>
+    sesi?.role === "petugas" && tim.some((p) => p.id === sesi.petugasId) ? sesi.petugasId : null
+  );
   const [alasan, setAlasan] = useState("");
   const [galat, setGalat] = useState({});
   const [sibuk, setSibuk] = useState(false);

@@ -29,10 +29,28 @@ model Petugas {
   nama      String   @db.VarChar(150)
   nip       String   @default("") @db.VarChar(40)
   createdAt DateTime @default(now()) @map("created_at")
+  /// Akun login, dibuatkan admin. Null = belum punya akun (belum bisa masuk).
+  /// Disimpan huruf kecil; MySQL membolehkan banyak NULL pada indeks unik.
+  username      String?   @unique(map: "petugas_username_key") @db.VarChar(64)
+  passwordHash  String?   @map("password_hash") @db.VarChar(255)
+  /// Dinaikkan saat password diganti, akun dihapus, atau admin mengeluarkan
+  /// petugas dari semua HP: token dengan versi lama langsung ditolak.
+  tokenVersi    Int       @default(0) @map("token_versi")
+  masukTerakhir DateTime? @map("masuk_terakhir")
 
   kertasKerja KertasKerjaPetugas[]
 
   @@map("petugas")
+}
+
+/// Pengaturan aplikasi yang diubah admin dari layar. Satu baris saja (id = 1).
+model Pengaturan {
+  id                Int     @id
+  /// true = semua API (kecuali login) menolak pemakai yang belum masuk.
+  /// Dinyalakan admin setelah akun petugas siap, bukan otomatis saat deploy.
+  wajibLoginPetugas Boolean @default(false) @map("wajib_login_petugas")
+
+  @@map("pengaturan")
 }
 
 /// Bank formulir. Setiap formulir dapat diisi berkali-kali di dalam kertas kerja.
@@ -202,6 +220,10 @@ model Entri {
   /// petugas tidak bisa mengubahnya lagi.
   koordinatDicekAt   DateTime? @map("koordinat_dicek_at")
   koordinatDicekOleh String    @default("") @map("koordinat_dicek_oleh") @db.VarChar(64)
+  /// Nama petugas (atau username admin) yang menyimpan / terakhir mengubah data.
+  /// Kosong = disimpan tanpa login, sebelum login petugas diwajibkan.
+  dibuatOleh    String   @default("") @map("dibuat_oleh") @db.VarChar(150)
+  diubahOleh    String   @default("") @map("diubah_oleh") @db.VarChar(150)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

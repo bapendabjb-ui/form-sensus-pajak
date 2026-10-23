@@ -5,19 +5,24 @@ import { IconLock } from "./Icons.jsx";
 import PasswordInput from "./PasswordInput.jsx";
 
 /**
- * Kartu login admin. Dipakai di halaman Formulir dan di layar /masuk,
- * jadi bentuk & perilakunya selalu sama.
+ * Kartu login. Satu pintu untuk admin dan petugas - server yang menentukan
+ * siapa yang masuk. Dipakai di layar /masuk, layar wajib login, dan di halaman
+ * khusus admin (Ekspor, Formulir, Pengajuan), jadi bentuknya selalu sama.
  *
  * Sengaja berupa <form> sungguhan: pengelola password di HP dan browser baru
  * menawarkan "Simpan password?" setelah sebuah form dikirim.
+ *
+ * khususAdmin : halaman yang hanya berguna bagi admin. Petugas yang masuk dari
+ *               sini tetap masuk, tetapi diberi tahu halamannya bukan untuknya.
  */
 export default function LoginAdmin({
   onLoggedIn,
+  judul = "Login Admin",
   sub = "Pengelolaan Aplikasi.",
+  khususAdmin = true,
 }) {
   const toast = useToast();
   const [form, setForm] = useState({ user: "", pass: "" });
-  const [ingat, setIngat] = useState(false);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -31,9 +36,11 @@ export default function LoginAdmin({
     setLoading(true);
     setErr("");
     try {
-      await api.login(form.user.trim(), form.pass, ingat);
-      toast("Berhasil masuk sebagai admin.");
-      onLoggedIn();
+      const sesi = await api.login(form.user.trim(), form.pass);
+      if (sesi.role === "admin") toast("Berhasil masuk sebagai admin.");
+      else if (khususAdmin) toast(`Masuk sebagai ${sesi.nama}. Halaman ini khusus admin.`, true);
+      else toast(`Selamat datang, ${sesi.nama}.`);
+      onLoggedIn(sesi);
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -47,7 +54,7 @@ export default function LoginAdmin({
         <span className="fk-logo fk-login-logo">
           <IconLock />
         </span>
-        <h2 className="fk-login-title">Login Admin</h2>
+        <h2 className="fk-login-title">{judul}</h2>
         <p className="fk-login-sub">{sub}</p>
 
         <input
@@ -56,6 +63,8 @@ export default function LoginAdmin({
           placeholder="Username"
           autoComplete="username"
           autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           value={form.user}
           onChange={(e) => {
             setForm((f) => ({ ...f, user: e.target.value }));
@@ -73,21 +82,18 @@ export default function LoginAdmin({
           }}
         />
 
-        <label className="fk-login-ingat">
-          <input type="checkbox" checked={ingat} onChange={(e) => setIngat(e.target.checked)} />
-          <span>
-            Ingat saya di perangkat ini
-            <span className="fk-login-ingat-ket">
-              Tetap masuk selama aplikasi dibuka minimal sebulan sekali. Jangan dicentang di perangkat milik bersama.
-            </span>
-          </span>
-        </label>
-
         {err && <span className="fk-err">{err}</span>}
 
         <button type="submit" className="fk-btn fk-login-btn" disabled={loading}>
           {loading ? "Memeriksa..." : "Masuk"}
         </button>
+
+        {!khususAdmin && (
+          <p className="fk-login-ket">
+            Petugas cukup masuk sekali: HP ini diingat selama aplikasi dibuka paling tidak sebulan sekali.
+            Lupa password? Minta admin membuatkan yang baru.
+          </p>
+        )}
       </form>
     </div>
   );

@@ -453,7 +453,10 @@ export function DetailKertasKerja({ id }) {
               </span>
             </div>
             {entri.map((e) => {
-              const ringkas = ringkasEntri(formulir.pertanyaan, e.jawaban);
+              // Pengisi hanya tercatat sejak ada login petugas; data lama tanpa nama.
+              const ringkas = ringkasEntri(formulir.pertanyaan, e.jawaban).concat(
+                e.dibuatOleh ? [`oleh ${e.dibuatOleh}`] : []
+              );
               const foto = fotoEntri(formulir.pertanyaan, e.jawaban);
               const berkoordinat = e.lokasi.objek !== null;
               const baris = (

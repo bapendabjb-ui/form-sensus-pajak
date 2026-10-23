@@ -1,45 +1,135 @@
 /**
  * Klien REST untuk API Sensus Pajak.
- * Token admin disimpan di localStorage agar login tetap bertahan saat reload.
+ *
+ * Token login (admin atau petugas) disimpan di localStorage agar sesi bertahan
+ * saat aplikasi ditutup: HP petugas diingat 30 hari sejak terakhir dipakai,
+ * admin 12 jam. Token dikirim pada setiap permintaan - saat admin mewajibkan
+ * login, semua API menolak permintaan tanpa sesi.
  */
 
 const BASE = "/api";
 const TOKEN_KEY = "sensus_pajak_token";
+const PROFIL_KEY = "sensus_pajak_profil";
 
-let token = "";
+const bacaSimpanan = (kunci) => {
+  try {
+    return localStorage.getItem(kunci) || "";
+  } catch {
+    return "";
+  }
+};
+
+const tulisSimpanan = (kunci, nilai) => {
+  try {
+    if (nilai) localStorage.setItem(kunci, nilai);
+    else localStorage.removeItem(kunci);
+  } catch {
+    /* localStorage tidak tersedia (mode privat) - sesi tetap berlaku selama halaman terbuka */
+  }
+};
+
+let token = bacaSimpanan(TOKEN_KEY);
+/** { role, username, nama, petugasId? } dari server, supaya nama tetap tampil tanpa sinyal. */
+let profil = null;
 try {
-  token = localStorage.getItem(TOKEN_KEY) || "";
+  profil = JSON.parse(bacaSimpanan(PROFIL_KEY) || "null");
 } catch {
-  token = "";
+  profil = null;
+}
+
+/** Peran dari isi token. Hanya untuk tampilan; keabsahannya tetap diperiksa server. */
+function peranToken(t) {
+  try {
+    const isi = JSON.parse(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return isi.role || "";
+  } catch {
+    return "";
+  }
 }
 
 const pendengar = new Set();
 
-/** Daftarkan callback yang dipanggil saat status login berubah. */
+/** Daftarkan callback yang dipanggil saat status login berubah; menerima getSesi(). */
 export function onAuthChange(fn) {
   pendengar.add(fn);
   return () => pendengar.delete(fn);
 }
 
 function umumkan() {
-  for (const fn of pendengar) fn(Boolean(token));
+  const sesi = getSesi();
+  for (const fn of pendengar) fn(sesi);
+}
+
+/**
+ * Pemakai yang sedang masuk: { role: "admin" | "petugas", username, nama, petugasId? },
+ * atau null. Token admin dari sebelum ada login petugas belum punya profil
+ * tersimpan; perannya dibaca dari token sampai cekSesi() melengkapinya.
+ */
+export function getSesi() {
+  if (!token) return null;
+  const role = (profil && profil.role) || peranToken(token) || "admin";
+  return {
+    role,
+    username: profil?.username || "",
+    nama: profil?.nama || (role === "admin" ? "Admin" : ""),
+    petugasId: profil?.petugasId ?? null,
+  };
 }
 
 export const getToken = () => token;
 export const isLoggedIn = () => Boolean(token);
 
-export function setToken(nilai) {
-  token = nilai || "";
-  try {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
-  } catch {
-    /* localStorage tidak tersedia (mode privat) - token tetap berlaku di sesi ini */
-  }
+function simpanSesi(tokenBaru, profilBaru) {
+  token = tokenBaru || "";
+  profil = token ? profilBaru || null : null;
+  tulisSimpanan(TOKEN_KEY, token);
+  tulisSimpanan(PROFIL_KEY, profil ? JSON.stringify(profil) : "");
   umumkan();
 }
 
-export const clearToken = () => setToken("");
+/** Ganti token tanpa mengubah siapa yang masuk (perpanjangan sesi, ganti password). */
+function gantiToken(baru) {
+  if (!baru || !token) return;
+  token = baru;
+  tulisSimpanan(TOKEN_KEY, token);
+}
+
+export const clearToken = () => simpanSesi("", null);
+
+/* ---- "perlu masuk": admin mewajibkan login, dan server menolak permintaan tanpa sesi ---- */
+
+let perluMasuk = false;
+const pendengarMasuk = new Set();
+
+export const isPerluMasuk = () => perluMasuk;
+
+/** Daftarkan callback yang dipanggil saat server meminta login. */
+export function onPerluMasuk(fn) {
+  pendengarMasuk.add(fn);
+  return () => pendengarMasuk.delete(fn);
+}
+
+function tandaiPerluMasuk() {
+  if (perluMasuk) return;
+  perluMasuk = true;
+  for (const fn of pendengarMasuk) fn(true);
+}
+
+/** Header Authorization, bila ada sesi. */
+const kepalaToken = () => (token ? { Authorization: `Bearer ${token}` } : {});
+
+/**
+ * Pemeriksaan bersama untuk setiap jawaban server:
+ *  - X-Token-Baru: server memperpanjang sesi petugas; simpan token penggantinya.
+ *  - 401 untuk token yang terkirim = sesinya sudah tidak berlaku; buang.
+ *  - 401 dengan perluMasuk = login diwajibkan; aplikasi menampilkan layar masuk.
+ */
+function periksaJawaban(res, data, tokenTerkirim) {
+  gantiToken(res.headers.get("X-Token-Baru"));
+  if (res.status !== 401) return;
+  if (tokenTerkirim) clearToken();
+  if (data && data.perluMasuk) tandaiPerluMasuk();
+}
 
 /** Error API dengan status & detail dari server. */
 export class ApiError extends Error {
@@ -50,10 +140,15 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, { method = "GET", body, auth = false } = {}) {
-  const headers = {};
+/**
+ * `tanpaToken`: hanya untuk login, supaya password yang salah (401) tidak
+ * mengeluarkan sesi yang sedang berjalan. Opsi `auth` lama tidak lagi berpengaruh:
+ * token selalu dikirim bila ada.
+ */
+async function request(path, { method = "GET", body, tanpaToken = false } = {}) {
+  const headers = tanpaToken ? {} : kepalaToken();
+  const tokenTerkirim = Boolean(headers.Authorization);
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  if (auth && token) headers.Authorization = `Bearer ${token}`;
 
   let res;
   try {
@@ -66,12 +161,15 @@ async function request(path, { method = "GET", body, auth = false } = {}) {
     throw new ApiError(0, "Tidak dapat menghubungi server. Periksa koneksi Anda.");
   }
 
-  if (res.status === 204) return null;
+  if (res.status === 204) {
+    periksaJawaban(res, null, tokenTerkirim);
+    return null;
+  }
 
   const tipe = res.headers.get("content-type") || "";
   const data = tipe.includes("application/json") ? await res.json().catch(() => ({})) : await res.text();
 
-  if (res.status === 401 && auth) clearToken();
+  periksaJawaban(res, data, tokenTerkirim);
 
   if (!res.ok) {
     const pesan = (data && data.error) || `Permintaan gagal (${res.status}).`;
@@ -82,45 +180,56 @@ async function request(path, { method = "GET", body, auth = false } = {}) {
 
 /* ---------- auth ---------- */
 
-/** `ingat` = "Ingat saya di perangkat ini": sesi 30 hari yang terus diperpanjang, bukan 12 jam. */
-export async function login(username, password, ingat = false) {
-  const data = await request("/auth/login", { method: "POST", body: { username, password, ingat } });
-  setToken(data.token);
-  return data;
+const profilDari = (d) => ({
+  role: d.role,
+  username: d.username,
+  nama: d.nama,
+  ...(d.role === "petugas" ? { petugasId: d.petugasId } : {}),
+});
+
+/** Masuk sebagai admin atau petugas (server yang menentukan). Mengembalikan getSesi(). */
+export async function login(username, password) {
+  const data = await request("/auth/login", { method: "POST", body: { username, password }, tanpaToken: true });
+  perluMasuk = false;
+  simpanSesi(data.token, profilDari(data));
+  return getSesi();
 }
 
 /**
- * Ganti password admin. Server mencabut semua token lama, jadi token baru yang
- * ikut dikirim balik harus langsung dipakai - kalau tidak, sesi yang sedang
- * berjalan ini ikut terlempar keluar setelah passwordnya sendiri diganti.
+ * Ganti password sendiri (admin maupun petugas). Server mencabut semua token
+ * lama, jadi token baru yang ikut dikirim balik harus langsung dipakai - kalau
+ * tidak, sesi yang sedang berjalan ini ikut terlempar keluar.
  */
 export async function gantiPassword(passwordLama, passwordBaru) {
-  const data = await request("/auth/password", {
-    method: "PUT",
-    body: { passwordLama, passwordBaru },
-    auth: true,
-  });
-  if (data && data.token) setToken(data.token);
+  const data = await request("/auth/password", { method: "PUT", body: { passwordLama, passwordBaru } });
+  if (data && data.token) gantiToken(data.token);
   return data;
 }
 
 /**
- * Verifikasi token yang tersimpan saat aplikasi dibuka. Sesi "Ingat saya"
- * sekalian diperpanjang: server mengirim token baru bila perlu.
+ * Verifikasi sesi tersimpan saat aplikasi dibuka dan perbarui profilnya.
+ * Sesi petugas sekalian diperpanjang lewat header X-Token-Baru.
  *
  * Hanya 401 yang berarti sesi berakhir, dan request() sudah membuang tokennya.
  * Sinyal yang hilang di lapangan atau server yang sebentar tidak terjangkau
- * bukan alasan mengeluarkan admin - tokennya disimpan dan dicoba lagi nanti.
+ * bukan alasan mengeluarkan pemakai - tokennya disimpan dan dicoba lagi nanti.
+ * @returns {Promise<object|null>} getSesi()
  */
 export async function cekSesi() {
-  if (!token) return false;
+  if (!token) return null;
   try {
-    const data = await request("/auth/me", { auth: true });
-    if (data && data.token) setToken(data.token);
+    const data = await request("/auth/me");
+    if (data && data.role) simpanSesi(token, profilDari(data));
   } catch {
     /* 401 sudah ditangani request(); galat lain dibiarkan */
   }
-  return Boolean(token);
+  return getSesi();
+}
+
+/** Keluar di perangkat ini. Cookie foto dibuang server; kegagalannya tidak menahan keluar. */
+export function keluar() {
+  clearToken();
+  fetch(`${BASE}/auth/keluar`, { method: "POST" }).catch(() => {});
 }
 
 /* ---------- petugas ---------- */
@@ -143,24 +252,45 @@ export async function imporPetugas(file) {
   const data = new FormData();
   data.append("berkas", file, file.name || "petugas.xlsx");
 
+  const headers = kepalaToken();
   let res;
   try {
-    res = await fetch(`${BASE}/petugas/impor`, {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: data,
-    });
+    res = await fetch(`${BASE}/petugas/impor`, { method: "POST", headers, body: data });
   } catch {
     throw new ApiError(0, "Tidak dapat menghubungi server. Periksa koneksi Anda.");
   }
 
   const body = await res.json().catch(() => ({}));
-  if (res.status === 401) {
-    clearToken();
-    throw new ApiError(401, "Sesi admin sudah berakhir. Silakan login kembali.");
-  }
+  periksaJawaban(res, body, Boolean(headers.Authorization));
+  if (res.status === 401) throw new ApiError(401, "Sesi sudah berakhir. Silakan login kembali.", body);
   if (!res.ok) throw new ApiError(res.status, body.error || `Impor gagal (${res.status}).`, body);
   return body;
+}
+
+/* ---------- akun login petugas (khusus admin) ---------- */
+
+/** Buat atau ubah akun. `password` boleh kosong untuk akun yang sudah ada (ganti username saja). */
+export const aturAkunPetugas = (id, username, password) =>
+  request(`/petugas/${id}/akun`, { method: "PUT", body: { username, password } });
+export const hapusAkunPetugas = (id) => request(`/petugas/${id}/akun`, { method: "DELETE" });
+/** Cabut semua sesi petugas ini (mis. HP hilang); akunnya tetap. */
+export const keluarkanPetugas = (id) => request(`/petugas/${id}/keluarkan`, { method: "POST" });
+
+/**
+ * Buat akun untuk petugas yang belum punya, lalu unduh Excel berisi username
+ * dan password-nya. Mengembalikan { jumlah, sisa } - sisa > 0 berarti masih
+ * ada yang menunggu klik berikutnya.
+ */
+export async function buatAkunMassal() {
+  const kepala = await unduhBerkas("/petugas/akun-massal", "akun-petugas.xlsx", { method: "POST" });
+  return { jumlah: Number(kepala.get("X-Jumlah-Akun") || 0), sisa: Number(kepala.get("X-Sisa-Akun") || 0) };
+}
+
+/** Nyalakan / matikan kewajiban login. Mengembalikan { wajib }. */
+export async function aturWajibLogin(wajib) {
+  const hasil = await request("/petugas/wajib-login", { method: "PUT", body: { wajib } });
+  if (konfigurasiCache) konfigurasiCache = konfigurasiCache.then((k) => ({ ...k, wajibLogin: hasil.wajib }));
+  return hasil;
 }
 
 /* ---------- formulir ---------- */
@@ -292,13 +422,15 @@ export async function uploadFoto(file) {
   const data = new FormData();
   data.append("berkas", file, file.name || "foto.jpg");
 
+  const headers = kepalaToken();
   let res;
   try {
-    res = await fetch(`${BASE}/foto`, { method: "POST", body: data });
+    res = await fetch(`${BASE}/foto`, { method: "POST", headers, body: data });
   } catch {
     throw new ApiError(0, "Tidak dapat menghubungi server. Periksa koneksi Anda.");
   }
   const body = await res.json().catch(() => ({}));
+  periksaJawaban(res, body, Boolean(headers.Authorization));
   if (!res.ok) throw new ApiError(res.status, body.error || `Unggah foto gagal (${res.status}).`, body);
   return body;
 }
@@ -310,14 +442,14 @@ export async function uploadFoto(file) {
  * Navigasi browser biasa (window.location.href) tidak bisa memasang header
  * Authorization, jadi berkasnya diambil lewat fetch lalu disimpan sebagai blob.
  *
- * Melempar ApiError; pemanggil menampilkan pesannya lewat toast.
+ * Melempar ApiError; pemanggil menampilkan pesannya lewat toast. Mengembalikan
+ * header jawaban, untuk unduhan yang membawa keterangan tambahan.
  */
-async function unduhBerkas(path, namaCadangan) {
+async function unduhBerkas(path, namaCadangan, { method = "GET" } = {}) {
+  const headers = kepalaToken();
   let res;
   try {
-    res = await fetch(BASE + path, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    res = await fetch(BASE + path, { method, headers });
   } catch {
     throw new ApiError(0, "Tidak dapat menghubungi server. Periksa koneksi Anda.");
   }
@@ -325,12 +457,11 @@ async function unduhBerkas(path, namaCadangan) {
   if (!res.ok) {
     // Galat dikirim sebagai JSON, bukan berkas.
     const data = await res.json().catch(() => ({}));
-    if (res.status === 401) {
-      clearToken();
-      throw new ApiError(401, "Sesi admin sudah berakhir. Silakan login kembali.", data);
-    }
+    periksaJawaban(res, data, Boolean(headers.Authorization));
+    if (res.status === 401) throw new ApiError(401, "Sesi sudah berakhir. Silakan login kembali.", data);
     throw new ApiError(res.status, data.error || `Unduhan gagal (${res.status}).`, data);
   }
+  periksaJawaban(res, null, Boolean(headers.Authorization));
 
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
@@ -342,6 +473,7 @@ async function unduhBerkas(path, namaCadangan) {
   a.remove();
   // Beri browser waktu memulai penyimpanan sebelum blob dilepas.
   setTimeout(() => URL.revokeObjectURL(url), 10000);
+  return res.headers;
 }
 
 /** Ambil nama berkas dari header Content-Disposition: attachment; filename="x.xlsx". */

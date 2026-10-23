@@ -7,12 +7,15 @@ import { PageHead, Panel, Loading, ErrorBox } from "../../components/Ui.jsx";
 import PetugasTim from "../../components/PetugasTim.jsx";
 import { navigate, kembali } from "../../lib/router.js";
 import { urlKk } from "./bersama.js";
+import { useSesi } from "../../lib/admin.js";
 
 export function BuatKertasKerja() {
   const toast = useToast();
   const [nomor, setNomor] = useState("—");
   const [petugas, setPetugas] = useState([]);
-  const [tim, setTim] = useState([null]);
+  const sesi = useSesi();
+  // Petugas yang sedang masuk otomatis menjadi anggota pertama (penanggung jawab); bisa diganti.
+  const [tim, setTim] = useState(() => [sesi?.role === "petugas" ? sesi.petugasId : null]);
   const [galatTim, setGalatTim] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

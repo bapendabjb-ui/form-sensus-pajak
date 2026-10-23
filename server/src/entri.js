@@ -210,6 +210,8 @@ async function muatEntri(id) {
     dariEpbb: e.jawaban.filter((j) => j.dariEpbb).map((j) => j.pertanyaanId),
     berkasLengkap: e.berkasLengkap,
     catatanBerkas: e.catatanBerkas,
+    dibuatOleh: e.dibuatOleh,
+    diubahOleh: e.diubahOleh,
     createdAt: e.createdAt,
     updatedAt: e.updatedAt,
     rekamKoordinat:

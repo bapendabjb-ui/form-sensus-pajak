@@ -3,8 +3,17 @@
 const express = require("express");
 const multer = require("multer");
 const prisma = require("../prisma");
-const { requireAdmin } = require("../auth");
+const { requireAdmin, bacaAdmin, hashPassword } = require("../auth");
 const { wrap, badRequest, notFound, conflict, parseId } = require("../http");
+const {
+  normalUsername,
+  galatUsername,
+  galatPassword,
+  usernameDariNama,
+  usernameUnik,
+  buatPassword,
+} = require("../akunPetugas");
+const { aturWajibLoginPetugas } = require("../pengaturan");
 const { kapitalTiapKata } = require("../nama");
 const { rekapPetugas, rekapKosong } = require("../rekap");
 const { namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
@@ -19,12 +28,19 @@ const unggah = multer({
   limits: { fileSize: IMPOR_MAKS_MB * 1024 * 1024, files: 1 },
 });
 
-const bentuk = (p, rekap = rekapKosong()) => ({
+/**
+ * `admin`: sertakan keterangan akun login. Daftar petugas juga dibuka petugas
+ * lain (penyusun tim), dan username bukan urusan mereka.
+ */
+const bentuk = (p, rekap = rekapKosong(), admin = false) => ({
   id: p.id,
   nama: p.nama,
   nip: p.nip,
   createdAt: p.createdAt,
   ...rekap,
+  ...(admin
+    ? { akun: p.passwordHash ? { username: p.username, masukTerakhir: p.masukTerakhir } : null }
+    : {}),
 });
 
 /** NIP dibandingkan tanpa spasi: "031 1998 2021" sama dengan "03119982021". */
@@ -70,12 +86,13 @@ async function pastikanUnik(nama, nip, kecualiId) {
  */
 router.get(
   "/",
-  wrap(async (_req, res) => {
-    const [list, rekap] = await Promise.all([
+  wrap(async (req, res) => {
+    const [list, rekap, admin] = await Promise.all([
       prisma.petugas.findMany({ orderBy: { nama: "asc" } }),
       rekapPetugas(),
+      bacaAdmin(req),
     ]);
-    res.json(list.map((p) => bentuk(p, rekap.get(p.id))));
+    res.json(list.map((p) => bentuk(p, rekap.get(p.id), Boolean(admin))));
   })
 );
 
@@ -197,6 +214,165 @@ router.post(
       dilewati,
       ditolak,
     });
+  })
+);
+
+/* ---------- akun login petugas ---------- */
+
+/**
+ * PUT /api/petugas/wajib-login  { wajib: boolean } -> { wajib }. Khusus admin.
+ * Saklar gerbang login (src/auth.js gerbangMasuk). Admin tetap bisa masuk
+ * apa pun nilainya, jadi menyalakannya tidak bisa mengunci aplikasi.
+ */
+router.put(
+  "/wajib-login",
+  requireAdmin,
+  wrap(async (req, res) => {
+    if (typeof req.body?.wajib !== "boolean") throw badRequest("Nilai wajib harus true atau false.");
+    res.json({ wajib: await aturWajibLoginPetugas(req.body.wajib) });
+  })
+);
+
+/** Username yang sudah dipakai (huruf kecil): semua akun petugas dan admin. */
+async function usernameTerpakai() {
+  const [petugas, admin] = await Promise.all([
+    prisma.petugas.findMany({ where: { username: { not: null } }, select: { username: true } }),
+    prisma.admin.findMany({ select: { username: true } }),
+  ]);
+  return new Set([...petugas, ...admin].map((a) => a.username.toLowerCase()));
+}
+
+/** Paling banyak akun per klik: bcrypt sengaja lambat, dan permintaannya tidak boleh melewati batas waktu proxy. */
+const AKUN_MASSAL_MAKS = 100;
+
+/**
+ * POST /api/petugas/akun-massal -> .xlsx berisi Nama, NIP, Username, Password
+ * untuk petugas yang belum punya akun. Khusus admin.
+ *
+ * Password hanya ada di berkas ini - yang tersimpan cuma hash-nya - jadi
+ * berkasnya dikirim sebagai unduhan dan tidak boleh disimpan cache. Header
+ * X-Jumlah-Akun / X-Sisa-Akun memberi tahu klien berapa yang dibuat dan berapa
+ * yang masih menunggu klik berikutnya.
+ */
+router.post(
+  "/akun-massal",
+  requireAdmin,
+  wrap(async (_req, res) => {
+    const belum = await prisma.petugas.findMany({
+      where: { passwordHash: null },
+      orderBy: { nama: "asc" },
+      take: AKUN_MASSAL_MAKS + 1,
+    });
+    if (belum.length === 0) throw conflict("Semua petugas sudah punya akun.");
+    const giliran = belum.slice(0, AKUN_MASSAL_MAKS);
+
+    const terpakai = await usernameTerpakai();
+    const akun = [];
+    for (const p of giliran) {
+      const username = usernameUnik(usernameDariNama(p.nama), terpakai);
+      const password = buatPassword();
+      // Satu per satu dan bersyarat: bila admin lain membuatkan akun orang yang
+      // sama pada saat bersamaan, akun itu tidak ditimpa.
+      const { count } = await prisma.petugas.updateMany({
+        where: { id: p.id, passwordHash: null },
+        data: { username, passwordHash: await hashPassword(password), tokenVersi: { increment: 1 } },
+      });
+      if (count) akun.push({ p, username, password });
+    }
+
+    const sisa = await prisma.petugas.count({ where: { passwordHash: null } });
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("X-Jumlah-Akun", String(akun.length));
+    res.setHeader("X-Sisa-Akun", String(sisa));
+    await kirimXlsx(res, {
+      nama: namaBerkas(`akun-petugas-${new Date().toISOString().slice(0, 10)}`, "akun-petugas"),
+      sheet: "Akun Petugas",
+      tabel: {
+        header: ["Nama", "NIP", "Username", "Password"],
+        baris: akun.map(({ p, username, password }) => [
+          { teks: p.nama },
+          { teks: p.nip },
+          { teks: username },
+          { teks: password },
+        ]),
+      },
+    });
+  })
+);
+
+/**
+ * PUT /api/petugas/:id/akun  { username, password? } -> buat atau ubah akun login. Khusus admin.
+ *
+ * Password wajib untuk akun baru; untuk akun yang sudah ada boleh dikosongkan
+ * bila hanya username yang diganti. Password baru mencabut semua sesi lama
+ * petugas itu (tokenVersi naik), jadi HP yang hilang ikut keluar.
+ */
+router.put(
+  "/:id/akun",
+  requireAdmin,
+  wrap(async (req, res) => {
+    const id = parseId(req.params.id);
+    const username = normalUsername(req.body?.username);
+    const password = String(req.body?.password || "");
+
+    const galatU = galatUsername(username);
+    if (galatU) throw badRequest(galatU);
+
+    const p = await prisma.petugas.findUnique({ where: { id } });
+    if (!p) throw notFound("Petugas tidak ditemukan.");
+    if (!p.passwordHash && !password) throw badRequest("Password wajib diisi untuk akun baru.");
+    if (password) {
+      const galatP = galatPassword(password);
+      if (galatP) throw badRequest(galatP);
+    }
+
+    const [lain, admin] = await Promise.all([
+      prisma.petugas.findFirst({ where: { username, id: { not: id } }, select: { nama: true } }),
+      prisma.admin.findUnique({ where: { username }, select: { id: true } }),
+    ]);
+    if (lain) throw conflict(`Username ${username} sudah dipakai ${lain.nama}.`);
+    if (admin) throw conflict(`Username ${username} sudah dipakai akun admin.`);
+
+    const diubah = await prisma.petugas.update({
+      where: { id },
+      data: {
+        username,
+        ...(password ? { passwordHash: await hashPassword(password), tokenVersi: { increment: 1 } } : {}),
+      },
+    });
+    res.json(bentuk(diubah, undefined, true));
+  })
+);
+
+/** DELETE /api/petugas/:id/akun -> hapus akun login (petugasnya tetap ada). Khusus admin. */
+router.delete(
+  "/:id/akun",
+  requireAdmin,
+  wrap(async (req, res) => {
+    const id = parseId(req.params.id);
+    const ada = await prisma.petugas.findUnique({ where: { id }, select: { id: true } });
+    if (!ada) throw notFound("Petugas tidak ditemukan.");
+    const diubah = await prisma.petugas.update({
+      where: { id },
+      data: { username: null, passwordHash: null, tokenVersi: { increment: 1 } },
+    });
+    res.json(bentuk(diubah, undefined, true));
+  })
+);
+
+/**
+ * POST /api/petugas/:id/keluarkan -> cabut semua sesi petugas ini (mis. HP hilang).
+ * Akunnya tetap; petugas cukup login lagi di HP yang benar. Khusus admin.
+ */
+router.post(
+  "/:id/keluarkan",
+  requireAdmin,
+  wrap(async (req, res) => {
+    const id = parseId(req.params.id);
+    const ada = await prisma.petugas.findUnique({ where: { id }, select: { id: true } });
+    if (!ada) throw notFound("Petugas tidak ditemukan.");
+    await prisma.petugas.update({ where: { id }, data: { tokenVersi: { increment: 1 } } });
+    res.json({ ok: true });
   })
 );
 

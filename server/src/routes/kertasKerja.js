@@ -3,7 +3,7 @@
 const express = require("express");
 const prisma = require("../prisma");
 const config = require("../config");
-const { requireAdmin, bacaAdmin } = require("../auth");
+const { requireAdmin, bacaAdmin, namaPelaku } = require("../auth");
 const { wrap, badRequest, notFound, parseId, ApiError } = require("../http");
 const { ambilNomorBerikutnya, previewNomorBerikutnya } = require("../nomor");
 const {
@@ -152,6 +152,7 @@ function bentukDetail({ kk, formulir }) {
         berkasLengkap: e.berkasLengkap,
         catatanBerkas: e.catatanBerkas,
         diajukanHapus: e.pengajuanHapus.length > 0,
+        dibuatOleh: e.dibuatOleh,
         lokasi: ringkasLokasiEntri(e, jawabanLokasiPertama(qidLokasi.get(e.formulirId) || [], jawaban)),
         createdAt: e.createdAt,
         updatedAt: e.updatedAt,
@@ -552,6 +553,7 @@ router.post(
           formulirId,
           ...berkas,
           ...bacaRekamKoordinat(req.body),
+          dibuatOleh: await namaPelaku(req),
         },
       });
       dilepas = await tulisJawaban(tx, e.id, siap);
@@ -628,7 +630,7 @@ router.put(
         titikAkurasi: null,
         titikSumber: "peta",
         titikWaktu: new Date(),
-        titikOleh: admin ? admin.username : "petugas",
+        titikOleh: ((await namaPelaku(req)) || "petugas").slice(0, 64),
       };
     }
 
@@ -647,7 +649,7 @@ router.put(
 router.put(
   "/:id/rekam",
   wrap(async (req, res) => {
-    const { id, admin } = await muatUntukTitik(req);
+    const { id } = await muatUntukTitik(req);
 
     const k = bacaKoordinat(req.body);
     if (!k) throw badRequest("Posisi GPS tidak valid.");
@@ -670,7 +672,7 @@ router.put(
         titikAkurasi: k.akurasi,
         titikSumber: "gps",
         titikWaktu: new Date(),
-        titikOleh: admin ? admin.username : "petugas",
+        titikOleh: ((await namaPelaku(req)) || "petugas").slice(0, 64),
       },
     });
     await perbaruiLokasiKk(id);

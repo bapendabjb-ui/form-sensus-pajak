@@ -264,7 +264,7 @@ contoh (termasuk pertanyaan foto dan kecamatan & kelurahan) dan 3 petugas. Manua
 | `DATABASE_URL`   |  ✅   | —               | `mysql://user:pass@host:port/db`                                        |
 | `JWT_SECRET`     |  ✅   | —               | Penanda tangan token admin. **Server menolak start di produksi tanpa ini.** |
 | `JWT_EXPIRES_IN` |       | `12h`           | Masa berlaku token admin                                                |
-| `JWT_INGAT_EXPIRES_IN` |  | `30d`         | Masa berlaku token bila "Ingat saya di perangkat ini" dicentang; diperpanjang setiap aplikasi dibuka |
+| `JWT_PETUGAS_EXPIRES_IN` |  | `30d`       | Masa berlaku sesi petugas (HP diingat); diperpanjang otomatis selama aplikasi dipakai |
 | `ADMIN_USERNAME` |       | `admin`         | Akun admin yang di-seed saat start pertama                              |
 | `ADMIN_PASSWORD` |       | `admin123`      | Password admin saat akun pertama dibuat (disimpan sebagai hash bcrypt). **Di produksi server menolak start bila akunnya belum ada dan nilainya lemah** — kosong, < 8 karakter, atau nilai contoh seperti `admin123` |
 | `PORT`           |       | `4000`          | Port HTTP. **Railway meng-inject ini** — jangan di-hardcode             |
@@ -300,15 +300,50 @@ contoh (termasuk pertanyaan foto dan kecamatan & kelurahan) dan 3 petugas. Manua
 
 ## Hak akses
 
-Aplikasi **tidak memakai kode akses**: siapa pun yang tahu alamatnya bisa membuka
-halaman lapangan dan bekerja tanpa login. Hanya pengelolaan dan penghapusan yang
-butuh login admin.
+Ada dua jenis akun: **admin** dan **petugas**. Keduanya masuk lewat layar login
+yang sama; server yang menentukan siapa yang masuk.
 
-> **Perhatikan:** dengan begitu siapa pun yang tahu alamat aplikasi bisa membaca
-> dan mengubah data sensus di halaman lapangan — termasuk NIK, NPWP, nomor telepon,
-> alamat, foto, dan titik koordinat rumah wajib pajak. Batasi alamatnya ke petugas,
-> atau pasang perlindungan di depan aplikasi (VPN, IP allowlist, atau proxy
-> berautentikasi) bila datanya sensitif.
+Selama **Wajib login** (halaman **Petugas**) belum dinyalakan, halaman lapangan
+tetap terbuka tanpa login seperti semula, dan hanya pengelolaan serta penghapusan
+yang butuh login admin.
+
+> **Perhatikan:** tanpa wajib login, siapa pun yang tahu alamat aplikasi bisa
+> membaca dan mengubah data sensus di halaman lapangan — termasuk NIK, NPWP,
+> nomor telepon, alamat, foto, dan titik koordinat rumah wajib pajak. Nyalakan
+> wajib login setelah akun petugas dibagikan.
+
+### Login petugas
+
+Admin membuatkan akun dari halaman **Petugas**:
+
+1. **Buat akun untuk N petugas** — username dibuat dari nama (`andi.saputra`,
+   gelar dibuang, kembaran diberi angka) dan password acak 10 huruf tanpa huruf
+   yang mudah tertukar. Daftarnya terunduh sebagai Excel; **itu satu-satunya
+   salinan password** — yang tersimpan di database hanya hash-nya. Paling banyak
+   100 akun per klik.
+2. Bagikan username & password ke masing-masing petugas. Petugas login sekali di
+   HP-nya; **HP diingat 30 hari sejak terakhir dipakai** (diperpanjang otomatis
+   paling sering sehari sekali), jadi yang membuka aplikasi minimal sebulan sekali
+   tidak perlu login lagi. Sesi admin tetap 12 jam.
+3. Nyalakan **Wajib login**. Sejak itu semua API — termasuk foto dan cek NOP
+   EPBB — menolak permintaan tanpa sesi (`401` dengan `perluMasuk: true`), dan
+   aplikasi hanya menampilkan layar login. Yang tetap terbuka hanya
+   `/api/auth/*`, `/api/konfigurasi`, dan `/api/health`. Admin selalu bisa
+   masuk, jadi saklar ini tidak bisa mengunci aplikasi.
+
+Per petugas, tombol **Akun** membuka: ganti username / buat password baru (lupa
+password), **Keluarkan dari semua HP** (HP hilang — akunnya tetap), dan **Hapus
+akun**. Petugas bisa mengganti password sendiri di halaman **Akun**.
+
+Setelah login, petugas otomatis menjadi anggota pertama saat membuat kertas kerja
+dan terpilih sebagai pengaju hapus, dan namanya tercatat pada data yang ia simpan
+(kolom **Diisi oleh** di ekspor) serta pada titik lokasi yang ia tetapkan.
+
+**Foto** dimuat lewat `<img>`, yang tidak bisa membawa header `Authorization`.
+Karena itu login juga memasang cookie `sp_foto` (HttpOnly, SameSite=Lax,
+`Path=/api/foto`) berisi token yang sama. Cookie hanya diterima untuk permintaan
+baca dan browser tidak mengirimnya ke endpoint lain, jadi tidak membuka celah
+CSRF. Tautan foto di berkas ekspor tetap bisa dibuka di browser yang sudah login.
 
 ### Login admin
 
@@ -324,6 +359,7 @@ Prinsipnya: **pekerjaan lapangan terbuka, pengelolaan dan penghapusan butuh admi
 | **Ekspor CSV & Excel (kertas kerja, formulir, daftar petugas)**               |       ✅          |
 | **Mengubah tim petugas kertas kerja yang sudah dibuat**                       |       ✅          |
 | **Menambah / mengubah / menghapus petugas, impor daftar petugas**             |       ✅          |
+| **Membuat akun login petugas, menyalakan wajib login**                        |       ✅          |
 | **Menghapus kertas kerja**                                                    |       ✅          |
 | **Menghapus data (entri)**                                                    |       ✅          |
 | **Membuat / mengubah / menghapus formulir**                                   |       ✅          |
@@ -332,17 +368,19 @@ Aksi khusus admin **tidak ditampilkan** selama belum login; di tempatnya muncul
 pemberitahuan singkat beserta tombol **Masuk admin** — kecuali tombol hapus, yang
 digantikan tombol **Ajukan hapus**. Menu **Formulir**, **Ekspor**, dan **Pengajuan
 Hapus** disembunyikan sebelum login. Login bisa dibuka kapan saja lewat `/masuk`
-(tombol **Masuk admin** di kaki sidebar, atau **Masuk** di bilah atas pada HP).
+(tombol **Masuk** di kaki sidebar, atau **Masuk** di bilah atas pada HP).
 
 Menyembunyikan tombol hanya untuk kenyamanan — **server memeriksa token pada setiap
-aksi khusus admin** dan menjawab `401` bila tidak ada, jadi memanggil API langsung
-pun tetap ditolak.
+aksi khusus admin** dan menjawab `401` bila tidak ada (`403` untuk petugas yang
+sudah login), jadi memanggil API langsung pun tetap ditolak.
 
 ### Pengamanan akun admin
 
-- **Percobaan login dibatasi** 10 kegagalan per IP per 15 menit. Yang dihitung
-  hanya percobaan yang gagal, sehingga admin yang tahu passwordnya tidak pernah
-  mengunci dirinya sendiri.
+- **Percobaan login dibatasi** 10 kegagalan per username per IP dan 50 kegagalan
+  per IP, per 15 menit. Yang dihitung hanya percobaan yang gagal, sehingga yang
+  tahu passwordnya tidak pernah terkunci; batas per IP sengaja longgar karena
+  petugas yang belajar login bersama di kantor keluar lewat IP yang sama.
+  Username yang tidak terdaftar dijawab dengan pesan dan waktu yang sama.
 - **Password lemah ditolak di produksi.** Bila akun admin belum ada dan
   `ADMIN_PASSWORD` kosong, kurang dari 8 karakter, atau masih nilai contoh
   (`admin123` dan sejenisnya), server berhenti dengan pesan yang menjelaskan
@@ -351,12 +389,10 @@ pun tetap ditolak.
   naik saat password diganti; token lama yang masih dalam masa berlaku
   langsung ditolak, termasuk di perangkat lain. Perangkat yang sedang dipakai
   mengganti password menerima token baru dan tidak ikut terlempar.
-- **"Ingat saya di perangkat ini".** Tanpa centang, sesi berakhir 12 jam setelah
-  login. Dengan centang, token berlaku 30 hari dan diganti yang baru (paling
-  sering sehari sekali) setiap kali aplikasi dibuka, jadi admin yang membuka
-  aplikasi minimal sebulan sekali tidak perlu login lagi. HP hilang? Ganti
-  password: semua sesi di semua perangkat ikut tercabut.
-- **Sinyal hilang tidak mengeluarkan admin.** Pemeriksaan sesi saat aplikasi
+- **Sesi admin 12 jam, tidak diperpanjang**, supaya komputer kantor yang dipakai
+  bersama tidak tetap masuk. Sesi petugas 30 hari dan diperpanjang (lihat
+  [Login petugas](#login-petugas)).
+- **Sinyal hilang tidak mengeluarkan siapa pun.** Pemeriksaan sesi saat aplikasi
   dibuka hanya membuang token bila server menjawab 401; gagal terhubung tidak
   dianggap sesi berakhir.
 
@@ -936,21 +972,30 @@ jawaban server belum tiba, supaya layar tidak berkedip saat pertama kali dibuka.
 ## Referensi API
 
 Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Bearer <token>`.
+Selama **wajib login** menyala, semua endpoint selain `/auth/*`, `/konfigurasi`, dan
+`/health` juga butuh token (admin atau petugas). Token petugas yang umurnya lewat
+sehari dijawab dengan header `X-Token-Baru` berisi penggantinya.
 
 ### Auth
 
 | Method | Endpoint      | Keterangan                                             |
 | ------ | ------------- | ------------------------------------------------------ |
-| `POST` | `/auth/login` | `{ username, password, ingat? }` → `{ token, username }`. `ingat: true` = token 30 hari. Dibatasi **10 kegagalan / IP / 15 menit**; percobaan yang berhasil tidak dihitung. Kelebihan → **429** |
-| `GET`  | `/auth/me`    | 🔒 Verifikasi token. Token "Ingat saya" yang umurnya lewat sehari dijawab dengan `token` baru untuk menggantikannya |
-| `PUT`  | `/auth/password` | 🔒 `{ passwordLama, passwordBaru }` → `{ ok, token }` — ganti password (min. 8 karakter); password lama salah → **400**. **Semua token lama langsung dicabut**, jadi `token` yang dikembalikan harus dipakai menggantikan yang sedang dipegang |
+| `POST` | `/auth/login` | `{ username, password }` → `{ token, role, username, nama, petugasId? }`. Admin dan petugas lewat pintu yang sama; memasang cookie foto. Dibatasi **10 kegagalan / username / IP** dan **50 / IP** per 15 menit; percobaan yang berhasil tidak dihitung. Kelebihan → **429** |
+| `GET`  | `/auth/me`    | 🔒 Profil pemakai yang masuk (`role`, `username`, `nama`, `petugasId?`) |
+| `POST` | `/auth/keluar` | Buang cookie foto di browser ini → **204** |
+| `PUT`  | `/auth/password` | 🔒 `{ passwordLama, passwordBaru }` → `{ ok, token }` — ganti password sendiri, admin maupun petugas (min. 8 karakter); password lama salah → **400**. **Semua token lama langsung dicabut**, jadi `token` yang dikembalikan harus dipakai menggantikan yang sedang dipegang |
 
 ### Petugas
 
 | Method   | Endpoint       | Keterangan                                   |
 | -------- | -------------- | -------------------------------------------- |
-| `GET`    | `/petugas`     | Daftar petugas                               |
+| `GET`    | `/petugas`     | Daftar petugas. Untuk admin ditambah `akun: { username, masukTerakhir }` atau `null` |
 | `POST`   | `/petugas`     | 🔒 `{ nama, nip }`                           |
+| `PUT`    | `/petugas/:id/akun` | 🔒 `{ username, password? }` — buat / ubah akun login. Password wajib untuk akun baru; password baru mencabut semua sesi petugas itu. **409** bila username dipakai petugas lain atau admin |
+| `DELETE` | `/petugas/:id/akun` | 🔒 Hapus akun login (petugasnya tetap) |
+| `POST`   | `/petugas/:id/keluarkan` | 🔒 Cabut semua sesi petugas ini (HP hilang) |
+| `POST`   | `/petugas/akun-massal` | 🔒 Buat akun untuk ≤ 100 petugas yang belum punya → **.xlsx** (Nama, NIP, Username, Password); header `X-Jumlah-Akun`, `X-Sisa-Akun`. **409** bila semua sudah punya |
+| `PUT`    | `/petugas/wajib-login` | 🔒 `{ wajib: boolean }` — saklar wajib login |
 | `PUT`    | `/petugas/:id` | 🔒 Ubah nama / NIP                           |
 | `DELETE` | `/petugas/:id` | 🔒 **409** bila masih ada di tim kertas kerja |
 

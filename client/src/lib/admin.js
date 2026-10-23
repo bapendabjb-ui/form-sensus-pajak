@@ -10,3 +10,12 @@ import { createContext, useContext } from "react";
 export const AdminContext = createContext(false);
 
 export const useAdmin = () => useContext(AdminContext);
+
+/**
+ * Pemakai yang sedang masuk: { role: "admin" | "petugas", username, nama, petugasId? }
+ * atau null. Dipakai untuk mengisi otomatis nama petugas (mis. tim kertas kerja
+ * baru, pengaju hapus) - sama seperti AdminContext, hanya untuk tampilan.
+ */
+export const SesiContext = createContext(null);
+
+export const useSesi = () => useContext(SesiContext);

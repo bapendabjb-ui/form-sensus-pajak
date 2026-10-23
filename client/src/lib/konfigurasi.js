@@ -11,7 +11,16 @@ import * as api from "../api.js";
  */
 // lokasi null = titik kantor & batas akurasi belum diketahui; pemeriksaan
 // lokasi di layar isi data menunggu sampai angkanya tiba.
-const SEMENTARA = { petugasMaks: 8, fotoMaksPerPertanyaan: 10, uploadMaksMb: 8, lokasi: null };
+// dimuat false = jawaban server belum tiba (atau belum gagal); wajibLogin baru
+// bisa dipercaya setelah itu.
+const SEMENTARA = {
+  petugasMaks: 8,
+  fotoMaksPerPertanyaan: 10,
+  uploadMaksMb: 8,
+  lokasi: null,
+  wajibLogin: false,
+  dimuat: false,
+};
 
 let terakhir = SEMENTARA;
 
@@ -59,11 +68,15 @@ export function useKonfigurasi() {
     api
       .getKonfigurasi()
       .then((k) => {
-        terakhir = { ...SEMENTARA, ...k };
+        terakhir = { ...SEMENTARA, ...k, dimuat: true };
         if (!batal) setKonfigurasi(terakhir);
       })
       .catch(() => {
-        /* gagal memuat - tetap pakai nilai sementara */
+        // Gagal memuat (mis. tanpa sinyal) - pakai nilai sementara, tetapi jangan
+        // menunggu selamanya. Bila login ternyata diwajibkan, server akan menolak
+        // dengan perluMasuk dan layar login tetap muncul.
+        terakhir = { ...terakhir, dimuat: true };
+        if (!batal) setKonfigurasi(terakhir);
       });
     return () => {
       batal = true;

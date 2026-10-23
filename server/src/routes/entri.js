@@ -2,7 +2,7 @@
 
 const express = require("express");
 const prisma = require("../prisma");
-const { requireAdmin, bacaAdmin } = require("../auth");
+const { requireAdmin, bacaAdmin, namaPelaku } = require("../auth");
 const { wrap, notFound, parseId, ApiError } = require("../http");
 const { siapkanJawaban, tulisJawaban, muatEntri, bacaBerkas } = require("../entri");
 const { hapusBerkas } = require("../foto");
@@ -65,11 +65,12 @@ router.put(
     // lalu diperbaiki di kantor dulu terisi diam-diam dengan titik kantor.
     // GPS asli kini hanya terekam saat data dibuat; titik objek ditetapkan di
     // tingkat kertas kerja (PUT /api/kertas-kerja/:id/titik dan /rekam).
+    const diubahOleh = await namaPelaku(req);
     let dilepas = [];
     await prisma.$transaction(async (tx) => {
       await tx.entri.update({
         where: { id },
-        data: { updatedAt: new Date(), ...berkas },
+        data: { updatedAt: new Date(), diubahOleh, ...berkas },
       });
       dilepas = await tulisJawaban(tx, id, siap);
     });

@@ -17,7 +17,8 @@ const cors = require("cors");
 const config = require("./src/config");
 const prisma = require("./src/prisma");
 const { ApiError } = require("./src/http");
-const { ensureAdminSeed } = require("./src/auth");
+const { ensureAdminSeed, gerbangMasuk } = require("./src/auth");
+const { wajibLoginPetugas } = require("./src/pengaturan");
 const { headerKeamanan } = require("./src/keamanan");
 const { ensureCounter } = require("./src/nomor");
 const { catatPerubahan } = require("./src/simpanSementara");
@@ -34,9 +35,16 @@ app.use(express.json({ limit: "2mb" }));
 
 // CORS hanya diperlukan saat frontend dijalankan terpisah (vite dev server).
 if (config.corsOrigin) {
-  app.use(cors({ origin: config.corsOrigin.split(",").map((s) => s.trim()), credentials: false }));
+  // X-Token-Baru: perpanjangan sesi petugas (lihat gerbangMasuk) harus terbaca oleh klien.
+  app.use(
+    cors({
+      origin: config.corsOrigin.split(",").map((s) => s.trim()),
+      credentials: false,
+      exposedHeaders: ["X-Token-Baru"],
+    })
+  );
 } else if (!config.isProd) {
-  app.use(cors());
+  app.use(cors({ exposedHeaders: ["X-Token-Baru"] }));
 }
 
 /* ---------- API ---------- */
@@ -47,6 +55,10 @@ app.get("/api/health", (_req, res) => {
 
 // Setiap permintaan tulis membuat jawaban yang disimpan sementara (GET /api/peta) usang.
 app.use("/api", catatPerubahan);
+
+// Login petugas: siapa yang masuk, perpanjangan sesinya, dan - bila admin sudah
+// menyalakan "wajib login" - penolakan semua permintaan tanpa sesi (src/auth.js).
+app.use("/api", gerbangMasuk(wajibLoginPetugas));
 
 app.use("/api/auth", require("./src/routes/auth"));
 app.use("/api/petugas", require("./src/routes/petugas"));
@@ -84,6 +96,8 @@ app.get("/api/konfigurasi", async (_req, res, next) => {
         jarakJauhM: batas.JARAK_JAUH_M,
       },
       periodeData: counter?.periode ?? 0,
+      // true = klien langsung menampilkan layar login bagi yang belum masuk.
+      wajibLogin: await wajibLoginPetugas(),
     });
   } catch (e) {
     next(e);
