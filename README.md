@@ -264,6 +264,7 @@ contoh (termasuk pertanyaan foto dan kecamatan & kelurahan) dan 3 petugas. Manua
 | `DATABASE_URL`   |  ✅   | —               | `mysql://user:pass@host:port/db`                                        |
 | `JWT_SECRET`     |  ✅   | —               | Penanda tangan token admin. **Server menolak start di produksi tanpa ini.** |
 | `JWT_EXPIRES_IN` |       | `12h`           | Masa berlaku token admin                                                |
+| `JWT_INGAT_EXPIRES_IN` |  | `30d`         | Masa berlaku token bila "Ingat saya di perangkat ini" dicentang; diperpanjang setiap aplikasi dibuka |
 | `ADMIN_USERNAME` |       | `admin`         | Akun admin yang di-seed saat start pertama                              |
 | `ADMIN_PASSWORD` |       | `admin123`      | Password admin saat akun pertama dibuat (disimpan sebagai hash bcrypt). **Di produksi server menolak start bila akunnya belum ada dan nilainya lemah** — kosong, < 8 karakter, atau nilai contoh seperti `admin123` |
 | `PORT`           |       | `4000`          | Port HTTP. **Railway meng-inject ini** — jangan di-hardcode             |
@@ -347,9 +348,17 @@ pun tetap ditolak.
   (`admin123` dan sejenisnya), server berhenti dengan pesan yang menjelaskan
   sebabnya — lebih baik gagal deploy daripada berjalan dengan admin yang bisa ditebak.
 - **Ganti password mencabut semua sesi.** Setiap akun punya nomor versi token yang
-  naik saat password diganti; token lama yang masih dalam masa berlaku 12 jam
+  naik saat password diganti; token lama yang masih dalam masa berlaku
   langsung ditolak, termasuk di perangkat lain. Perangkat yang sedang dipakai
   mengganti password menerima token baru dan tidak ikut terlempar.
+- **"Ingat saya di perangkat ini".** Tanpa centang, sesi berakhir 12 jam setelah
+  login. Dengan centang, token berlaku 30 hari dan diganti yang baru (paling
+  sering sehari sekali) setiap kali aplikasi dibuka, jadi admin yang membuka
+  aplikasi minimal sebulan sekali tidak perlu login lagi. HP hilang? Ganti
+  password: semua sesi di semua perangkat ikut tercabut.
+- **Sinyal hilang tidak mengeluarkan admin.** Pemeriksaan sesi saat aplikasi
+  dibuka hanya membuang token bila server menjawab 401; gagal terhubung tidak
+  dianggap sesi berakhir.
 
 ### Mengubah pembagian ini
 
@@ -932,8 +941,8 @@ Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Beare
 
 | Method | Endpoint      | Keterangan                                             |
 | ------ | ------------- | ------------------------------------------------------ |
-| `POST` | `/auth/login` | `{ username, password }` → `{ token, username }`. Dibatasi **10 kegagalan / IP / 15 menit**; percobaan yang berhasil tidak dihitung. Kelebihan → **429** |
-| `GET`  | `/auth/me`    | 🔒 Verifikasi token                                    |
+| `POST` | `/auth/login` | `{ username, password, ingat? }` → `{ token, username }`. `ingat: true` = token 30 hari. Dibatasi **10 kegagalan / IP / 15 menit**; percobaan yang berhasil tidak dihitung. Kelebihan → **429** |
+| `GET`  | `/auth/me`    | 🔒 Verifikasi token. Token "Ingat saya" yang umurnya lewat sehari dijawab dengan `token` baru untuk menggantikannya |
 | `PUT`  | `/auth/password` | 🔒 `{ passwordLama, passwordBaru }` → `{ ok, token }` — ganti password (min. 8 karakter); password lama salah → **400**. **Semua token lama langsung dicabut**, jadi `token` yang dikembalikan harus dipakai menggantikan yang sedang dipegang |
 
 ### Petugas

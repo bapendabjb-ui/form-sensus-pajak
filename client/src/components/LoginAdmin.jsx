@@ -7,6 +7,9 @@ import PasswordInput from "./PasswordInput.jsx";
 /**
  * Kartu login admin. Dipakai di halaman Formulir dan di layar /masuk,
  * jadi bentuk & perilakunya selalu sama.
+ *
+ * Sengaja berupa <form> sungguhan: pengelola password di HP dan browser baru
+ * menawarkan "Simpan password?" setelah sebuah form dikirim.
  */
 export default function LoginAdmin({
   onLoggedIn,
@@ -14,10 +17,13 @@ export default function LoginAdmin({
 }) {
   const toast = useToast();
   const [form, setForm] = useState({ user: "", pass: "" });
+  const [ingat, setIngat] = useState(false);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const masuk = async () => {
+  const masuk = async (ev) => {
+    ev.preventDefault();
+    if (loading) return;
     if (!form.user.trim() || !form.pass) {
       setErr("Username dan password wajib diisi.");
       return;
@@ -25,7 +31,7 @@ export default function LoginAdmin({
     setLoading(true);
     setErr("");
     try {
-      await api.login(form.user.trim(), form.pass);
+      await api.login(form.user.trim(), form.pass, ingat);
       toast("Berhasil masuk sebagai admin.");
       onLoggedIn();
     } catch (e) {
@@ -37,7 +43,7 @@ export default function LoginAdmin({
 
   return (
     <div className="fk-login">
-      <div className="fk-login-card">
+      <form className="fk-login-card" onSubmit={masuk} noValidate>
         <span className="fk-logo fk-login-logo">
           <IconLock />
         </span>
@@ -46,8 +52,10 @@ export default function LoginAdmin({
 
         <input
           className="fk-input"
+          name="username"
           placeholder="Username"
           autoComplete="username"
+          autoCapitalize="none"
           value={form.user}
           onChange={(e) => {
             setForm((f) => ({ ...f, user: e.target.value }));
@@ -55,6 +63,7 @@ export default function LoginAdmin({
           }}
         />
         <PasswordInput
+          name="password"
           placeholder="Password"
           autoComplete="current-password"
           value={form.pass}
@@ -62,15 +71,24 @@ export default function LoginAdmin({
             setForm((f) => ({ ...f, pass: e.target.value }));
             setErr("");
           }}
-          onKeyDown={(e) => e.key === "Enter" && masuk()}
         />
+
+        <label className="fk-login-ingat">
+          <input type="checkbox" checked={ingat} onChange={(e) => setIngat(e.target.checked)} />
+          <span>
+            Ingat saya di perangkat ini
+            <span className="fk-login-ingat-ket">
+              Tetap masuk selama aplikasi dibuka minimal sebulan sekali. Jangan dicentang di perangkat milik bersama.
+            </span>
+          </span>
+        </label>
 
         {err && <span className="fk-err">{err}</span>}
 
-        <button type="button" className="fk-btn fk-login-btn" onClick={masuk} disabled={loading}>
+        <button type="submit" className="fk-btn fk-login-btn" disabled={loading}>
           {loading ? "Memeriksa..." : "Masuk"}
         </button>
-      </div>
+      </form>
     </div>
   );
 }

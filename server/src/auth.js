@@ -27,15 +27,30 @@ const verifyPassword = (plain, hash) => bcrypt.compare(plain, hash);
 /**
  * Token admin membawa `ver` = Admin.tokenVersi saat token dibuat. Mengganti
  * password menaikkan angka itu, sehingga token lama yang masih dalam masa
- * berlaku (12 jam) langsung ditolak - inti dari "ganti password mencabut sesi".
+ * berlaku (12 jam, atau 30 hari bila "Ingat saya") langsung ditolak - inti dari
+ * "ganti password mencabut sesi".
+ *
+ * `ingat`: login dengan "Ingat saya di perangkat ini". Ikut ditandatangani
+ * supaya perpanjangan sesi (lihat perluPerpanjang) hanya berlaku untuknya.
  */
-function signAdminToken(admin) {
-  return jwt.sign(
-    { sub: admin.id, username: admin.username, role: "admin", ver: admin.tokenVersi ?? 0 },
-    config.jwtSecret,
-    { expiresIn: config.jwtExpiresIn }
-  );
+function signAdminToken(admin, { ingat = false } = {}) {
+  const isi = { sub: admin.id, username: admin.username, role: "admin", ver: admin.tokenVersi ?? 0 };
+  if (ingat) isi.ingat = true;
+  return jwt.sign(isi, config.jwtSecret, {
+    expiresIn: ingat ? config.jwtIngatExpiresIn : config.jwtExpiresIn,
+  });
 }
+
+/** Token "Ingat saya" diperbarui paling sering sekali sehari. */
+const PERPANJANG_SETELAH_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Apakah token ini perlu diganti dengan yang baru saat aplikasi dibuka?
+ * Hanya token "Ingat saya": sesi biasa tetap berakhir sesuai jadwalnya, jadi
+ * komputer bersama tidak tetap masuk hanya karena terus dipakai.
+ */
+const perluPerpanjang = (payload, sekarangMs = Date.now()) =>
+  Boolean(payload?.ingat) && sekarangMs - Number(payload.iat) * 1000 >= PERPANJANG_SETELAH_MS;
 
 function readToken(req) {
   const header = req.headers.authorization || "";
@@ -147,6 +162,7 @@ module.exports = {
   hashPassword,
   verifyPassword,
   signAdminToken,
+  perluPerpanjang,
   requireAdmin,
   bacaAdmin,
   ensureAdminSeed,

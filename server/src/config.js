@@ -15,6 +15,9 @@ const config = {
   nodeEnv: process.env.NODE_ENV || "development",
   jwtSecret: process.env.JWT_SECRET || "",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "12h",
+  // Masa berlaku token bila "Ingat saya" dicentang. Diperpanjang setiap kali
+  // aplikasi dibuka (GET /api/auth/me), jadi yang dihitung adalah jeda pemakaian.
+  jwtIngatExpiresIn: process.env.JWT_INGAT_EXPIRES_IN || "30d",
   adminUsername: (process.env.ADMIN_USERNAME || "admin").trim(),
   adminPassword: process.env.ADMIN_PASSWORD || "admin123",
   seedDemo: String(process.env.SEED_DEMO || "").toLowerCase() === "true",

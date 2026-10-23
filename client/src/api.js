@@ -82,8 +82,9 @@ async function request(path, { method = "GET", body, auth = false } = {}) {
 
 /* ---------- auth ---------- */
 
-export async function login(username, password) {
-  const data = await request("/auth/login", { method: "POST", body: { username, password } });
+/** `ingat` = "Ingat saya di perangkat ini": sesi 30 hari yang terus diperpanjang, bukan 12 jam. */
+export async function login(username, password, ingat = false) {
+  const data = await request("/auth/login", { method: "POST", body: { username, password, ingat } });
   setToken(data.token);
   return data;
 }
@@ -103,16 +104,23 @@ export async function gantiPassword(passwordLama, passwordBaru) {
   return data;
 }
 
-/** Verifikasi token yang tersimpan; token kedaluwarsa otomatis dibuang. */
+/**
+ * Verifikasi token yang tersimpan saat aplikasi dibuka. Sesi "Ingat saya"
+ * sekalian diperpanjang: server mengirim token baru bila perlu.
+ *
+ * Hanya 401 yang berarti sesi berakhir, dan request() sudah membuang tokennya.
+ * Sinyal yang hilang di lapangan atau server yang sebentar tidak terjangkau
+ * bukan alasan mengeluarkan admin - tokennya disimpan dan dicoba lagi nanti.
+ */
 export async function cekSesi() {
   if (!token) return false;
   try {
-    await request("/auth/me", { auth: true });
-    return true;
+    const data = await request("/auth/me", { auth: true });
+    if (data && data.token) setToken(data.token);
   } catch {
-    clearToken();
-    return false;
+    /* 401 sudah ditangani request(); galat lain dibiarkan */
   }
+  return Boolean(token);
 }
 
 /* ---------- petugas ---------- */

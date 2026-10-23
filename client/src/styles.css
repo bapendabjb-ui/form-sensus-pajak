@@ -202,6 +202,9 @@ body {
 .fk-login-sub{font-size:13px; color:var(--muted); margin:0 0 8px;}
 .fk-login-card .fk-input{text-align:left;}
 .fk-login-btn{margin-top:4px;}
+.fk-login-ingat{display:flex; align-items:flex-start; gap:9px; text-align:left; font-size:14px; cursor:pointer; margin-top:2px;}
+.fk-login-ingat input{width:18px; height:18px; margin:1px 0 0; flex:none; accent-color:var(--brand); cursor:pointer;}
+.fk-login-ingat-ket{display:block; font-size:12.5px; color:var(--muted); margin-top:2px;}
 /* Kaki daftar kertas kerja: keterangan jumlah + tombol muat lebih banyak. */
 .fk-muat-lagi{display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap; padding:18px 0 4px;}
 .fk-muat-info{font-size:13px; color:var(--muted);}

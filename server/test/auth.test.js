@@ -48,3 +48,40 @@ test("padNomor menjaga lebar nomor kertas kerja", () => {
   assert.equal(padNomor(1), "0".repeat(LEBAR_NOMOR - 1) + "1");
   assert.equal(padNomor(12345).length, LEBAR_NOMOR);
 });
+
+/*
+ * "Ingat saya di perangkat ini": token lebih panjang umurnya, dan hanya token
+ * itu yang diperpanjang saat aplikasi dibuka. Sesi biasa harus tetap berakhir
+ * sesuai jadwal walau terus dipakai - itu pengaman komputer milik bersama.
+ */
+const { perluPerpanjang } = require("../src/auth");
+
+const JAM = 60 * 60;
+
+test("token biasa tidak membawa tanda ingat dan berumur 12 jam", () => {
+  const isi = jwt.verify(signAdminToken({ id: 1, username: "admin", tokenVersi: 0 }), config.jwtSecret);
+  assert.equal(isi.ingat, undefined);
+  assert.equal(isi.exp - isi.iat, 12 * JAM);
+});
+
+test("token ingat-saya berumur 30 hari dan tetap membawa versi token", () => {
+  const isi = jwt.verify(
+    signAdminToken({ id: 1, username: "admin", tokenVersi: 4 }, { ingat: true }),
+    config.jwtSecret
+  );
+  assert.equal(isi.ingat, true);
+  assert.equal(isi.ver, 4, "ganti password tetap bisa mencabutnya");
+  assert.equal(isi.exp - isi.iat, 30 * 24 * JAM);
+});
+
+test("perluPerpanjang hanya untuk token ingat-saya yang umurnya lewat sehari", () => {
+  const sekarang = Date.UTC(2026, 9, 23, 8, 0, 0);
+  const iat = (jamLalu) => Math.floor(sekarang / 1000) - jamLalu * JAM;
+
+  assert.equal(perluPerpanjang({ ingat: true, iat: iat(25) }, sekarang), true);
+  assert.equal(perluPerpanjang({ ingat: true, iat: iat(24) }, sekarang), true, "tepat sehari");
+  assert.equal(perluPerpanjang({ ingat: true, iat: iat(23) }, sekarang), false, "belum sehari: tidak tiap buka");
+  assert.equal(perluPerpanjang({ iat: iat(11) }, sekarang), false, "sesi biasa tidak diperpanjang");
+  assert.equal(perluPerpanjang({ ingat: false, iat: iat(100) }, sekarang), false);
+  assert.equal(perluPerpanjang(undefined, sekarang), false);
+});

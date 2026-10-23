@@ -8,6 +8,7 @@ const {
   hashPassword,
   verifyPassword,
   signAdminToken,
+  perluPerpanjang,
   requireAdmin,
 } = require("../auth");
 const { wrap, badRequest, unauthorized } = require("../http");
@@ -30,13 +31,17 @@ const batasiLogin = pembatas({
   pesan: "Terlalu banyak percobaan login yang gagal. Coba lagi dalam beberapa menit.",
 });
 
-/** POST /api/auth/login -> { token, username } */
+/**
+ * POST /api/auth/login  { username, password, ingat? } -> { token, username }
+ * `ingat: true` = "Ingat saya di perangkat ini": token 30 hari, bukan 12 jam.
+ */
 router.post(
   "/login",
   batasiLogin,
   wrap(async (req, res) => {
     const username = String(req.body?.username || "").trim();
     const password = String(req.body?.password || "");
+    const ingat = req.body?.ingat === true;
     if (!username || !password) throw badRequest("Username dan password wajib diisi.");
 
     const admin = await prisma.admin.findUnique({ where: { username } });
@@ -45,13 +50,30 @@ router.post(
     const cocok = await verifyPassword(password, admin.passwordHash);
     if (!cocok) throw unauthorized("Username atau password salah.");
 
-    res.json({ token: signAdminToken(admin), username: admin.username });
+    res.json({ token: signAdminToken(admin, { ingat }), username: admin.username });
   })
 );
 
-/** GET /api/auth/me -> memastikan token masih berlaku (dipakai klien saat reload). */
+/**
+ * GET /api/auth/me -> memastikan token masih berlaku (dipakai klien saat aplikasi dibuka).
+ *
+ * Token "Ingat saya" yang umurnya sudah lewat sehari dikirim balik dalam versi
+ * baru (`token`), jadi masa 30 harinya dihitung dari pemakaian terakhir: admin
+ * yang membuka aplikasi minimal sebulan sekali tidak perlu login lagi.
+ * requireAdmin sudah memastikan `ver` sama dengan database, jadi token baru
+ * tidak bisa menghidupkan sesi yang sudah dicabut.
+ */
 router.get("/me", requireAdmin, (req, res) => {
-  res.json({ username: req.admin.username, role: "admin" });
+  // Jawabannya bisa membawa token: jangan sampai tersimpan di cache browser.
+  res.setHeader("Cache-Control", "no-store");
+  const hasil = { username: req.admin.username, role: "admin" };
+  if (perluPerpanjang(req.admin)) {
+    hasil.token = signAdminToken(
+      { id: req.admin.id, username: req.admin.username, tokenVersi: req.admin.ver ?? 0 },
+      { ingat: true }
+    );
+  }
+  res.json(hasil);
 });
 
 /**
@@ -86,7 +108,7 @@ router.put(
       data: { passwordHash: await hashPassword(passwordBaru), tokenVersi: { increment: 1 } },
     });
 
-    res.json({ ok: true, token: signAdminToken(diperbarui) });
+    res.json({ ok: true, token: signAdminToken(diperbarui, { ingat: Boolean(req.admin.ingat) }) });
   })
 );
 
