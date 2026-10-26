@@ -202,7 +202,8 @@ body {
 .fk-login-sub{font-size:13px; color:var(--muted); margin:0 0 8px;}
 .fk-login-card .fk-input{text-align:left;}
 .fk-login-btn{margin-top:4px;}
-.fk-login-ket{font-size:12.5px; color:var(--muted); margin:4px 0 0; line-height:1.5;}
+/* tanpa keterangan di bawah judul: jaga jarak judul ke kolom isian */
+.fk-login-title + .fk-input{margin-top:8px;}
 /* layar wajib login: tanpa menu, kartu login di tengah layar */
 .fk-gerbang{min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:24px 16px calc(24px + env(safe-area-inset-bottom)); background:var(--bg);}
 .fk-gerbang-merek{display:flex; align-items:center; gap:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; color:var(--ink);}

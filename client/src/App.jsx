@@ -75,7 +75,7 @@ function LayarMasuk() {
       </div>
       <LoginAdmin
         judul="Masuk"
-        sub="Gunakan username dan password yang dibagikan admin."
+        sub={null}
         khususAdmin={false}
         onLoggedIn={() => {}}
       />

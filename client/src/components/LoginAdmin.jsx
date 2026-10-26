@@ -12,6 +12,7 @@ import PasswordInput from "./PasswordInput.jsx";
  * Sengaja berupa <form> sungguhan: pengelola password di HP dan browser baru
  * menawarkan "Simpan password?" setelah sebuah form dikirim.
  *
+ * sub         : keterangan di bawah judul; null berarti tanpa keterangan.
  * khususAdmin : halaman yang hanya berguna bagi admin. Petugas yang masuk dari
  *               sini tetap masuk, tetapi diberi tahu halamannya bukan untuknya.
  */
@@ -55,7 +56,7 @@ export default function LoginAdmin({
           <IconLock />
         </span>
         <h2 className="fk-login-title">{judul}</h2>
-        <p className="fk-login-sub">{sub}</p>
+        {sub && <p className="fk-login-sub">{sub}</p>}
 
         <input
           className="fk-input"
@@ -88,12 +89,6 @@ export default function LoginAdmin({
           {loading ? "Memeriksa..." : "Masuk"}
         </button>
 
-        {!khususAdmin && (
-          <p className="fk-login-ket">
-            Petugas cukup masuk sekali: HP ini diingat selama aplikasi dibuka paling tidak sebulan sekali.
-            Lupa password? Minta admin membuatkan yang baru.
-          </p>
-        )}
       </form>
     </div>
   );
