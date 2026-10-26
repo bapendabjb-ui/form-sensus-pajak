@@ -63,25 +63,11 @@ function usePenandaKetik() {
 }
 
 /**
- * Layar saat admin mewajibkan login: hanya kartu login, tanpa menu, supaya
- * tidak ada layar yang tampak bisa dibuka padahal setiap datanya akan ditolak.
+ * Layar yang tetap terbuka saat admin mewajibkan login. Dashboard dibiarkan
+ * terbuka supaya pimpinan bisa memantau tanpa akun; layar lain berganti kartu
+ * login, dan setelah masuk langsung menampilkan layar yang tadi dituju.
  */
-function LayarMasuk() {
-  return (
-    <main className="fk-gerbang">
-      <div className="fk-gerbang-merek">
-        <Lambang />
-        <span>Sensus Pajak</span>
-      </div>
-      <LoginAdmin
-        judul="Masuk"
-        sub={null}
-        khususAdmin={false}
-        onLoggedIn={() => {}}
-      />
-    </main>
-  );
-}
+const TERBUKA_TANPA_LOGIN = new Set(["dashboard", "masuk", "akun"]);
 
 function Shell() {
   const lokasi = useLokasi();
@@ -203,10 +189,13 @@ function Shell() {
       );
   }
 
+  if (!sesi && (konfigurasi.wajibLogin || perluMasuk) && !TERBUKA_TANPA_LOGIN.has(rute.nama)) {
+    halaman = <LoginAdmin judul="Masuk" sub={null} khususAdmin={false} onLoggedIn={() => {}} />;
+  }
+
   // Tanpa sesi, tunggu konfigurasi dulu: layar yang sempat tampil lalu berganti
   // jadi layar login membingungkan petugas yang baru pertama membuka aplikasi.
   if (!sesi && !konfigurasi.dimuat) return <Loading label="Membuka aplikasi..." />;
-  if (!sesi && (konfigurasi.wajibLogin || perluMasuk)) return <LayarMasuk />;
 
   return (
     <div className={"fk-app" + (rute.fokus ? " is-fokus" : "")}>

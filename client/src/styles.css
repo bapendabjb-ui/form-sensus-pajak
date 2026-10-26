@@ -204,10 +204,6 @@ body {
 .fk-login-btn{margin-top:4px;}
 /* tanpa keterangan di bawah judul: jaga jarak judul ke kolom isian */
 .fk-login-title + .fk-input{margin-top:8px;}
-/* layar wajib login: tanpa menu, kartu login di tengah layar */
-.fk-gerbang{min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:24px 16px calc(24px + env(safe-area-inset-bottom)); background:var(--bg);}
-.fk-gerbang-merek{display:flex; align-items:center; gap:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px; color:var(--ink);}
-.fk-gerbang .fk-login{padding:12px 0 0; width:100%;}
 /* Kaki daftar kertas kerja: keterangan jumlah + tombol muat lebih banyak. */
 .fk-muat-lagi{display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap; padding:18px 0 4px;}
 .fk-muat-info{font-size:13px; color:var(--muted);}

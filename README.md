@@ -327,9 +327,12 @@ Admin membuatkan akun dari halaman **Petugas**:
    tidak perlu login lagi. Sesi admin tetap 12 jam.
 3. Nyalakan **Wajib login**. Sejak itu semua API — termasuk foto dan cek NOP
    EPBB — menolak permintaan tanpa sesi (`401` dengan `perluMasuk: true`), dan
-   aplikasi hanya menampilkan layar login. Yang tetap terbuka hanya
-   `/api/auth/*`, `/api/konfigurasi`, dan `/api/health`. Admin selalu bisa
-   masuk, jadi saklar ini tidak bisa mengunci aplikasi.
+   setiap layar selain **Dashboard** berganti kartu login. Dashboard sengaja
+   tetap terbuka supaya pimpinan bisa memantau tanpa akun; isinya hanya angka
+   ringkasan dan nama 10 petugas teratas, tanpa data wajib pajak. Yang tetap
+   terbuka hanya `/api/auth/*`, `/api/konfigurasi`, `/api/dashboard/stats`, dan
+   `/api/health`. Admin selalu bisa masuk, jadi saklar ini tidak bisa mengunci
+   aplikasi.
 
 Per petugas, tombol **Akun** membuka: ganti username / buat password baru (lupa
 password), **Keluarkan dari semua HP** (HP hilang — akunnya tetap), dan **Hapus
@@ -972,8 +975,8 @@ jawaban server belum tiba, supaya layar tidak berkedip saat pertama kali dibuka.
 ## Referensi API
 
 Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Bearer <token>`.
-Selama **wajib login** menyala, semua endpoint selain `/auth/*`, `/konfigurasi`, dan
-`/health` juga butuh token (admin atau petugas). Token petugas yang umurnya lewat
+Selama **wajib login** menyala, semua endpoint selain `/auth/*`, `/konfigurasi`,
+`/dashboard/stats`, dan `/health` juga butuh token (admin atau petugas). Token petugas yang umurnya lewat
 sehari dijawab dengan header `X-Token-Baru` berisi penggantinya.
 
 ### Auth

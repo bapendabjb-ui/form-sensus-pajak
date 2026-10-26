@@ -49,7 +49,8 @@ const rekapKosong = () => ({ jumlahKertasKerja: 0, jumlahData: 0 });
 async function peringkatPetugas(batas = 10) {
   const [rekap, petugas] = await Promise.all([
     rekapPetugas(),
-    prisma.petugas.findMany({ select: { id: true, nama: true, nip: true } }),
+    // Tanpa NIP: dashboard bisa dibuka tanpa login.
+    prisma.petugas.findMany({ select: { id: true, nama: true } }),
   ]);
 
   return petugas

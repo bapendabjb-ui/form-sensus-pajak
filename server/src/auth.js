@@ -185,8 +185,13 @@ async function namaPelaku(req) {
   return p ? p.nama : "";
 }
 
-/** Jalur yang tetap terbuka walau login diwajibkan: login itu sendiri dan konfigurasi awal aplikasi. */
-const bebasGerbang = (path) => path === "/konfigurasi" || path === "/health" || path.startsWith("/auth/");
+/**
+ * Jalur yang tetap terbuka walau login diwajibkan: login itu sendiri, konfigurasi
+ * awal aplikasi, dan angka ringkasan Dashboard - supaya pimpinan bisa memantau
+ * tanpa akun. Ringkasan itu hanya hitungan dan nama petugas, tanpa data wajib pajak.
+ */
+const bebasGerbang = (path) =>
+  path === "/konfigurasi" || path === "/health" || path === "/dashboard/stats" || path.startsWith("/auth/");
 
 /**
  * Gerbang login untuk seluruh /api.
