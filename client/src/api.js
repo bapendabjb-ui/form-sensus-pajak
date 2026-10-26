@@ -61,7 +61,7 @@ function umumkan() {
 }
 
 /**
- * Pemakai yang sedang masuk: { role: "admin" | "petugas", username, nama, petugasId? },
+ * Pemakai yang sedang masuk: { role: "admin" | "petugas" | "pejabat", username, nama, petugasId? },
  * atau null. Token admin dari sebelum ada login petugas belum punya profil
  * tersimpan; perannya dibaca dari token sampai cekSesi() melengkapinya.
  */
@@ -292,6 +292,17 @@ export async function aturWajibLogin(wajib) {
   if (konfigurasiCache) konfigurasiCache = konfigurasiCache.then((k) => ({ ...k, wajibLogin: hasil.wajib }));
   return hasil;
 }
+
+/* ---------- akun pejabat: hanya melihat (dikelola admin) ---------- */
+
+export const listPejabat = () => request("/pejabat");
+/** `data` = { nama, username, password }. */
+export const buatPejabat = (data) => request("/pejabat", { method: "POST", body: data });
+/** `data` = { nama, username, password? } - password kosong = tidak diganti. */
+export const ubahPejabat = (id, data) => request(`/pejabat/${id}`, { method: "PUT", body: data });
+/** Cabut semua sesi akun pejabat ini (mis. HP hilang); akunnya tetap. */
+export const keluarkanPejabat = (id) => request(`/pejabat/${id}/keluarkan`, { method: "POST" });
+export const hapusPejabat = (id) => request(`/pejabat/${id}`, { method: "DELETE" });
 
 /* ---------- formulir ---------- */
 

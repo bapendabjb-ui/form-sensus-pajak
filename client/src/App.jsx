@@ -6,7 +6,7 @@ import { Empty, Loading } from "./components/Ui.jsx";
 import { Lambang, IconKembali, IconGrid, IconDoc, IconUser, IconList, IconLock, IconUnduh, IconPeta, IconPengajuan } from "./components/Icons.jsx";
 import LoginAdmin from "./components/LoginAdmin.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
-import { DaftarKertasKerja, BuatKertasKerja, DetailKertasKerja, IsiData } from "./pages/kertas-kerja/index.js";
+import { DaftarKertasKerja, BuatKertasKerja, DetailKertasKerja, IsiData, LihatData } from "./pages/kertas-kerja/index.js";
 import PetugasPage from "./pages/PetugasPage.jsx";
 import FormulirPage from "./pages/FormulirPage.jsx";
 import AkunPage from "./pages/AkunPage.jsx";
@@ -69,12 +69,30 @@ function usePenandaKetik() {
  */
 const TERBUKA_TANPA_LOGIN = new Set(["dashboard", "masuk", "akun"]);
 
+/** Layar menambah data / kertas kerja yang dibuka akun pejabat lewat alamat langsung. */
+function HanyaLihat({ kembaliKe }) {
+  return (
+    <Empty
+      action={
+        <button type="button" className="fk-btn" onClick={() => navigate(kembaliKe, { replace: true })}>
+          Kembali
+        </button>
+      }
+    >
+      Akun pejabat hanya untuk melihat data.
+    </Empty>
+  );
+}
+
 function Shell() {
   const lokasi = useLokasi();
   const rute = cocokkanRute(lokasi);
-  // { role: "admin" | "petugas", nama, ... } atau null. Status login berubah lewat onAuthChange.
+  // { role: "admin" | "petugas" | "pejabat", nama, ... } atau null. Status login berubah lewat onAuthChange.
   const [sesi, setSesi] = useState(api.getSesi());
   const admin = sesi?.role === "admin";
+  // Akun pejabat hanya melihat: layar isian diganti tampilan baca saja.
+  const pejabat = sesi?.role === "pejabat";
+  const judul = pejabat && rute.nama === "ubah" ? "Lihat Data" : rute.judul;
   const konfigurasi = useKonfigurasi();
   const [perluMasuk, setPerluMasuk] = useState(api.isPerluMasuk());
 
@@ -98,8 +116,8 @@ function Shell() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    document.title = rute.nama === "dashboard" ? "Sensus Pajak" : `${rute.judul} · Sensus Pajak`;
-  }, [lokasi]); // eslint-disable-line react-hooks/exhaustive-deps
+    document.title = rute.nama === "dashboard" ? "Sensus Pajak" : `${judul} · Sensus Pajak`;
+  }, [lokasi, judul]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Layar pengisian tidak menampilkan bilah tab supaya ruang layar lega.
   useEffect(() => {
@@ -130,16 +148,24 @@ function Shell() {
       halaman = <DaftarKertasKerja />;
       break;
     case "kk-baru":
-      halaman = <BuatKertasKerja />;
+      halaman = pejabat ? <HanyaLihat kembaliKe="/kertas-kerja" /> : <BuatKertasKerja />;
       break;
     case "kk-detail":
       halaman = <DetailKertasKerja key={rute.id} id={rute.id} />;
       break;
     case "isi":
-      halaman = <IsiData key={lokasi} kkId={rute.kkId} formulirId={rute.formulirId} />;
+      halaman = pejabat ? (
+        <HanyaLihat kembaliKe={`/kertas-kerja/${rute.kkId}`} />
+      ) : (
+        <IsiData key={lokasi} kkId={rute.kkId} formulirId={rute.formulirId} />
+      );
       break;
     case "ubah":
-      halaman = <IsiData key={lokasi} kkId={rute.kkId} entriId={rute.entriId} />;
+      halaman = pejabat ? (
+        <LihatData key={lokasi} kkId={rute.kkId} entriId={rute.entriId} />
+      ) : (
+        <IsiData key={lokasi} kkId={rute.kkId} entriId={rute.entriId} />
+      );
       break;
     case "peta":
       halaman = <PetaPage />;
@@ -161,7 +187,7 @@ function Shell() {
       halaman = (
         <LoginAdmin
           judul="Masuk"
-          sub="Petugas dan admin masuk dengan akun masing-masing."
+          sub="Petugas, pejabat, dan admin masuk dengan akun masing-masing."
           khususAdmin={false}
           onLoggedIn={() => kembali("/")}
         />
@@ -172,7 +198,7 @@ function Shell() {
       halaman = sesi ? (
         <AkunPage sesi={sesi} onKeluar={keluar} />
       ) : (
-        <LoginAdmin judul="Masuk" sub="Petugas dan admin masuk dengan akun masing-masing." khususAdmin={false} onLoggedIn={() => {}} />
+        <LoginAdmin judul="Masuk" sub="Petugas, pejabat, dan admin masuk dengan akun masing-masing." khususAdmin={false} onLoggedIn={() => {}} />
       );
       break;
     default:
@@ -256,7 +282,7 @@ function Shell() {
         ) : (
           <Lambang className="fk-appbar-logo" />
         )}
-        <h1 className="fk-appbar-judul">{rute.nama === "dashboard" ? "Sensus Pajak" : rute.judul}</h1>
+        <h1 className="fk-appbar-judul">{rute.nama === "dashboard" ? "Sensus Pajak" : judul}</h1>
         {sesi ? (
           // Di HP, Keluar ada di halaman Akun supaya tidak tertekan tanpa sengaja.
           rute.nama !== "akun" && (

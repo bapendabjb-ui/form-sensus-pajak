@@ -28,7 +28,7 @@ import { StatusGps, TombolDicek, namaAdmin } from "../../components/LokasiObjek.
 import { formatWaktu, urlPeta } from "../../lib/format.js";
 import { bersihkanDrafLama, useKonfigurasi } from "../../lib/konfigurasi.js";
 import { kembali, pasangPenjaga } from "../../lib/router.js";
-import { urlKk } from "./bersama.js";
+import { urlKk, susunTataLetak } from "./bersama.js";
 
 const UMUR_FOTO_DRAF_MS = 20 * 3600 * 1000; // unggahan yang tak disimpan dibersihkan server setelah 24 jam
 const BERKAS_LENGKAP = { berkasLengkap: true, catatanBerkas: "" };
@@ -86,28 +86,6 @@ function dialogLokasi(asal, nilai, titik, aturan) {
 }
 
 /** Salin jawaban untuk disimpan sebagai draf: foto hanya yang sudah terunggah. */
-/**
- * Susunan tampil halaman isi data. Pertanyaan berposisi kiri/kanan yang berurutan
- * dikumpulkan menjadi satu blok dua kolom; pertanyaan lebar penuh memutus blok.
- * @returns {Array<{ penuh: object } | { kiri: object[], kanan: object[] }>}
- */
-function susunTataLetak(pertanyaan) {
-  const blok = [];
-  for (const q of pertanyaan) {
-    if (q.kolom !== "kiri" && q.kolom !== "kanan") {
-      blok.push({ penuh: q });
-      continue;
-    }
-    let akhir = blok[blok.length - 1];
-    if (!akhir || akhir.penuh) {
-      akhir = { kiri: [], kanan: [] };
-      blok.push(akhir);
-    }
-    akhir[q.kolom].push(q);
-  }
-  return blok;
-}
-
 function jawabanUntukDraf(pertanyaan, answers) {
   const hasil = {};
   for (const q of pertanyaan) {

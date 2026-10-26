@@ -43,6 +43,26 @@ model Petugas {
   @@map("petugas")
 }
 
+/// Akun pejabat (pimpinan): hanya melihat kertas kerja, data, dan peta.
+/// Server menolak setiap permintaan tulis dari akun ini (src/auth.js
+/// tolakTulisPejabat). Dibuatkan admin dari halaman Petugas; bukan petugas,
+/// jadi tidak muncul di pilihan tim kertas kerja.
+model Pejabat {
+  id            Int       @id @default(autoincrement())
+  /// Nama atau jabatan yang tampil di aplikasi, mis. "Kepala Bapenda".
+  nama          String    @db.VarChar(150)
+  /// Disimpan huruf kecil; tidak boleh sama dengan username admin atau petugas.
+  username      String    @unique(map: "pejabat_username_key") @db.VarChar(64)
+  passwordHash  String    @map("password_hash") @db.VarChar(255)
+  /// Dinaikkan saat password diganti atau admin mengeluarkan akun ini dari
+  /// semua perangkat: token dengan versi lama langsung ditolak.
+  tokenVersi    Int       @default(0) @map("token_versi")
+  masukTerakhir DateTime? @map("masuk_terakhir")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@map("pejabat")
+}
+
 /// Pengaturan aplikasi yang diubah admin dari layar. Satu baris saja (id = 1).
 model Pengaturan {
   id                Int     @id

@@ -17,7 +17,7 @@ const cors = require("cors");
 const config = require("./src/config");
 const prisma = require("./src/prisma");
 const { ApiError } = require("./src/http");
-const { ensureAdminSeed, gerbangMasuk } = require("./src/auth");
+const { ensureAdminSeed, gerbangMasuk, tolakTulisPejabat } = require("./src/auth");
 const { wajibLoginPetugas } = require("./src/pengaturan");
 const { headerKeamanan } = require("./src/keamanan");
 const { ensureCounter } = require("./src/nomor");
@@ -60,8 +60,12 @@ app.use("/api", catatPerubahan);
 // menyalakan "wajib login" - penolakan semua permintaan tanpa sesi (src/auth.js).
 app.use("/api", gerbangMasuk(wajibLoginPetugas));
 
+// Akun pejabat hanya bisa melihat: semua permintaan tulisnya ditolak di sini.
+app.use("/api", tolakTulisPejabat);
+
 app.use("/api/auth", require("./src/routes/auth"));
 app.use("/api/petugas", require("./src/routes/petugas"));
+app.use("/api/pejabat", require("./src/routes/pejabat"));
 app.use("/api/formulir", require("./src/routes/formulir"));
 app.use("/api/kertas-kerja", require("./src/routes/kertasKerja"));
 app.use("/api/entri", require("./src/routes/entri"));

@@ -4,10 +4,11 @@ import { Panel, PageHead, Loading, ErrorBox } from "../components/Ui.jsx";
 import RealisasiTarget from "../components/RealisasiTarget.jsx";
 import { navigate } from "../lib/router.js";
 import { simpanFilterKk, simpanCariKk } from "../lib/filterKk.js";
-import { useAdmin } from "../lib/admin.js";
+import { useAdmin, useHanyaLihat } from "../lib/admin.js";
 
 export default function Dashboard() {
   const admin = useAdmin();
+  const hanyaLihat = useHanyaLihat();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -55,9 +56,11 @@ export default function Dashboard() {
       {stats && (
         <>
           <div className="fk-dash-actions">
-            <button type="button" className="fk-btn" onClick={() => navigate("/kertas-kerja/baru")}>
-              + Buat Kertas Kerja
-            </button>
+            {!hanyaLihat && (
+              <button type="button" className="fk-btn" onClick={() => navigate("/kertas-kerja/baru")}>
+                + Buat Kertas Kerja
+              </button>
+            )}
             <button type="button" className="fk-btn-ghost" onClick={() => navigate("/kertas-kerja")}>
               Kertas Kerja
             </button>

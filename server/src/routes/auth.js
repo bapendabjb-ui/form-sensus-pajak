@@ -9,6 +9,7 @@ const {
   verifyPassword,
   signAdminToken,
   signPetugasToken,
+  signPejabatToken,
   pasangCookieFoto,
   hapusCookieFoto,
   bacaCookie,
@@ -57,18 +58,26 @@ const bandingkanPalsu = async (password) => {
 };
 
 /** Identitas pemakai yang dikirim ke klien. */
-const profil = (p) =>
-  p.role === "admin"
-    ? { role: "admin", username: p.username, nama: p.username }
-    : { role: "petugas", username: p.username, nama: p.nama, petugasId: p.id };
+const profil = (p) => {
+  if (p.role === "admin") return { role: "admin", username: p.username, nama: p.username };
+  if (p.role === "pejabat") return { role: "pejabat", username: p.username, nama: p.nama };
+  return { role: "petugas", username: p.username, nama: p.nama, petugasId: p.id };
+};
+
+/** Tabel & pembuat token per peran, untuk ganti password. */
+const AKUN = {
+  admin: { tabel: () => prisma.admin, token: signAdminToken },
+  petugas: { tabel: () => prisma.petugas, token: signPetugasToken },
+  pejabat: { tabel: () => prisma.pejabat, token: signPejabatToken },
+};
 
 /**
  * POST /api/auth/login  { username, password } -> { token, role, username, nama, petugasId? }
  *
- * Satu pintu untuk admin dan petugas. Admin dicari lebih dulu; username petugas
- * tidak boleh sama dengan username admin (dijaga saat akun dibuat), jadi
- * keduanya tidak pernah tertukar. Sesi admin 12 jam; sesi petugas diingat di HP
- * (30 hari sejak terakhir dipakai).
+ * Satu pintu untuk admin, petugas, dan pejabat. Dicari berurutan admin ->
+ * petugas -> pejabat; username tidak boleh sama di antara ketiganya (dijaga
+ * saat akun dibuat, lihat src/username.js), jadi tidak pernah tertukar. Sesi
+ * admin 12 jam; sesi petugas & pejabat diingat di HP (30 hari sejak terakhir dipakai).
  */
 router.post(
   "/login",
@@ -87,17 +96,26 @@ router.post(
       return res.json({ token, ...profil({ role: "admin", ...admin }) });
     }
 
-    const petugas = await prisma.petugas.findUnique({ where: { username: normalUsername(username) } });
-    if (!petugas || !petugas.passwordHash) {
+    const kunci = normalUsername(username);
+    const petugas = await prisma.petugas.findUnique({ where: { username: kunci } });
+    if (petugas && petugas.passwordHash) {
+      if (!(await verifyPassword(password, petugas.passwordHash))) throw unauthorized(SALAH);
+      await prisma.petugas.update({ where: { id: petugas.id }, data: { masukTerakhir: new Date() } });
+      const token = signPetugasToken(petugas);
+      pasangCookieFoto(req, res, token);
+      return res.json({ token, ...profil({ role: "petugas", ...petugas }) });
+    }
+
+    const pejabat = await prisma.pejabat.findUnique({ where: { username: kunci } });
+    if (!pejabat) {
       await bandingkanPalsu(password);
       throw unauthorized(SALAH);
     }
-    if (!(await verifyPassword(password, petugas.passwordHash))) throw unauthorized(SALAH);
-
-    await prisma.petugas.update({ where: { id: petugas.id }, data: { masukTerakhir: new Date() } });
-    const token = signPetugasToken(petugas);
+    if (!(await verifyPassword(password, pejabat.passwordHash))) throw unauthorized(SALAH);
+    await prisma.pejabat.update({ where: { id: pejabat.id }, data: { masukTerakhir: new Date() } });
+    const token = signPejabatToken(pejabat);
     pasangCookieFoto(req, res, token);
-    return res.json({ token, ...profil({ role: "petugas", ...petugas }) });
+    return res.json({ token, ...profil({ role: "pejabat", ...pejabat }) });
   })
 );
 
@@ -143,7 +161,8 @@ router.put(
       throw badRequest(`Password baru maksimal ${PASSWORD_MAKS} karakter.`);
     }
 
-    const tabel = p.role === "admin" ? prisma.admin : prisma.petugas;
+    const { tabel: ambilTabel, token: buatToken } = AKUN[p.role];
+    const tabel = ambilTabel();
     const akun = await tabel.findUnique({ where: { id: p.id } });
     if (!akun || !akun.passwordHash) throw unauthorized("Akun tidak ditemukan. Silakan login kembali.");
 
@@ -156,7 +175,7 @@ router.put(
       data: { passwordHash: await hashPassword(passwordBaru), tokenVersi: { increment: 1 } },
     });
 
-    const token = p.role === "admin" ? signAdminToken(diperbarui) : signPetugasToken(diperbarui);
+    const token = buatToken(diperbarui);
     pasangCookieFoto(req, res, token);
     res.json({ ok: true, token });
   })

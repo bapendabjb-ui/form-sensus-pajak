@@ -19,7 +19,7 @@ import {
   ambilPosisiKk,
 } from "../../lib/filterKk.js";
 import { LABEL_STATUS } from "../../lib/cekLokasi.js";
-import { useAdmin } from "../../lib/admin.js";
+import { useAdmin, useHanyaLihat } from "../../lib/admin.js";
 import { useKonfigurasi } from "../../lib/konfigurasi.js";
 import { navigate, pasangPenjaga } from "../../lib/router.js";
 import { urlKk, unduh, ringkasTim } from "./bersama.js";
@@ -87,6 +87,7 @@ export function DaftarKertasKerja() {
   const toast = useToast();
   const { konfirmasi } = useDialog();
   const admin = useAdmin();
+  const hanyaLihat = useHanyaLihat();
   const { petugasMaks } = useKonfigurasi();
   const unduhKe = unduh(toast);
 
@@ -316,9 +317,11 @@ export function DaftarKertasKerja() {
               Tambah petugas massal
             </button>
           )}
-          <button type="button" className="fk-btn" onClick={buat}>
-            + Buat kertas kerja
-          </button>
+          {!hanyaLihat && (
+            <button type="button" className="fk-btn" onClick={buat}>
+              + Buat kertas kerja
+            </button>
+          )}
         </div>
       </PageHead>
 
@@ -366,9 +369,11 @@ export function DaftarKertasKerja() {
       ) : benarBenarKosong ? (
         <Empty
           action={
-            <button type="button" className="fk-btn" onClick={buat}>
-              Buat kertas kerja
-            </button>
+            !hanyaLihat && (
+              <button type="button" className="fk-btn" onClick={buat}>
+                Buat kertas kerja
+              </button>
+            )
           }
         >
           Belum ada kertas kerja.

@@ -7,7 +7,7 @@ import PasswordInput from "../components/PasswordInput.jsx";
 const PASSWORD_MIN = 8;
 const KOSONG = { lama: "", baru: "", ulang: "" };
 
-/** Akun sendiri (admin maupun petugas): ganti password & keluar. */
+/** Akun sendiri (admin, petugas, maupun pejabat): ganti password & keluar. */
 export default function AkunPage({ sesi, onKeluar }) {
   const admin = sesi?.role === "admin";
   const toast = useToast();
@@ -64,7 +64,12 @@ export default function AkunPage({ sesi, onKeluar }) {
       {admin ? (
         <PageHead title="Akun Admin" sub="Ganti Password Dan Keluar Dari Sesi Admin." />
       ) : (
-        <PageHead title="Akun Saya" sub={`Masuk sebagai ${sesi?.nama || "petugas"}${sesi?.username ? ` (${sesi.username})` : ""}.`} />
+        <PageHead
+          title="Akun Saya"
+          sub={`Masuk sebagai ${sesi?.nama || "petugas"}${sesi?.username ? ` (${sesi.username})` : ""}.${
+            sesi?.role === "pejabat" ? " Akun pejabat hanya untuk melihat data." : ""
+          }`}
+        />
       )}
 
       <Panel title="Ganti Password">

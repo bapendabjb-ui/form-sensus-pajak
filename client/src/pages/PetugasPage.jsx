@@ -9,6 +9,8 @@ import { useKonfigurasi } from "../lib/konfigurasi.js";
 import { formatWaktu } from "../lib/format.js";
 import HasilImpor from "../components/HasilImpor.jsx";
 import Sheet from "../components/Sheet.jsx";
+import AkunPejabat from "../components/AkunPejabat.jsx";
+import { passwordAcak, salinAkun } from "../lib/akun.js";
 
 const formatAngka = (n) => Number(n || 0).toLocaleString("id-ID");
 
@@ -28,15 +30,6 @@ function sarankanUsername(nama) {
     .filter(Boolean);
   const dasar = kata.slice(0, 2).join(".");
   return dasar.length >= 3 ? dasar : "";
-}
-
-/** Tanpa huruf yang mudah tertukar saat dibacakan (0/o, 1/l/i), sama dengan server. */
-const HURUF_PASSWORD = "abcdefghjkmnpqrstuvwxyz23456789";
-
-function passwordAcak(panjang = 10) {
-  const acak = new Uint32Array(panjang);
-  crypto.getRandomValues(acak);
-  return Array.from(acak, (n) => HURUF_PASSWORD[n % HURUF_PASSWORD.length]).join("");
 }
 
 /**
@@ -91,12 +84,8 @@ function AturAkun({ petugas, onTutup, onBerubah }) {
   };
 
   const salin = async () => {
-    try {
-      await navigator.clipboard.writeText(`Username: ${dibagikan.username}\nPassword: ${dibagikan.password}`);
-      toast("Disalin. Tempel di pesan untuk petugasnya.");
-    } catch {
-      toast("Tidak bisa menyalin otomatis. Catat username dan password di atas.", true);
-    }
+    if (await salinAkun(dibagikan)) toast("Disalin. Tempel di pesan untuk petugasnya.");
+    else toast("Tidak bisa menyalin otomatis. Catat username dan password di atas.", true);
   };
 
   if (dibagikan) {
@@ -497,6 +486,8 @@ export default function PetugasPage() {
           </p>
         </Panel>
       )}
+
+      {admin && <AkunPejabat />}
 
       {admin && (
         <Panel

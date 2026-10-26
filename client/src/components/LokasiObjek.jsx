@@ -17,7 +17,7 @@ import { useToast } from "./Toast.jsx";
 import { nilaiTitik, LABEL_STATUS } from "../lib/cekLokasi.js";
 import { pantauPosisi } from "../lib/rekamPosisi.js";
 import TempelKoordinat from "./TempelKoordinat.jsx";
-import { formatWaktu, urlPeta } from "../lib/format.js";
+import { formatWaktu, formatLokasi, urlPeta } from "../lib/format.js";
 
 // Pustaka peta cukup besar: unduh hanya saat peta dibuka.
 const PetaLokasi = lazy(() => import("./PetaLokasi.jsx"));
@@ -122,9 +122,10 @@ export function TombolDicek({ dicek, onUbah, label = "Sudah dicek" }) {
  * @param {object} props.kk      detail kertas kerja (id, lokasi, entri)
  * @param {object|null} props.aturan  konfigurasi.lokasi dari server
  * @param {boolean} props.admin
+ * @param {boolean} [props.hanyaLihat]  akun pejabat: lihat saja, tanpa tombol mengubah titik
  * @param {(kk: object) => void} props.onBerubah  detail kertas kerja terbaru dari server
  */
-export function LokasiKertasKerja({ kk, aturan, admin, onBerubah }) {
+export function LokasiKertasKerja({ kk, aturan, admin, hanyaLihat = false, onBerubah }) {
   const toast = useToast();
   const [peta, setPeta] = useState(false);
   const [pilihan, setPilihan] = useState(null); // titik dari peta / tempel yang belum disimpan
@@ -142,6 +143,8 @@ export function LokasiKertasKerja({ kk, aturan, admin, onBerubah }) {
   const ditetapkan = lokasi.sumber === "koreksi" || lokasi.sumber === "rekam";
   // Sudah dicek admin: petugas hanya bisa melihat; admin tetap bisa menyesuaikan.
   const terkunci = Boolean(lokasi.dicek) && !admin;
+  // Tanpa tombol mengubah: terkunci, atau akun pejabat.
+  const tanpaAksi = terkunci || hanyaLihat;
 
   const ubahDicek = async () => {
     const baru = await api.setLokasiDicek(kk.id, !lokasi.dicek);
@@ -236,16 +239,24 @@ export function LokasiKertasKerja({ kk, aturan, admin, onBerubah }) {
       <div className="fk-field">
         <span className="fk-q-name">Lokasi sensus</span>
 
-        {perluCek && !terkunci && (
+        {perluCek && !tanpaAksi && (
           <p className="fk-lokasi-data-peringatan" role="alert">
             {LABEL_STATUS[lokasi.status]}. Tetapkan di peta, atau <b>Rekam di sini</b> saat di lokasi.
+          </p>
+        )}
+        {perluCek && hanyaLihat && !terkunci && (
+          <p className="fk-lokasi-data-peringatan">{LABEL_STATUS[lokasi.status]}.</p>
+        )}
+        {hanyaLihat && (
+          <p className={lokasi.titik ? "fk-nilai" : "fk-nilai-kosong"} style={{ margin: "0 0 4px" }}>
+            {lokasi.titik ? formatLokasi(lokasi.titik) : "Belum ada titik lokasi."}
           </p>
         )}
 
         {lokasi.dicek && (
           <p className="fk-lokasi-data-dicek fk-dicek-ket">
-            ✓ Sudah dicek {namaAdmin(lokasi.dicek.oleh)}, {formatWaktu(lokasi.dicek.waktu)}. Terkunci
-            {admin ? " untuk petugas." : " — hanya admin yang bisa mengubahnya."}
+            ✓ Sudah dicek {namaAdmin(lokasi.dicek.oleh)}, {formatWaktu(lokasi.dicek.waktu)}.
+            {hanyaLihat ? "" : admin ? " Terkunci untuk petugas." : " Terkunci — hanya admin yang bisa mengubahnya."}
           </p>
         )}
 
@@ -289,7 +300,7 @@ export function LokasiKertasKerja({ kk, aturan, admin, onBerubah }) {
             <button type="button" className="fk-btn-ghost" onClick={berhentiRekam}>
               Berhenti
             </button>
-          ) : terkunci ? null : (
+          ) : tanpaAksi ? null : (
             <>
               <button
                 type="button"

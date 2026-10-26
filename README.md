@@ -300,8 +300,8 @@ contoh (termasuk pertanyaan foto dan kecamatan & kelurahan) dan 3 petugas. Manua
 
 ## Hak akses
 
-Ada dua jenis akun: **admin** dan **petugas**. Keduanya masuk lewat layar login
-yang sama; server yang menentukan siapa yang masuk.
+Ada tiga jenis akun: **admin**, **petugas**, dan **pejabat** (hanya melihat).
+Semuanya masuk lewat layar login yang sama; server yang menentukan siapa yang masuk.
 
 Selama **Wajib login** (halaman **Petugas**) belum dinyalakan, halaman lapangan
 tetap terbuka tanpa login seperti semula, dan hanya pengelolaan serta penghapusan
@@ -347,6 +347,34 @@ Karena itu login juga memasang cookie `sp_foto` (HttpOnly, SameSite=Lax,
 `Path=/api/foto`) berisi token yang sama. Cookie hanya diterima untuk permintaan
 baca dan browser tidak mengirimnya ke endpoint lain, jadi tidak membuka celah
 CSRF. Tautan foto di berkas ekspor tetap bisa dibuka di browser yang sudah login.
+
+### Akun pejabat
+
+Untuk pimpinan yang perlu memantau tanpa bisa mengubah apa pun. Admin
+membuatnya di halaman **Petugas → Akun Pejabat** (nama/jabatan, username,
+password; password hanya tampil sekali setelah disimpan). Dari tombol **Akun**
+di barisnya, admin bisa mengganti nama, username, atau password,
+**Keluarkan dari semua perangkat**, dan **Hapus akun**. Pejabat bukan petugas,
+jadi tidak muncul di pilihan tim kertas kerja. Username tidak boleh sama dengan
+akun admin, petugas, atau pejabat lain. Sesinya diingat 30 hari seperti petugas.
+
+Yang bisa dilakukan pejabat:
+
+- **Melihat** Dashboard, daftar & detail kertas kerja, isi setiap data (tampilan
+  baca saja, termasuk foto dan koordinat), Peta Sensus, dan daftar petugas.
+- **Mengganti password sendiri** dan keluar.
+
+Yang tidak bisa: membuat kertas kerja, menambah / mengubah data, menandai
+selesai, menetapkan atau merekam lokasi sensus, mengunggah foto, mengajukan
+hapus, cek NOP ke EPBB, serta semua aksi khusus admin (ekspor, pengajuan hapus,
+formulir, petugas).
+
+Pengamannya ada di server: `tolakTulisPejabat` di
+[`server/src/auth.js`](server/src/auth.js) dipasang untuk seluruh `/api` dan
+menjawab **403** untuk setiap permintaan selain `GET`/`HEAD` dari akun pejabat
+(kecuali `/auth/password`, `/auth/keluar`, `/auth/login`), juga untuk `GET /nop/*`.
+Karena aturannya satu untuk semua, rute tulis yang ditambahkan kelak otomatis
+tertutup bagi pejabat. Tombol yang disembunyikan di layar hanya untuk kenyamanan.
 
 ### Login admin
 
@@ -976,17 +1004,17 @@ jawaban server belum tiba, supaya layar tidak berkedip saat pertama kali dibuka.
 
 Semua endpoint berawalan `/api`. Tanda 🔒 = perlu header `Authorization: Bearer <token>`.
 Selama **wajib login** menyala, semua endpoint selain `/auth/*`, `/konfigurasi`,
-`/dashboard/stats`, dan `/health` juga butuh token (admin atau petugas). Token petugas yang umurnya lewat
+`/dashboard/stats`, dan `/health` juga butuh token (admin, petugas, atau pejabat). Token petugas & pejabat yang umurnya lewat
 sehari dijawab dengan header `X-Token-Baru` berisi penggantinya.
 
 ### Auth
 
 | Method | Endpoint      | Keterangan                                             |
 | ------ | ------------- | ------------------------------------------------------ |
-| `POST` | `/auth/login` | `{ username, password }` → `{ token, role, username, nama, petugasId? }`. Admin dan petugas lewat pintu yang sama; memasang cookie foto. Dibatasi **10 kegagalan / username / IP** dan **50 / IP** per 15 menit; percobaan yang berhasil tidak dihitung. Kelebihan → **429** |
+| `POST` | `/auth/login` | `{ username, password }` → `{ token, role, username, nama, petugasId? }`. Admin, petugas, dan pejabat lewat pintu yang sama; memasang cookie foto. Dibatasi **10 kegagalan / username / IP** dan **50 / IP** per 15 menit; percobaan yang berhasil tidak dihitung. Kelebihan → **429** |
 | `GET`  | `/auth/me`    | 🔒 Profil pemakai yang masuk (`role`, `username`, `nama`, `petugasId?`) |
 | `POST` | `/auth/keluar` | Buang cookie foto di browser ini → **204** |
-| `PUT`  | `/auth/password` | 🔒 `{ passwordLama, passwordBaru }` → `{ ok, token }` — ganti password sendiri, admin maupun petugas (min. 8 karakter); password lama salah → **400**. **Semua token lama langsung dicabut**, jadi `token` yang dikembalikan harus dipakai menggantikan yang sedang dipegang |
+| `PUT`  | `/auth/password` | 🔒 `{ passwordLama, passwordBaru }` → `{ ok, token }` — ganti password sendiri, admin, petugas, maupun pejabat (min. 8 karakter); password lama salah → **400**. **Semua token lama langsung dicabut**, jadi `token` yang dikembalikan harus dipakai menggantikan yang sedang dipegang |
 
 ### Petugas
 
@@ -1001,6 +1029,16 @@ sehari dijawab dengan header `X-Token-Baru` berisi penggantinya.
 | `PUT`    | `/petugas/wajib-login` | 🔒 `{ wajib: boolean }` — saklar wajib login |
 | `PUT`    | `/petugas/:id` | 🔒 Ubah nama / NIP                           |
 | `DELETE` | `/petugas/:id` | 🔒 **409** bila masih ada di tim kertas kerja |
+
+### Akun pejabat (khusus admin)
+
+| Method   | Endpoint                 | Keterangan |
+| -------- | ------------------------ | ---------- |
+| `GET`    | `/pejabat`               | 🔒 Daftar akun pejabat (`id`, `nama`, `username`, `masukTerakhir`) |
+| `POST`   | `/pejabat`               | 🔒 `{ nama, username, password }` → **201**. **409** bila username sudah dipakai admin, petugas, atau pejabat lain |
+| `PUT`    | `/pejabat/:id`           | 🔒 `{ nama, username, password? }` — password baru mencabut semua sesinya |
+| `POST`   | `/pejabat/:id/keluarkan` | 🔒 Cabut semua sesinya (HP hilang); akunnya tetap |
+| `DELETE` | `/pejabat/:id`           | 🔒 Hapus akun → **204** |
 
 ### Formulir
 

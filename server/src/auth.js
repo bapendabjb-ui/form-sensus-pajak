@@ -51,17 +51,32 @@ function signPetugasToken(petugas) {
   );
 }
 
-/** Token petugas diperbarui paling sering sekali sehari. */
+/**
+ * Token pejabat: diingat dan diperpanjang seperti token petugas, karena
+ * pimpinan memantau dari HP-nya sendiri. `ver` = Pejabat.tokenVersi.
+ */
+function signPejabatToken(pejabat) {
+  return jwt.sign(
+    { sub: pejabat.id, role: "pejabat", ver: pejabat.tokenVersi ?? 0 },
+    config.jwtSecret,
+    { expiresIn: config.jwtPetugasExpiresIn }
+  );
+}
+
+/** Pembuat token pengganti untuk peran yang sesinya diperpanjang. */
+const PENANDA_DIPERPANJANG = { petugas: signPetugasToken, pejabat: signPejabatToken };
+
+/** Token petugas & pejabat diperbarui paling sering sekali sehari. */
 const PERPANJANG_SETELAH_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Apakah token ini perlu diganti dengan yang baru? Hanya token petugas: masa
- * 30 harinya dihitung dari pemakaian terakhir, jadi petugas yang membuka
+ * Apakah token ini perlu diganti dengan yang baru? Hanya token petugas dan
+ * pejabat: masa 30 harinya dihitung dari pemakaian terakhir, jadi yang membuka
  * aplikasi minimal sebulan sekali tidak perlu login lagi. Sesi admin tetap
  * berakhir sesuai jadwalnya walau terus dipakai.
  */
 const perluPerpanjang = (payload, sekarangMs = Date.now()) =>
-  payload?.role === "petugas" && sekarangMs - Number(payload.iat) * 1000 >= PERPANJANG_SETELAH_MS;
+  Boolean(PENANDA_DIPERPANJANG[payload?.role]) && sekarangMs - Number(payload.iat) * 1000 >= PERPANJANG_SETELAH_MS;
 
 /*
  * Cookie khusus foto. <img src> tidak bisa membawa header Authorization, jadi
@@ -109,6 +124,7 @@ function readToken(req) {
  * sah / kedaluwarsa, atau sudah dicabut (versinya berbeda dari database).
  *   admin   : { role: "admin", id, username, nama: username, payload }
  *   petugas : { role: "petugas", id, username, nama, payload }
+ *   pejabat : { role: "pejabat", id, username, nama, payload }  - hanya baca
  *
  * Hasilnya disimpan di req: gerbang login, requireAdmin, dan rute yang mencatat
  * pelaku berbagi satu pencarian primary key per permintaan. Pencarian itu
@@ -146,6 +162,15 @@ async function muatPengguna(token) {
     });
     if (!p || !p.passwordHash || (payload.ver ?? 0) !== p.tokenVersi) return null;
     return { role: "petugas", id: p.id, username: p.username, nama: p.nama, payload };
+  }
+
+  if (payload.role === "pejabat") {
+    const p = await prisma.pejabat.findUnique({
+      where: { id },
+      select: { id: true, nama: true, username: true, tokenVersi: true },
+    });
+    if (!p || (payload.ver ?? 0) !== p.tokenVersi) return null;
+    return { role: "pejabat", id: p.id, username: p.username, nama: p.nama, payload };
   }
 
   return null;
@@ -209,7 +234,7 @@ function gerbangMasuk(wajib) {
     try {
       const pengguna = await bacaPengguna(req);
       if (pengguna && perluPerpanjang(pengguna.payload)) {
-        const baru = signPetugasToken({ id: pengguna.id, tokenVersi: pengguna.payload.ver });
+        const baru = PENANDA_DIPERPANJANG[pengguna.role]({ id: pengguna.id, tokenVersi: pengguna.payload.ver });
         res.setHeader("X-Token-Baru", baru);
         pasangCookieFoto(req, res, baru);
       }
@@ -219,6 +244,44 @@ function gerbangMasuk(wajib) {
       return next(e);
     }
   };
+}
+
+/**
+ * Permintaan yang boleh dilakukan akun pejabat (hanya baca).
+ *
+ * - Semua GET/HEAD boleh, kecuali cek NOP ke EPBB: itu alat bantu petugas saat
+ *   mengisi data, dan membuka data objek pajak di luar hasil sensus.
+ *   GET khusus admin (ekspor, pengajuan hapus) tetap ditolak requireAdmin.
+ * - Tulis hanya untuk akunnya sendiri: ganti password dan keluar.
+ *
+ * @param {string} method
+ * @param {string} path  relatif terhadap /api, mis. "/kertas-kerja/12"
+ */
+function bolehBagiPejabat(method, path) {
+  // Express mencocokkan rute tanpa membedakan huruf besar-kecil dan garis miring
+  // di ujung ("/NOP/1/" tetap sampai ke rute cek NOP), jadi bandingkan yang sudah dinormalkan.
+  const p = String(path || "").toLowerCase().replace(/\/{2,}/g, "/").replace(/(.)\/$/, "$1");
+  if (method === "GET" || method === "HEAD") return p !== "/nop" && !p.startsWith("/nop/");
+  if (method === "OPTIONS") return true;
+  return p === "/auth/password" || p === "/auth/keluar" || p === "/auth/login";
+}
+
+/**
+ * Middleware untuk seluruh /api, dipasang setelah gerbangMasuk: akun pejabat
+ * tidak bisa mengubah apa pun. Inilah pengamannya - tombol yang disembunyikan
+ * di layar hanya untuk kenyamanan. 403, bukan 401, supaya klien tidak mengira
+ * sesinya habis lalu mengeluarkan pejabatnya.
+ */
+async function tolakTulisPejabat(req, _res, next) {
+  try {
+    const pengguna = await bacaPengguna(req);
+    if (pengguna?.role === "pejabat" && !bolehBagiPejabat(req.method, req.path)) {
+      return next(forbidden("Akun pejabat hanya untuk melihat data."));
+    }
+    return next();
+  } catch (e) {
+    return next(e);
+  }
 }
 
 /**
@@ -267,6 +330,7 @@ module.exports = {
   verifyPassword,
   signAdminToken,
   signPetugasToken,
+  signPejabatToken,
   perluPerpanjang,
   pasangCookieFoto,
   hapusCookieFoto,
@@ -278,5 +342,7 @@ module.exports = {
   namaPelaku,
   bebasGerbang,
   gerbangMasuk,
+  bolehBagiPejabat,
+  tolakTulisPejabat,
   ensureAdminSeed,
 };

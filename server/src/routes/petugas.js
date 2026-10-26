@@ -14,6 +14,7 @@ const {
   buatPassword,
 } = require("../akunPetugas");
 const { aturWajibLoginPetugas } = require("../pengaturan");
+const { pastikanUsernameBebas, usernameTerpakai } = require("../username");
 const { kapitalTiapKata } = require("../nama");
 const { rekapPetugas, rekapKosong } = require("../rekap");
 const { namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
@@ -233,15 +234,6 @@ router.put(
   })
 );
 
-/** Username yang sudah dipakai (huruf kecil): semua akun petugas dan admin. */
-async function usernameTerpakai() {
-  const [petugas, admin] = await Promise.all([
-    prisma.petugas.findMany({ where: { username: { not: null } }, select: { username: true } }),
-    prisma.admin.findMany({ select: { username: true } }),
-  ]);
-  return new Set([...petugas, ...admin].map((a) => a.username.toLowerCase()));
-}
-
 /** Paling banyak akun per klik: bcrypt sengaja lambat, dan permintaannya tidak boleh melewati batas waktu proxy. */
 const AKUN_MASSAL_MAKS = 100;
 
@@ -326,12 +318,7 @@ router.put(
       if (galatP) throw badRequest(galatP);
     }
 
-    const [lain, admin] = await Promise.all([
-      prisma.petugas.findFirst({ where: { username, id: { not: id } }, select: { nama: true } }),
-      prisma.admin.findUnique({ where: { username }, select: { id: true } }),
-    ]);
-    if (lain) throw conflict(`Username ${username} sudah dipakai ${lain.nama}.`);
-    if (admin) throw conflict(`Username ${username} sudah dipakai akun admin.`);
+    await pastikanUsernameBebas(username, { petugasId: id });
 
     const diubah = await prisma.petugas.update({
       where: { id },

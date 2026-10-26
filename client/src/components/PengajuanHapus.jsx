@@ -30,8 +30,9 @@ const kapitalAwal = (s) => s.charAt(0).toUpperCase() + s.slice(1);
  * @param {string} props.pesanHapus      keterangan dialog sebelum admin menyetujui
  * @param {() => void} props.onDisetujui sasaran sudah terhapus - pemanggil pindah layar
  * @param {(p: object|null) => void} props.onBerubah  pengajuan ditolak / dibatalkan
+ * @param {boolean} [props.hanyaLihat]  akun pejabat: tampilkan pengajuannya tanpa tombol
  */
-export function PitaPengajuan({ pengajuan, admin, pesanHapus, onDisetujui, onBerubah }) {
+export function PitaPengajuan({ pengajuan, admin = false, pesanHapus, onDisetujui, onBerubah, hanyaLihat = false }) {
   const toast = useToast();
   const { konfirmasi } = useDialog();
   const [sibuk, setSibuk] = useState(false);
@@ -89,22 +90,24 @@ export function PitaPengajuan({ pengajuan, admin, pesanHapus, onDisetujui, onBer
           {admin ? "" : " · menunggu persetujuan admin"}
         </span>
       </div>
-      <div className="fk-pengajuan-aksi">
-        {admin ? (
-          <>
-            <button type="button" className="fk-btn-ghost" onClick={tolak} disabled={sibuk}>
-              Tolak
+      {!hanyaLihat && (
+        <div className="fk-pengajuan-aksi">
+          {admin ? (
+            <>
+              <button type="button" className="fk-btn-ghost" onClick={tolak} disabled={sibuk}>
+                Tolak
+              </button>
+              <button type="button" className="fk-btn-danger" onClick={setujui} disabled={sibuk}>
+                Setujui & hapus
+              </button>
+            </>
+          ) : (
+            <button type="button" className="fk-mini" onClick={batalkan} disabled={sibuk}>
+              Batalkan pengajuan
             </button>
-            <button type="button" className="fk-btn-danger" onClick={setujui} disabled={sibuk}>
-              Setujui & hapus
-            </button>
-          </>
-        ) : (
-          <button type="button" className="fk-mini" onClick={batalkan} disabled={sibuk}>
-            Batalkan pengajuan
-          </button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -934,6 +934,17 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-koordinat-kunci{display:flex; flex-direction:column; gap:6px; border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:#F6F9F9; font-size:14px;}
 .fk-koordinat-kunci .fk-dicek-ket{font-size:12.5px;}
 
+/* ---------- lihat data (akun pejabat: baca saja) ---------- */
+.fk-nilai{margin:0; font-size:15px; line-height:1.5; overflow-wrap:anywhere;}
+.fk-nilai.is-paragraf{white-space:pre-line;}
+.fk-nilai-kosong{font-size:14px; color:var(--faint);}
+.fk-nilai-daftar{list-style:none; margin:0; padding:0; border:1px solid var(--line); border-radius:12px; overflow:hidden;}
+.fk-nilai-daftar li{display:flex; justify-content:space-between; gap:12px; padding:10px 14px; font-size:14px; border-bottom:1px solid var(--line-soft);}
+.fk-nilai-daftar li:last-child{border-bottom:0;}
+.fk-nilai-ket{color:var(--muted);}
+.fk-nilai-harga{flex:none; font-weight:600; text-align:right; color:var(--ink);}
+.fk-lihat-berkas{display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:10px 0 0; font-size:13px; color:var(--muted);}
+
 /* ---------- pemeriksaan lokasi ---------- */
 .fk-pill.is-lokasi{background:#FBF0DC; color:#8A5306;}
 .fk-filter-btn.is-lokasi.is-on{background:#FBF0DC; border-color:#E2BE7C; color:#8A5306;}

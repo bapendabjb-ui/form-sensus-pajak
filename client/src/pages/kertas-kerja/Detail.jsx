@@ -15,7 +15,7 @@ import { LokasiKertasKerja, TombolDicek } from "../../components/LokasiObjek.jsx
 import { useKonfigurasi } from "../../lib/konfigurasi.js";
 import { IkonFormulir } from "../../components/Icons.jsx";
 import { bacaFilterKk } from "../../lib/filterKk.js";
-import { useAdmin } from "../../lib/admin.js";
+import { useAdmin, useHanyaLihat } from "../../lib/admin.js";
 import { navigate, kembali } from "../../lib/router.js";
 import { urlKk, unduh } from "./bersama.js";
 
@@ -27,6 +27,8 @@ export function DetailKertasKerja({ id }) {
   const toast = useToast();
   const { konfirmasi } = useDialog();
   const admin = useAdmin();
+  // Akun pejabat: hanya melihat - tanpa tambah data, tandai selesai, atau ajukan hapus.
+  const hanyaLihat = useHanyaLihat();
   const unduhKe = unduh(toast);
   const [kk, setKk] = useState(null);
   const [bank, setBank] = useState([]);
@@ -243,7 +245,7 @@ export function DetailKertasKerja({ id }) {
     );
 
   return (
-    <div className="fk-fill ada-fab">
+    <div className={"fk-fill" + (hanyaLihat ? "" : " ada-fab")}>
       {tombolKembali}
 
       <PitaPengajuan
@@ -252,6 +254,7 @@ export function DetailKertasKerja({ id }) {
         pesanHapus={pesanHapus()}
         onDisetujui={sudahDihapus}
         onBerubah={setPengajuan}
+        hanyaLihat={hanyaLihat}
       />
 
       <section className="fk-panel fk-form">
@@ -314,58 +317,62 @@ export function DetailKertasKerja({ id }) {
                 </span>
               ))}
             </div>
-            <div className="fk-detail-aksi">
-              <button
-                type="button"
-                className={selesai ? "fk-btn-ghost" : "fk-btn"}
-                onClick={ubahStatus}
-                disabled={sibuk || (!selesai && totalData === 0)}
-                title={!selesai && totalData === 0 ? "Tambahkan minimal satu data" : undefined}
-              >
-                {selesai ? "Buka kembali (draft)" : "Tandai selesai"}
-              </button>
-              {admin && (
-                <button type="button" className="fk-btn-ghost" onClick={mulaiUbahTim}>
-                  Ubah petugas
+            {!hanyaLihat && (
+              <div className="fk-detail-aksi">
+                <button
+                  type="button"
+                  className={selesai ? "fk-btn-ghost" : "fk-btn"}
+                  onClick={ubahStatus}
+                  disabled={sibuk || (!selesai && totalData === 0)}
+                  title={!selesai && totalData === 0 ? "Tambahkan minimal satu data" : undefined}
+                >
+                  {selesai ? "Buka kembali (draft)" : "Tandai selesai"}
                 </button>
-              )}
-              {admin && (
-                <>
-                  <button
-                    type="button"
-                    className="fk-btn-ghost"
-                    onClick={() => unduhKe(api.unduhExcel(kk.id))}
-                    title="Seluruh formulir di kertas kerja ini"
-                  >
-                    Ekspor Excel
+                {admin && (
+                  <button type="button" className="fk-btn-ghost" onClick={mulaiUbahTim}>
+                    Ubah petugas
                   </button>
-                  <button
-                    type="button"
-                    className="fk-btn-ghost"
-                    onClick={() => unduhKe(api.unduhCsv(kk.id))}
-                    title="Seluruh formulir di kertas kerja ini"
-                  >
-                    Ekspor CSV
-                  </button>
-                </>
-              )}
-            </div>
+                )}
+                {admin && (
+                  <>
+                    <button
+                      type="button"
+                      className="fk-btn-ghost"
+                      onClick={() => unduhKe(api.unduhExcel(kk.id))}
+                      title="Seluruh formulir di kertas kerja ini"
+                    >
+                      Ekspor Excel
+                    </button>
+                    <button
+                      type="button"
+                      className="fk-btn-ghost"
+                      onClick={() => unduhKe(api.unduhCsv(kk.id))}
+                      title="Seluruh formulir di kertas kerja ini"
+                    >
+                      Ekspor CSV
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </>
         )}
       </section>
 
-      <LokasiKertasKerja kk={kk} aturan={aturanLokasi} admin={admin} onBerubah={setKk} />
+      <LokasiKertasKerja kk={kk} aturan={aturanLokasi} admin={admin} hanyaLihat={hanyaLihat} onBerubah={setKk} />
 
       {/* Menambah data hanya lewat tombol + melayang. Daftar formulir tidak lagi
           ada di halaman, supaya tidak tertukar dengan data yang sudah terkumpul. */}
-      <button type="button" className="fk-fab" onClick={() => setPilihForm(true)} aria-haspopup="dialog">
-        <span className="fk-fab-plus" aria-hidden="true">
-          +
-        </span>
-        Tambah data
-      </button>
+      {!hanyaLihat && (
+        <button type="button" className="fk-fab" onClick={() => setPilihForm(true)} aria-haspopup="dialog">
+          <span className="fk-fab-plus" aria-hidden="true">
+            +
+          </span>
+          Tambah data
+        </button>
+      )}
 
-      <Sheet open={pilihForm} onClose={() => setPilihForm(false)} title="Tambah Data Baru" tengah>
+      <Sheet open={pilihForm && !hanyaLihat} onClose={() => setPilihForm(false)} title="Tambah Data Baru" tengah>
         {bank.length === 0 ? (
           <Empty>Belum ada formulir. Minta admin menyusun bank formulir terlebih dahulu.</Empty>
         ) : (
@@ -416,9 +423,11 @@ export function DetailKertasKerja({ id }) {
       {totalData === 0 ? (
         <Empty
           action={
-            <button type="button" className="fk-btn" onClick={() => setPilihForm(true)}>
-              + Tambah data
-            </button>
+            !hanyaLihat && (
+              <button type="button" className="fk-btn" onClick={() => setPilihForm(true)}>
+                + Tambah data
+              </button>
+            )
           }
         >
           Belum ada data di kertas kerja ini.
@@ -517,7 +526,7 @@ export function DetailKertasKerja({ id }) {
         ))
       )}
 
-      {admin ? (
+      {hanyaLihat ? null : admin ? (
         <div className="fk-zona-bahaya">
           <button type="button" className="fk-btn-danger" onClick={hapusKk} disabled={sibuk}>
             Hapus kertas kerja

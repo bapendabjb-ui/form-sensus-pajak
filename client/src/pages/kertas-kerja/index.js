@@ -7,3 +7,4 @@ export { DaftarKertasKerja } from "./Daftar.jsx";
 export { BuatKertasKerja } from "./Buat.jsx";
 export { DetailKertasKerja } from "./Detail.jsx";
 export { IsiData } from "./IsiData.jsx";
+export { LihatData } from "./LihatData.jsx";
