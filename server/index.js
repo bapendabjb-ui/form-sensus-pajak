@@ -196,10 +196,11 @@ async function start() {
   sapu();
   setInterval(sapu, 6 * 3600 * 1000).unref();
 
-  // Status lokasi kertas kerja yang belum pernah dihitung (mis. setelah migrasi).
+  // Status lokasi kertas kerja yang belum pernah dihitung (mis. setelah migrasi)
+  // atau berubah karena aturannya berubah (mis. radius kantor).
   require("./src/lokasiKk")
-    .isiLokasiKkKosong()
-    .then((n) => n && console.log(`[Sensus Pajak] status lokasi ${n} kertas kerja dihitung.`))
+    .selaraskanLokasiKk()
+    .then((n) => n && console.log(`[Sensus Pajak] status lokasi ${n} kertas kerja diperbarui.`))
     .catch((e) => console.error("[Sensus Pajak] penghitungan status lokasi gagal:", e.message));
 
   const admin = await ensureAdminSeed();

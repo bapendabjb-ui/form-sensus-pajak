@@ -36,11 +36,37 @@ async function perbaruiLokasiKk(ids) {
   }
 }
 
-/** Isi status yang belum pernah dihitung (kertas kerja lama setelah migrasi). */
-async function isiLokasiKkKosong() {
-  const belum = await prisma.kertasKerja.findMany({ where: { lokasiStatus: null }, select: { id: true } });
-  await perbaruiLokasiKk(belum.map((k) => k.id));
-  return belum.length;
+/** Kertas kerja per putaran saat menyelaraskan, supaya memori tetap kecil. */
+const SELARAS_PER = 1000;
+
+/**
+ * Samakan status tersimpan dengan aturan yang berlaku sekarang. Dijalankan
+ * saat server menyala: mengisi status yang belum pernah dihitung (kertas kerja
+ * lama setelah migrasi), dan membetulkan status yang berubah karena aturannya
+ * berubah, mis. radius kantor di src/batas.js diperkecil.
+ *
+ * Semua dihitung di memori per putaran; hanya yang berbeda dibaca ulang lalu
+ * ditulis lewat perbaruiLokasiKk, supaya perubahan yang terjadi di sela-selanya
+ * tidak tertimpa nilai lama.
+ *
+ * @returns {Promise<number>} banyak kertas kerja yang statusnya diperbarui
+ */
+async function selaraskanLokasiKk() {
+  let beda = 0;
+  let setelah = 0;
+  for (;;) {
+    const daftar = await prisma.kertasKerja.findMany({
+      where: { id: { gt: setelah } },
+      orderBy: { id: "asc" },
+      take: SELARAS_PER,
+      select: PILIH,
+    });
+    if (daftar.length === 0) return beda;
+    const ids = daftar.filter((kk) => kk.lokasiStatus !== ringkasLokasiKk(kk, kk.entri).status).map((kk) => kk.id);
+    await perbaruiLokasiKk(ids);
+    beda += ids.length;
+    setelah = daftar[daftar.length - 1].id;
+  }
 }
 
-module.exports = { perbaruiLokasiKk, isiLokasiKkKosong };
+module.exports = { perbaruiLokasiKk, selaraskanLokasiKk };

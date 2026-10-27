@@ -16,8 +16,12 @@ const FOTO_MAKS_PER_PERTANYAAN = 10;
 /**
  * Kantor BPPRD Kota Banjarbaru (titik Google Maps). Koordinat GPS yang terekam
  * dalam radius ini dianggap diisi di kantor, bukan di lokasi objek pajak.
+ *
+ * Radiusnya sekitar gedung dan halamannya saja (semula 150 m, diperkecil
+ * 2026-10-27 karena ada objek sensus di dekat kantor). Status lokasi yang
+ * tersimpan disesuaikan sendiri saat server menyala (src/lokasiKk.js).
  */
-const KANTOR = { nama: "kantor BPPRD", lat: -3.439325, lon: 114.829525, radiusM: 150 };
+const KANTOR = { nama: "kantor BPPRD", lat: -3.439325, lon: 114.829525, radiusM: 50 };
 
 /**
  * Akurasi GPS yang lebih buruk dari ini dianggap kasar. Angka ratusan meter

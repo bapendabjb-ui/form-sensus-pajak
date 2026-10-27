@@ -16,8 +16,10 @@ const { KANTOR, AKURASI_KASAR_M } = require("../src/batas");
 
 // Sekitar 1,3 km dari kantor - titik "lapangan" yang wajar.
 const LAPANGAN = { lat: -3.4419, lon: 114.8409 };
-// Sekitar 50 m dari titik kantor.
-const DEKAT_KANTOR = { lat: KANTOR.lat + 0.00045, lon: KANTOR.lon };
+// Sekitar 25 m dari titik kantor: masih di gedung / halamannya.
+const DEKAT_KANTOR = { lat: KANTOR.lat + 0.000225, lon: KANTOR.lon };
+// Sekitar 100 m dari titik kantor: rumah tetangga, bukan kantor.
+const TETANGGA_KANTOR = { lat: KANTOR.lat + 0.0009, lon: KANTOR.lon };
 
 let urut = 0;
 const entriGps = (titik, akurasi = 8) => ({ id: ++urut, rekamLat: titik.lat, rekamLon: titik.lon, rekamAkurasi: akurasi });
@@ -42,6 +44,12 @@ test("nilaiTitik membedakan tanpa, kantor, kasar, dan baik", () => {
   assert.equal(nilaiTitik({ ...LAPANGAN, akurasi: null }), "baik", "akurasi tak diketahui tidak dianggap kasar");
   // Laptop kantor: posisi dari Wi-Fi, akurasinya ratusan meter, titiknya di kantor.
   assert.equal(nilaiTitik({ ...KANTOR, akurasi: 900 }), "kantor");
+});
+
+test("nilaiTitik: rumah sekitar 100 m dari kantor tidak dianggap di kantor", () => {
+  const jarak = jarakMeter(KANTOR, TETANGGA_KANTOR);
+  assert.ok(jarak > KANTOR.radiusM && jarak < 150, `jarak ${jarak}`);
+  assert.equal(nilaiTitik({ ...TETANGGA_KANTOR, akurasi: 8 }), "baik");
 });
 
 test("nilaiTitik: titik yang ditunjuk di peta tidak diperiksa terhadap kantor", () => {
