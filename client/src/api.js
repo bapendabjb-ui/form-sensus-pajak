@@ -554,16 +554,20 @@ export async function unduhCadangan(isi) {
   a.remove();
 }
 
-/** ?petugas=&formulir= - formulir boleh kosong (= semua formulir). */
+/**
+ * ?petugas=3,1&formulir= - satu atau beberapa id petugas (array atau "3,1");
+ * formulir boleh kosong (= semua formulir).
+ */
 const queryPetugas = ({ petugas, formulir }) => {
-  const q = new URLSearchParams({ petugas: String(petugas) });
+  const q = new URLSearchParams({ petugas: [].concat(petugas).join(",") });
   if (formulir) q.set("formulir", String(formulir));
   return q;
 };
 
 /**
- * Sebelum ekspor per petugas (semua data di kertas kerja yang timnya memuat petugas itu):
- * { kertasKerja, kertasKerjaBerdata, data, formulir: [{ id, judul, jumlah }] }. Khusus admin.
+ * Sebelum ekspor per petugas (semua data di kertas kerja yang timnya memuat salah satu
+ * petugas itu): { kertasKerja, kertasKerjaBerdata, data, formulir: [{ id, judul, jumlah }] }.
+ * Khusus admin.
  */
 export const ringkasEksporPetugas = (petugas) => request(`/ekspor/petugas/ringkas?${queryPetugas({ petugas })}`);
 

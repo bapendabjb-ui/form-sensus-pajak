@@ -170,20 +170,56 @@ router.get(
  * Patokannya keanggotaan tim, sama dengan rekap di menu Petugas (src/rekap.js):
  * semua data di kertas kerja yang timnya memuat petugas itu. Kolom "Diisi
  * oleh" tidak dipakai karena baru tercatat sejak ada login petugas.
+ *
+ * Beberapa petugas sekaligus = kertas kerja yang timnya memuat SALAH SATU dari
+ * mereka. Kertas kerja yang sama hanya muncul sekali, jadi memilih anggota
+ * satu tim tidak membuat datanya dobel.
  */
 
-/** `?petugas=<id>` -> { id, nama }. */
-async function muatPetugas(req) {
-  const id = parseId(req.query.petugas, "petugas");
-  const p = await prisma.petugas.findUnique({ where: { id }, select: { id: true, nama: true } });
-  if (!p) throw notFound("Petugas tidak ditemukan.");
-  return p;
+/** Petugas paling banyak dalam satu ekspor. */
+const PETUGAS_EKSPOR_MAKS = 50;
+
+/** `?petugas=3,1,7` -> [3, 1, 7]: unik, urut pilihan admin. */
+function bacaIdPetugas(query = {}) {
+  const ids = [
+    ...new Set(
+      String(query.petugas || "")
+        .split(",")
+        .map((s) => Number(s.trim()))
+        .filter((n) => Number.isInteger(n) && n > 0)
+    ),
+  ];
+  if (ids.length === 0) throw badRequest("Pilih minimal satu petugas.");
+  if (ids.length > PETUGAS_EKSPOR_MAKS) throw badRequest(`Paling banyak ${PETUGAS_EKSPOR_MAKS} petugas sekaligus.`);
+  return ids;
 }
 
-const syaratTim = (petugasId) => ({ kertasKerja: { petugas: { some: { petugasId } } } });
+/** Petugas terpilih [{ id, nama }], urut pilihan admin. */
+async function muatPetugas(req) {
+  const ids = bacaIdPetugas(req.query);
+  const daftar = await prisma.petugas.findMany({ where: { id: { in: ids } }, select: { id: true, nama: true } });
+  if (daftar.length !== ids.length) throw notFound("Ada petugas yang tidak ditemukan.");
+  const perId = new Map(daftar.map((p) => [p.id, p]));
+  return ids.map((id) => perId.get(id));
+}
+
+const syaratTim = (ids) => ({ kertasKerja: { petugas: { some: { petugasId: { in: ids } } } } });
 
 /**
- * GET /api/ekspor/petugas/ringkas?petugas=
+ * Nama berkas & sheet: satu petugas -> namanya; beberapa -> nama pertama
+ * ditambah jumlah sisanya ("petugas-surya-dan-2-lainnya", "Surya +2").
+ */
+function namaPetugas(daftar) {
+  const [pertama] = daftar;
+  const lain = daftar.length - 1;
+  return {
+    namaBagian: ["petugas", namaBerkas(pertama.nama, "petugas"), lain > 0 && `dan-${lain}-lainnya`],
+    judul: lain > 0 ? `${pertama.nama} +${lain}` : pertama.nama,
+  };
+}
+
+/**
+ * GET /api/ekspor/petugas/ringkas?petugas=3,1
  *   -> { kertasKerja, kertasKerjaBerdata, data, formulir: [{ id, judul, jumlah }] }
  * `kertasKerja` termasuk yang belum berisi data (sama dengan menu Petugas);
  * yang belum berisi data tidak punya baris di berkas ekspor.
@@ -192,13 +228,17 @@ router.get(
   "/petugas/ringkas",
   requireAdmin,
   wrap(async (req, res) => {
-    const p = await muatPetugas(req);
-    const [entri, kertasKerja] = await Promise.all([
-      prisma.entri.findMany({ where: syaratTim(p.id), select: { formulirId: true, kertasKerjaId: true } }),
-      prisma.kertasKerjaPetugas.count({ where: { petugasId: p.id } }),
+    const ids = (await muatPetugas(req)).map((p) => p.id);
+    const [entri, tim] = await Promise.all([
+      prisma.entri.findMany({ where: syaratTim(ids), select: { formulirId: true, kertasKerjaId: true } }),
+      prisma.kertasKerjaPetugas.findMany({
+        where: { petugasId: { in: ids } },
+        distinct: ["kertasKerjaId"],
+        select: { kertasKerjaId: true },
+      }),
     ]);
     res.json({
-      kertasKerja,
+      kertasKerja: tim.length,
       kertasKerjaBerdata: new Set(entri.map((e) => e.kertasKerjaId)).size,
       data: entri.length,
       formulir: await jumlahPerFormulir(entri),
@@ -206,18 +246,15 @@ router.get(
   })
 );
 
-/** Satu petugas; `?formulir=<id>` membatasi ke satu formulir. */
+/** Satu atau beberapa petugas; `?formulir=<id>` membatasi ke satu formulir. */
 async function dataEksporPetugas(req) {
-  const p = await muatPetugas(req);
+  const daftar = await muatPetugas(req);
   const formId = bacaFormulir(req);
   const entri = await prisma.entri.findMany({
-    where: { ...syaratTim(p.id), ...(formId ? { formulirId: formId } : {}) },
+    where: { ...syaratTim(daftar.map((p) => p.id)), ...(formId ? { formulirId: formId } : {}) },
     include: includeEkspor,
   });
-  return susunBerkas(req, entri, formId, {
-    namaBagian: ["petugas", namaBerkas(p.nama, "petugas")],
-    judul: p.nama,
-  });
+  return susunBerkas(req, entri, formId, namaPetugas(daftar));
 }
 
 /** GET /api/ekspor/petugas?petugas=&formulir= -> CSV (BOM UTF-8). */
@@ -235,3 +272,7 @@ router.get(
 );
 
 module.exports = router;
+
+// Diekspor untuk diuji terpisah: murni, tanpa database.
+module.exports.bacaIdPetugas = bacaIdPetugas;
+module.exports.namaPetugas = namaPetugas;

@@ -1200,8 +1200,8 @@ kecamatan. Kode yang tidak dikenal → **400**.
 | `GET`  | `/ekspor/wilayah/ringkas`  | `?kecamatan=&kelurahan=` → `{ kertasKerja, data, formulir: [{ id, judul, jumlah }], tanpaWilayah }` |
 | `GET`  | `/ekspor/wilayah`          | `?kecamatan=&kelurahan=&formulir=` → CSV; `formulir` kosong = semua formulir |
 | `GET`  | `/ekspor/wilayah/xlsx`     | Idem, Excel (.xlsx)                                                 |
-| `GET`  | `/ekspor/petugas/ringkas`  | `?petugas=<id>` → `{ kertasKerja, kertasKerjaBerdata, data, formulir: [{ id, judul, jumlah }] }`; petugas tidak dikenal → **404** |
-| `GET`  | `/ekspor/petugas`          | `?petugas=<id>&formulir=` → CSV data di kertas kerja yang timnya memuat petugas itu |
+| `GET`  | `/ekspor/petugas/ringkas`  | `?petugas=<id>[,<id>…]` (maks. 50) → `{ kertasKerja, kertasKerjaBerdata, data, formulir: [{ id, judul, jumlah }] }`; petugas tidak dikenal → **404** |
+| `GET`  | `/ekspor/petugas`          | `?petugas=<id>[,<id>…]&formulir=` → CSV data di kertas kerja yang timnya memuat salah satu petugas itu |
 | `GET`  | `/ekspor/petugas/xlsx`     | Idem, Excel (.xlsx)                                                 |
 
 ### Cek NOP
@@ -1227,7 +1227,7 @@ Keduanya disusun di `server/src/ekspor.js` dengan isi yang sama. Tersedia lima c
 | Satu kertas kerja, satu formulir | **Excel / CSV** di judul grup formulir pada *Data terkumpul* | `kertas-kerja-00012-identitas-wajib-pajak.xlsx` |
 | Satu formulir, semua kertas kerja | **Excel / CSV** di baris formulir pada Bank Formulir (bila sudah ada data) | `formulir-identitas-wajib-pajak.xlsx` |
 | Satu kecamatan / kelurahan objek pajak, semua formulir atau satu formulir | Halaman **Ekspor** saja | `wilayah-cempaka-palam.xlsx`, `wilayah-cempaka-palam-pbb-p2.xlsx` |
-| Satu petugas (kertas kerja yang timnya memuat petugas itu), semua formulir atau satu formulir | Halaman **Ekspor** saja | `petugas-surya-arisandi.xlsx`, `petugas-surya-arisandi-pbb-p2.xlsx` |
+| Satu atau beberapa petugas (kertas kerja yang timnya memuat salah satunya), semua formulir atau satu formulir | Halaman **Ekspor** saja | `petugas-surya-arisandi.xlsx`, `petugas-surya-arisandi-dan-2-lainnya-pbb-p2.xlsx` |
 
 Semua cakupan tersedia di halaman **Ekspor** (`/ekspor`, `EksporPage.jsx`, menu tersendiri
 di sidebar & bilah tab HP): pilih kertas kerja lalu *Semua formulir* atau satu formulir, pilih
@@ -1235,7 +1235,9 @@ formulir untuk seluruh kertas kerja, pilih kecamatan, kelurahan (*Semua keluraha
 kecamatan), dan formulir, atau pilih petugas dan formulir, kemudian **Unduh Excel** / **Unduh CSV**.
 
 **Per petugas** memuat semua data di kertas kerja yang timnya memuat petugas itu - patokan yang sama
-dengan angka *data · kertas kerja* di menu Petugas, jadi jumlahnya bisa dicocokkan. Kolom *Diisi oleh*
+dengan angka *data · kertas kerja* di menu Petugas, jadi jumlahnya bisa dicocokkan. Bisa beberapa
+petugas sekaligus: kertas kerja yang timnya memuat salah satu dari mereka, masing-masing sekali saja
+(memilih anggota satu tim tidak membuat datanya dobel). Kolom *Diisi oleh*
 tidak dipakai karena baru tercatat sejak ada login petugas. Kertas kerja yang belum berisi data tidak
 punya baris; layar ekspor menyebut jumlahnya.
 

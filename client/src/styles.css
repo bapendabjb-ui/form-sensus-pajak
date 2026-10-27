@@ -509,6 +509,10 @@ body.fk-sedang-seret .fk-grip{cursor:grabbing;}
 .fk-chips{display:flex; flex-wrap:wrap; gap:6px;}
 .fk-chip{font-size:12.5px; background:#F2F5F7; border:1px solid var(--line-soft); border-radius:20px; padding:4px 11px; color:var(--ink);}
 .fk-chip b{color:var(--brand); margin-right:6px;}
+/* chip yang bisa dilepas (mis. petugas terpilih di Ekspor per petugas) */
+.fk-chip.fk-chip-hapus{display:inline-flex; align-items:center; gap:4px; padding-right:4px;}
+.fk-chip-hapus button{border:0; background:transparent; color:var(--muted); font-size:16px; line-height:1; width:22px; height:22px; border-radius:50%; cursor:pointer;}
+.fk-chip-hapus button:hover{color:var(--danger); background:rgba(192,54,44,.08);}
 .fk-ellipsis{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 
 /* ================= detail kertas kerja & data ================= */

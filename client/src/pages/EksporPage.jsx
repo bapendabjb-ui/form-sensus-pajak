@@ -170,7 +170,7 @@ function PanelWilayah({ unduhKe }) {
 function PanelPetugas({ unduhKe }) {
   const toast = useToast();
   const [petugas, setPetugas] = useState([]);
-  const [petugasId, setPetugasId] = useState(null);
+  const [petugasIds, setPetugasIds] = useState([]); // urut pilihan
 
   useEffect(() => {
     api
@@ -179,25 +179,50 @@ function PanelPetugas({ unduhKe }) {
       .catch((e) => toast(e.message, true));
   }, [toast]);
 
-  const ambil = useCallback(() => api.ringkasEksporPetugas(petugasId), [petugasId]);
-  const { ringkas, siap, kosong, formId, pilihFormulir } = useRingkasan(petugasId ? ambil : null);
+  // Kunci teks supaya ringkasan hanya dimuat ulang bila pilihannya benar-benar berubah.
+  const kunci = petugasIds.join(",");
+  const ambil = useCallback(() => api.ringkasEksporPetugas(kunci), [kunci]);
+  const { ringkas, siap, kosong, formId, pilihFormulir } = useRingkasan(kunci ? ambil : null);
 
   const labelPetugas = (p) => labelJumlah(p.nama, p.jumlahData);
-  const dipilih = petugas.find((p) => p.id === petugasId) || null;
-  const pilihan = { petugas: petugasId, formulir: formId };
+  const dipilih = petugasIds.map((id) => petugas.find((p) => p.id === id)).filter(Boolean);
+  const sisa = petugas.filter((p) => !petugasIds.includes(p.id));
+  const pilihan = { petugas: petugasIds, formulir: formId };
   const tanpaData = ringkas ? ringkas.kertasKerja - ringkas.kertasKerjaBerdata : 0;
 
   return (
-    <Panel title="Per petugas" sub="Semua data di kertas kerja yang timnya memuat petugas itu, urut nomor kertas kerja.">
+    <Panel
+      title="Per petugas"
+      sub="Semua data di kertas kerja yang timnya memuat petugas terpilih, urut nomor kertas kerja. Bila beberapa petugas dipilih, kertas kerja yang sama hanya muncul sekali."
+    >
       <div className="fk-ekspor-isian">
         <span className="fk-q-name">Petugas</span>
+        {dipilih.length > 0 && (
+          <div className="fk-chips">
+            {dipilih.map((p) => (
+              <span className="fk-chip fk-chip-hapus" key={p.id}>
+                {p.nama}
+                <button
+                  type="button"
+                  aria-label={`Hapus ${p.nama}`}
+                  onClick={() => setPetugasIds((ids) => ids.filter((id) => id !== p.id))}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <CustomSelect
-          value={dipilih ? labelPetugas(dipilih) : ""}
-          options={petugas.map(labelPetugas)}
-          placeholder="Pilih petugas"
+          value=""
+          options={sisa.map(labelPetugas)}
+          placeholder={dipilih.length ? "Tambah petugas lain" : "Pilih petugas"}
           title="Pilih petugas"
-          emptyText="Belum ada petugas yang masuk tim"
-          onChange={(label) => setPetugasId(petugas.find((p) => labelPetugas(p) === label)?.id ?? null)}
+          emptyText={petugas.length ? "Semua petugas sudah dipilih" : "Belum ada petugas yang masuk tim"}
+          onChange={(label) => {
+            const p = sisa.find((x) => labelPetugas(x) === label);
+            if (p) setPetugasIds((ids) => [...ids, p.id]);
+          }}
         />
 
         {pilihFormulir}
@@ -205,7 +230,7 @@ function PanelPetugas({ unduhKe }) {
         {ringkas && (
           <span className="fk-hint-kecil">
             {kosong
-              ? "Kertas kerja petugas ini belum berisi data."
+              ? `Kertas kerja ${dipilih.length > 1 ? "petugas-petugas" : "petugas"} ini belum berisi data.`
               : `${formatAngka(ringkas.kertasKerja)} kertas kerja · ${formatAngka(ringkas.data)} data.`}
             {!kosong &&
               tanpaData > 0 &&
