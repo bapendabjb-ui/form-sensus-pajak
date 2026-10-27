@@ -1,11 +1,13 @@
 "use strict";
 
 /**
- * Ekspor data ke CSV dan Excel (.xlsx) - per kertas kerja (semua formulir atau
- * satu formulir) maupun per formulir (seluruh kertas kerja).
+ * Ekspor data ke CSV dan Excel (.xlsx) - per kertas kerja, per formulir, per
+ * wilayah, dan per petugas.
  *
- * Semua memakai susunan yang sama: satu baris per data, kolom pertanyaan
- * dikelompokkan per formulir, sel milik formulir lain dibiarkan kosong.
+ * Dua susunan: satu formulir saja -> satu baris per data (susunEkspor);
+ * "Semua formulir" -> satu baris per kertas kerja, kolom tiap formulir
+ * berdampingan (susunEksporPerKk).
+ *
  * Tiap sel berbentuk { teks, angka?, format? }: CSV memakai teks, Excel memakai
  * angka bila ada supaya bisa dijumlah dan difilter (format angkanya bawaan
  * FORMAT_RIBUAN bila tidak disebut).
@@ -159,6 +161,64 @@ function susunEkspor(data, formulir, { baseUrl, timezone }) {
 }
 
 /**
+ * Susun tabel ekspor SATU BARIS PER KERTAS KERJA - untuk ekspor "Semua
+ * formulir". Data tiap formulir di kertas kerja yang sama berdampingan dalam
+ * satu baris, bukan bertangga di baris-baris terpisah yang separuhnya kosong.
+ * Tiap formulir mendapat satu blok kolom: pertanyaannya, lalu kelengkapan
+ * berkas, catatan, waktu input, dan pengisinya.
+ *
+ * Kertas kerja yang punya lebih dari satu data untuk formulir yang sama
+ * mendapat baris sebanyak data terbanyaknya: data ke-n masuk baris ke-n.
+ * Formulir yang datanya hanya satu (mis. Identitas Wajib Pajak) diulang di
+ * setiap baris supaya tiap baris tetap lengkap saat disaring di Excel.
+ *
+ * @param {{ kk: object, e: object }[]} data  seperti susunEkspor, SUDAH terurut
+ *        (data satu kertas kerja berurutan, tiap formulir urut waktu input)
+ * @param {object[]} formulir  formulir (+ pertanyaan) yang kolomnya ditampilkan, urut
+ * @returns {{ header: string[], baris: object[][] }}
+ */
+function susunEksporPerKk(data, formulir, { baseUrl, timezone }) {
+  const blok = formulir.map((f) => ({
+    f,
+    kolom: [
+      ...kolomPertanyaan([f], baseUrl).map((k) => ({ judul: k.judul, sel: (_e, j) => k.sel(j) })),
+      {
+        judul: `${f.judul} - Kelengkapan berkas`,
+        sel: (e) => teks(e.berkasLengkap === false ? "Tidak lengkap" : "Lengkap"),
+      },
+      { judul: `${f.judul} - Catatan kekurangan berkas`, sel: (e) => teks(e.catatanBerkas) },
+      { judul: `${f.judul} - Waktu input`, sel: (e) => teks(formatWaktuID(e.createdAt, timezone)) },
+      { judul: `${f.judul} - Diisi oleh`, sel: (e) => teks(e.dibuatOleh) },
+    ],
+  }));
+  const header = ["Nomor", "Status", "Petugas", "NIP", ...blok.flatMap((b) => b.kolom.map((k) => k.judul))];
+
+  // Kelompokkan per kertas kerja; urutan kemunculan pertama dipertahankan.
+  const perKk = new Map();
+  for (const { kk, e } of data) {
+    if (!perKk.has(kk.id)) perKk.set(kk.id, { kk, perForm: new Map() });
+    const perForm = perKk.get(kk.id).perForm;
+    if (!perForm.has(e.formulirId)) perForm.set(e.formulirId, []);
+    perForm.get(e.formulirId).push({ e, j: petaJawaban(e.jawaban) });
+  }
+
+  const baris = [];
+  for (const { kk, perForm } of perKk.values()) {
+    const identitas = kolomKertasKerja(kk);
+    const banyak = Math.max(1, ...[...perForm.values()].map((d) => d.length));
+    for (let i = 0; i < banyak; i++) {
+      const sel = blok.flatMap(({ f, kolom }) => {
+        const d = perForm.get(f.id) || [];
+        const isi = d.length === 1 ? d[0] : d[i];
+        return kolom.map((k) => (isi ? k.sel(isi.e, isi.j) : teks("")));
+      });
+      baris.push([...identitas, ...sel]);
+    }
+  }
+  return { header, baris };
+}
+
+/**
  * Alamat dasar untuk tautan foto di berkas ekspor.
  *
  * APP_URL dipakai bila diisi; kalau tidak, disusun dari permintaan. Header Host
@@ -241,6 +301,7 @@ async function kirimXlsx(res, { nama, sheet, tabel }) {
 
 module.exports = {
   susunEkspor,
+  susunEksporPerKk,
   barisTanpaData,
   baseUrlEkspor,
   namaBerkas,

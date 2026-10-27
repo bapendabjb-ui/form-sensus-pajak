@@ -1238,11 +1238,21 @@ yang objeknya di wilayah itu; data yang objeknya sendiri di kelurahan lain tidak
 mengunduh, layar menampilkan jumlah kertas kerja & data, serta berapa kertas kerja berisi data yang
 belum punya wilayah objek (tidak masuk ekspor wilayah mana pun).
 
-Ekspor per formulir diurutkan menurut nomor kertas kerja; kolom `Nomor`, `Status`, `Petugas`, dan
-`NIP` mengikuti kertas kerja masing-masing baris. **Satu baris per data.** Kolom:
-`Nomor`, `Status`, `Petugas` (nama tim digabung `; `), `NIP`, `Formulir`, `No. data`, `Waktu input`,
-`Kelengkapan berkas` (`Lengkap` / `Tidak lengkap`), `Catatan kekurangan berkas`, lalu satu kolom per pertanyaan berjudul `Judul formulir - Label` (pertanyaan NIK / NPWP menjadi dua
-kolom). Sel milik formulir lain dibiarkan kosong; pertanyaan foto berisi tautan lengkap ke fotonya.
+Semua ekspor diurutkan menurut nomor kertas kerja; kolom `Nomor`, `Status`, `Petugas` (nama tim
+digabung `; `), dan `NIP` mengikuti kertas kerja masing-masing baris. Kolom pertanyaan berjudul
+`Judul formulir - Label` (pertanyaan NIK / NPWP, lokasi, wilayah, dan luas dipecah jadi beberapa
+kolom); pertanyaan foto berisi tautan lengkap ke fotonya. Bentuk barisnya ada dua:
+
+- **Semua formulir → satu baris per kertas kerja** (`susunEksporPerKk`). Tiap formulir mendapat satu
+  blok kolom berdampingan: pertanyaannya, lalu `Kelengkapan berkas`, `Catatan kekurangan berkas`,
+  `Waktu input`, dan `Diisi oleh` formulir itu. Jadi Identitas Wajib Pajak dan PBB-P2 sebuah kertas
+  kerja berada di baris yang sama. Bila sebuah kertas kerja punya lebih dari satu data untuk formulir
+  yang sama, kertas kerja itu mendapat baris sebanyak data terbanyaknya (data ke-n di baris ke-n),
+  dan formulir yang datanya hanya satu diulang di setiap barisnya supaya tiap baris tetap lengkap
+  saat disaring.
+- **Satu formulir → satu baris per data** (`susunEkspor`). Kolom: `Nomor`, `Status`, `Petugas`,
+  `NIP`, `Formulir`, `No. data`, `Waktu input`, `Diisi oleh`, `Kelengkapan berkas` (`Lengkap` /
+  `Tidak lengkap`), `Catatan kekurangan berkas`, lalu kolom pertanyaannya.
 
 - **CSV** diawali **BOM UTF-8** agar rapi saat dibuka di Excel.
 - **Excel (.xlsx)** memakai `exceljs`: baris judul tebal dan dibekukan, filter otomatis, lebar kolom

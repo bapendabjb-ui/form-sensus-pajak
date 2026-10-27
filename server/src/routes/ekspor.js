@@ -12,7 +12,7 @@ const config = require("../config");
 const { requireAdmin } = require("../auth");
 const { wrap, badRequest, notFound, parseId } = require("../http");
 const { includePertanyaan } = require("../bentuk");
-const { susunEkspor, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
+const { susunEkspor, susunEksporPerKk, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
 const { pertanyaanObjek, bacaPilihanWilayah, saringWilayah } = require("../eksporWilayah");
 
 const router = express.Router();
@@ -83,8 +83,8 @@ const bacaFormulir = (req) => (req.query.formulir ? parseId(req.query.formulir, 
 
 /**
  * Susun berkas ekspor dari sekumpulan entri (includeEkspor). Dengan `formId`
- * hanya formulir itu; tanpa itu semua formulir yang berisi data, kolomnya
- * dikelompokkan per formulir seperti ekspor per kertas kerja.
+ * hanya formulir itu, satu baris per data; tanpa itu semua formulir yang
+ * berisi data, satu baris per kertas kerja (lihat susunEksporPerKk).
  * Urut nomor kertas kerja, lalu urutan formulir di bank, lalu waktu input.
  *
  * @param {string[]} namaBagian  potongan nama berkas, mis. ["wilayah", "cempaka"]
@@ -110,10 +110,11 @@ async function susunBerkas(req, entri, formId, { namaBagian, judul }) {
     );
 
   const satu = formId ? formulir[0] : null;
+  const susun = satu ? susunEkspor : susunEksporPerKk;
   return {
     nama: [...namaBagian, satu && namaBerkas(satu.judul, "formulir")].filter(Boolean).join("-"),
     sheet: satu ? `${judul} ${satu.judul}` : judul,
-    tabel: susunEkspor(data, formulir, { baseUrl: baseUrlEkspor(req), timezone: config.timezone }),
+    tabel: susun(data, formulir, { baseUrl: baseUrlEkspor(req), timezone: config.timezone }),
   };
 }
 
