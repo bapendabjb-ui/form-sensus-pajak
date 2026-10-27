@@ -9,10 +9,14 @@ import LoginAdmin from "../components/LoginAdmin.jsx";
  * Halaman ekspor: satu tempat untuk mengunduh data sebagai Excel atau CSV.
  *   - Per kertas kerja: semua formulir, atau satu formulir di kertas kerja itu.
  *   - Per formulir: seluruh data formulir itu dari semua kertas kerja.
+ *   - Per kecamatan / kelurahan objek pajak: semua formulir atau satu formulir.
  * Unduhannya sama dengan tombol ekspor di halaman kertas kerja & bank formulir.
  */
 
 const SEMUA_FORMULIR = "Semua formulir";
+const SEMUA_KELURAHAN = "Semua kelurahan";
+
+const formatAngka = (n) => Number(n || 0).toLocaleString("id-ID");
 
 /** "00012 · Andi Saputra +2 · 5 data" */
 const labelKk = (k) => {
@@ -34,6 +38,104 @@ function TombolUnduh({ onExcel, onCsv, disabled }) {
         Unduh CSV
       </button>
     </div>
+  );
+}
+
+/**
+ * Per kecamatan / kelurahan objek pajak (lihat server/src/eksporWilayah.js).
+ * Jumlahnya dimuat ulang setiap wilayah berganti, supaya isinya terlihat
+ * sebelum mengunduh dan daftar formulirnya hanya yang berisi data di sana.
+ */
+function PanelWilayah({ unduhKe }) {
+  const toast = useToast();
+  const [wilayah, setWilayah] = useState([]);
+  const [kecKode, setKecKode] = useState(null);
+  const [kelKode, setKelKode] = useState(null); // null = semua kelurahan
+  const [formId, setFormId] = useState(null); // null = semua formulir
+  const [ringkas, setRingkas] = useState(null);
+  const [memuat, setMemuat] = useState(false);
+
+  useEffect(() => {
+    api.getWilayah().then(setWilayah).catch((e) => toast(e.message, true));
+  }, [toast]);
+
+  useEffect(() => {
+    setFormId(null);
+    setRingkas(null);
+    if (!kecKode) return undefined;
+    let batal = false;
+    setMemuat(true);
+    api
+      .ringkasEksporWilayah(kecKode, kelKode)
+      .then((r) => !batal && setRingkas(r))
+      .catch((e) => !batal && toast(e.message, true))
+      .finally(() => !batal && setMemuat(false));
+    return () => {
+      batal = true;
+    };
+  }, [kecKode, kelKode, toast]);
+
+  const kec = wilayah.find((k) => k.kode === kecKode) || null;
+  const kel = kec?.kelurahan.find((l) => l.kode === kelKode) || null;
+  const formulir = ringkas?.formulir || [];
+  const form = formulir.find((f) => f.id === formId) || null;
+  const kosong = ringkas?.data === 0;
+  const siap = Boolean(ringkas) && !memuat && !kosong;
+  const pilihan = { kecamatan: kecKode, kelurahan: kelKode, formulir: formId };
+
+  return (
+    <Panel
+      title="Per kecamatan / kelurahan"
+      sub="Data kertas kerja yang objek pajaknya berada di wilayah itu, urut nomor kertas kerja."
+    >
+      <div className="fk-ekspor-isian">
+        <span className="fk-q-name">Kecamatan</span>
+        <CustomSelect
+          value={kec?.nama || ""}
+          options={wilayah.map((k) => k.nama)}
+          placeholder="Pilih kecamatan"
+          title="Pilih kecamatan"
+          onChange={(nama) => {
+            setKecKode(wilayah.find((k) => k.nama === nama)?.kode ?? null);
+            setKelKode(null);
+          }}
+        />
+
+        <span className="fk-q-name">Kelurahan</span>
+        <CustomSelect
+          value={kel?.nama || SEMUA_KELURAHAN}
+          options={[SEMUA_KELURAHAN, ...(kec?.kelurahan.map((l) => l.nama) || [])]}
+          title="Pilih kelurahan"
+          disabled={!kec}
+          onChange={(nama) => setKelKode(kec?.kelurahan.find((l) => l.nama === nama)?.kode ?? null)}
+        />
+
+        <span className="fk-q-name">Formulir</span>
+        <CustomSelect
+          value={form ? labelJumlah(form.judul, form.jumlah) : SEMUA_FORMULIR}
+          options={[SEMUA_FORMULIR, ...formulir.map((f) => labelJumlah(f.judul, f.jumlah))]}
+          title="Pilih formulir"
+          disabled={!siap}
+          onChange={(label) => setFormId(formulir.find((f) => labelJumlah(f.judul, f.jumlah) === label)?.id ?? null)}
+        />
+
+        {ringkas && !memuat && (
+          <span className="fk-hint-kecil">
+            {kosong
+              ? "Belum ada data dengan objek pajak di wilayah ini."
+              : `${formatAngka(ringkas.kertasKerja)} kertas kerja · ${formatAngka(ringkas.data)} data.`}
+            {ringkas.tanpaWilayah > 0 &&
+              ` ${formatAngka(ringkas.tanpaWilayah)} kertas kerja berisi data belum punya kecamatan/kelurahan objek pajak, jadi tidak masuk ekspor wilayah mana pun.`}
+          </span>
+        )}
+      </div>
+
+      <TombolUnduh
+        disabled={!siap}
+        onExcel={() => unduhKe(api.unduhWilayah(pilihan, "xlsx"))}
+        onCsv={() => unduhKe(api.unduhWilayah(pilihan, "csv"))}
+      />
+    </Panel>
   );
 }
 
@@ -115,7 +217,10 @@ export default function EksporPage({ admin, onAuthChanged }) {
 
   return (
     <>
-      <PageHead title="Ekspor Data" sub="Unduh Data Sebagai Excel atau CSV, Per Kertas Kerja atau Per Formulir." />
+      <PageHead
+        title="Ekspor Data"
+        sub="Unduh Data Sebagai Excel atau CSV: Per Kertas Kerja, Per Formulir, atau Per Kecamatan/Kelurahan."
+      />
 
       <Panel title="Per kertas kerja" sub="Satu kertas kerja — seluruh formulir atau satu formulir saja.">
         <div className="fk-ekspor-isian">
@@ -172,6 +277,8 @@ export default function EksporPage({ admin, onAuthChanged }) {
           onCsv={() => unduhKe(api.unduhFormulir(formId, "csv"))}
         />
       </Panel>
+
+      <PanelWilayah unduhKe={unduhKe} />
     </>
   );
 }

@@ -76,6 +76,7 @@ app.use("/api/peta", require("./src/routes/peta"));
 app.use("/api/nop", require("./src/routes/nop"));
 app.use("/api/tautan-peta", require("./src/routes/tautanPeta"));
 app.use("/api/wilayah", require("./src/routes/wilayah"));
+app.use("/api/ekspor", require("./src/routes/ekspor"));
 
 // Batas aplikasi yang juga dipakai klien - satu sumber angka untuk keduanya.
 // periodeData ikut di sini agar browser tahu kapan draf lamanya harus dibuang;

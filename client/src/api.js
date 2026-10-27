@@ -512,6 +512,28 @@ export const unduhFormulir = (id, jenis = "xlsx") =>
     `formulir.${jenis === "xlsx" ? "xlsx" : "csv"}`
   );
 
+/** ?kecamatan=&kelurahan=&formulir= - kode SISMIOP; kelurahan & formulir boleh kosong. */
+const queryWilayah = ({ kecamatan, kelurahan, formulir }) => {
+  const q = new URLSearchParams({ kecamatan });
+  if (kelurahan) q.set("kelurahan", kelurahan);
+  if (formulir) q.set("formulir", String(formulir));
+  return q;
+};
+
+/**
+ * Sebelum ekspor per wilayah objek: { kertasKerja, data, formulir: [{ id, judul, jumlah }], tanpaWilayah }.
+ * Khusus admin.
+ */
+export const ringkasEksporWilayah = (kecamatan, kelurahan) =>
+  request(`/ekspor/wilayah/ringkas?${queryWilayah({ kecamatan, kelurahan })}`);
+
+/** Unduh data per kecamatan / kelurahan objek pajak. jenis: "xlsx" | "csv". */
+export const unduhWilayah = (pilihan, jenis = "xlsx") =>
+  unduhBerkas(
+    `/ekspor/wilayah${jenis === "xlsx" ? "/xlsx" : ""}?${queryWilayah(pilihan)}`,
+    `wilayah.${jenis === "xlsx" ? "xlsx" : "csv"}`
+  );
+
 /* ---------- dashboard ---------- */
 
 export const getStats = () => request("/dashboard/stats");
