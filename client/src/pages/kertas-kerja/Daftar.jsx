@@ -15,9 +15,12 @@ import {
   lokasiPerluCek,
   bacaCariKk,
   simpanCariKk,
+  bacaTimKurangKk,
+  simpanTimKurangKk,
   simpanPosisiKk,
   ambilPosisiKk,
 } from "../../lib/filterKk.js";
+import { kapitalTiapKata } from "../../lib/kapital.js";
 import { LABEL_STATUS } from "../../lib/cekLokasi.js";
 import { useAdmin, useHanyaLihat } from "../../lib/admin.js";
 import { useKonfigurasi } from "../../lib/konfigurasi.js";
@@ -35,11 +38,22 @@ const JEDA_CARI_MS = 300;
  * yang cocok ditaruh di depan supaya terlihat mengapa kartu itu muncul.
  */
 function timDepanCocok(petugas, cari) {
-  const kata = cari.toLowerCase().split(/\s+/).filter((w) => /\p{L}/u.test(w));
+  const kata = cari.toLowerCase().split(/[\s,]+/).filter((w) => /\p{L}/u.test(w));
   if (kata.length === 0) return petugas;
   const cocok = (p) => kata.some((w) => p.nama.toLowerCase().includes(w));
   return [...petugas.filter(cocok), ...petugas.filter((p) => !cocok(p))];
 }
+
+/**
+ * Pencarian "salah satu": dua nama atau lebih dipisah koma (sama dengan
+ * namaSalahSatu di server). Hanya dalam pencarian ini saklar "Belum lengkap"
+ * bermakna.
+ */
+const pencarianSalahSatu = (cari) => cari.split(",").filter((b) => /\p{L}/u.test(b)).length >= 2;
+
+/** Dua kata berhuruf atau lebih tanpa koma: tawarkan pencarian "salah satu". */
+const bisaSalahSatu = (cari) =>
+  !cari.includes(",") && cari.split(/\s+/).filter((w) => /\p{L}/u.test(w)).length >= 2;
 
 /** Nama data yang disebut di kartu; sisanya cukup dihitung ("+3"). */
 const NAMA_TAMPIL = 2;
@@ -103,6 +117,10 @@ export function DaftarKertasKerja() {
   // supaya kembali dari detail tidak mengosongkan pencarian.
   const [cari, setCari] = useState(bacaCariKk);
   const [cariKirim, setCariKirim] = useState(bacaCariKk);
+  // "Belum lengkap": hanya tim yang belum memuat semua nama yang dicari. Saklarnya
+  // diingat, tetapi hanya dikirim saat pencariannya memang berisi beberapa nama.
+  const [timKurang, setTimKurang] = useState(bacaTimKurangKk);
+  const kirimTimKurang = timKurang && pencarianSalahSatu(cariKirim);
 
   // Kembali dari detail: muat lagi sebanyak halaman tadi, lalu gulir ke posisi
   // tadi. Dipakai sekali saja, pada pemuatan pertama.
@@ -136,11 +154,12 @@ export function DaftarKertasKerja() {
     setLoading(true);
     setError("");
     try {
-      let hasil = await api.listKertasKerja({ hal: 1, per: PER, cari: cariKirim, saring: filter });
+      const q = { per: PER, cari: cariKirim, saring: filter, timKurang: kirimTimKurang };
+      let hasil = await api.listKertasKerja({ ...q, hal: 1 });
       const pulih = pulihkan.current;
       pulihkan.current = null;
       while (pulih && hasil.adaLagi && hasil.hal < pulih.hal && aku === urutan.current) {
-        const lagi = await api.listKertasKerja({ hal: hasil.hal + 1, per: PER, cari: cariKirim, saring: filter });
+        const lagi = await api.listKertasKerja({ ...q, hal: hasil.hal + 1 });
         hasil = { ...lagi, baris: [...hasil.baris, ...lagi.baris] };
       }
       if (aku === urutan.current) {
@@ -152,7 +171,7 @@ export function DaftarKertasKerja() {
     } finally {
       if (aku === urutan.current) setLoading(false);
     }
-  }, [cariKirim, filter]);
+  }, [cariKirim, filter, kirimTimKurang]);
 
   useEffect(() => {
     muat();
@@ -180,6 +199,7 @@ export function DaftarKertasKerja() {
         per: PER,
         cari: cariKirim,
         saring: filter,
+        timKurang: kirimTimKurang,
       });
       // Kata kunci atau saringan sempat berubah selagi menunggu: buang hasilnya.
       if (aku !== urutan.current) return;
@@ -195,6 +215,14 @@ export function DaftarKertasKerja() {
     setFilter(f);
     simpanFilterKk(f);
   };
+
+  const gantiTimKurang = () => {
+    setTimKurang(!timKurang);
+    simpanTimKurangKk(!timKurang);
+  };
+
+  /** "surya recky" -> "surya, recky": dari "semua nama" menjadi "salah satunya". */
+  const pisahkanKoma = () => setCari(cari.trim().split(/\s+/).join(", "));
 
   // Saringan khusus admin tidak boleh tertinggal setelah admin keluar: tombolnya
   // hilang, tetapi daftarnya masih tersaring tanpa petugas tahu sebabnya.
@@ -292,7 +320,7 @@ export function DaftarKertasKerja() {
   const buat = () => navigate("/kertas-kerja/baru");
 
   const kata = cari.trim();
-  const { baris, total, adaLagi, jumlah } = data;
+  const { baris, total, adaLagi, jumlah, salahSatu } = data;
   // Belum ada kertas kerja sama sekali, bukan sekadar tidak ada yang cocok.
   const benarBenarKosong = !kata && filter === "semua" && total === 0;
 
@@ -389,6 +417,30 @@ export function DaftarKertasKerja() {
             enterKeyHint="search"
             aria-label="Cari nomor atau nama petugas"
           />
+          {salahSatu ? (
+            <div className="fk-cari-info">
+              <span className="fk-hint">Tim yang berisi salah satu dari {salahSatu.nama.length} nama.</span>
+              <button
+                type="button"
+                className={"fk-filter-btn is-kurang" + (kirimTimKurang ? " is-on" : "")}
+                aria-pressed={kirimTimKurang}
+                onClick={gantiTimKurang}
+              >
+                Belum lengkap
+                <span className="fk-filter-jumlah">{salahSatu.timKurang}</span>
+              </button>
+            </div>
+          ) : (
+            bisaSalahSatu(cariKirim) &&
+            cari === cariKirim && (
+              <div className="fk-cari-info">
+                <span className="fk-hint">Tim yang berisi semua nama ini.</span>
+                <button type="button" className="fk-teks-btn" onClick={pisahkanKoma}>
+                  Cari yang berisi salah satunya
+                </button>
+              </div>
+            )
+          )}
           <div className="fk-filter" role="tablist" aria-label="Saring kertas kerja">
             {FILTER_KK.filter(([, , opsi]) => admin || !opsi?.admin).map(([kunci, label]) => (
               <button
@@ -411,8 +463,9 @@ export function DaftarKertasKerja() {
 
           {memilih && (
             <p className="fk-hint fk-pilih-petunjuk">
-              Ketuk kertas kerja yang timnya akan ditambah petugas. Cari nama rekan setimnya untuk menemukannya lebih
-              cepat; pilihan tetap tersimpan walau pencarian diganti.
+              Ketuk kertas kerja yang timnya akan ditambah petugas. Ketik nama-nama satu tim dipisah koma lalu pilih
+              &quot;Belum lengkap&quot; untuk menemukan tim yang kurang anggota; pilihan tetap tersimpan walau pencarian
+              diganti.
             </p>
           )}
 
@@ -420,7 +473,9 @@ export function DaftarKertasKerja() {
               atau kata kunci menemukan tetapi saringannya yang menyisihkan semua. */}
           {baris.length === 0 ? (
             <Empty>
-              {kata && jumlah.semua === 0
+              {kirimTimKurang && salahSatu && jumlah.semua === 0
+                ? "Semua tim yang berisi salah satu nama itu sudah lengkap."
+                : kata && jumlah.semua === 0
                 ? `Tidak ada kertas kerja yang cocok dengan "${kata}".`
                 : kata
                   ? `Tidak ada hasil "${kata}" pada saringan ini.`
@@ -463,6 +518,11 @@ export function DaftarKertasKerja() {
                       <span className="fk-nomor">{k.nomor}</span>
                       <div className="fk-kk-card-body">
                         <div className="fk-lib-title fk-ellipsis">{ringkasTim(timDepanCocok(k.petugas, cariKirim))}</div>
+                        {k.belumAda?.length > 0 && (
+                          <div className="fk-kk-belum fk-ellipsis">
+                            Belum ada: {k.belumAda.map(kapitalTiapKata).join(", ")}
+                          </div>
+                        )}
                         {k.namaData?.length > 0 && <NamaData nama={k.namaData} />}
                         <div className="fk-lib-sub fk-ellipsis">
                           {k.jumlahData} data · {formatWaktu(k.createdAt)}

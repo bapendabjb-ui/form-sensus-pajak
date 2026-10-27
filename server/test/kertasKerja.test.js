@@ -5,7 +5,14 @@ const assert = require("node:assert/strict");
 
 // Semuanya memang diekspor routes/kertasKerja.js untuk diuji terpisah: murni,
 // dan merekalah yang menentukan apa yang ikut terkirim ke klien.
-const { bacaPaginasi, syaratCari, syaratSaring, susunNamaData } = require("../src/routes/kertasKerja");
+const {
+  bacaPaginasi,
+  syaratCari,
+  syaratSaring,
+  susunNamaData,
+  namaSalahSatu,
+  belumAdaDiTim,
+} = require("../src/routes/kertasKerja");
 
 /*
  * Paginasi daftar kertas kerja. Query string datang dari klien apa adanya, jadi
@@ -81,6 +88,57 @@ test("syaratCari tidak menyaring apa pun bila kata kunci kosong", () => {
 test("syaratCari memotong kata kunci yang terlalu panjang", () => {
   const syarat = syaratCari("a ".repeat(500));
   assert.equal(syarat.AND.length, 50);
+});
+
+/*
+ * Koma = "salah satu": untuk memeriksa anggota satu tim yang tersebar di
+ * beberapa kertas kerja. Tanpa koma, aturan di atas tidak boleh berubah.
+ */
+
+test("syaratCari dengan koma mencari tim yang berisi salah satunya", () => {
+  assert.deepEqual(syaratCari("surya, recky"), { OR: [cariNama("surya"), cariNama("recky")] });
+  assert.deepEqual(syaratCari("budi santoso,ani"), {
+    OR: [{ AND: [cariNama("budi"), cariNama("santoso")] }, cariNama("ani")],
+  });
+  assert.deepEqual(syaratCari("12, 15"), { OR: [{ nomor: { contains: "12" } }, { nomor: { contains: "15" } }] });
+});
+
+test("syaratCari mengabaikan koma yang tidak memisahkan apa pun", () => {
+  assert.deepEqual(syaratCari("surya,"), cariNama("surya"));
+  assert.deepEqual(syaratCari(", surya , ,"), cariNama("surya"));
+  assert.deepEqual(syaratCari("surya, #"), cariNama("surya"));
+  assert.deepEqual(syaratCari(" , "), {});
+});
+
+test("syaratCari hanyaKurang menyisakan tim yang belum memuat semua nama", () => {
+  assert.deepEqual(syaratCari("surya, recky", { hanyaKurang: true }), {
+    AND: [
+      { OR: [cariNama("surya"), cariNama("recky")] },
+      { OR: [{ NOT: cariNama("surya") }, { NOT: cariNama("recky") }] },
+    ],
+  });
+  // Tanpa dua nama, "belum lengkap" tidak bermakna dan diabaikan.
+  assert.deepEqual(syaratCari("surya", { hanyaKurang: true }), cariNama("surya"));
+  assert.deepEqual(syaratCari("surya, 12", { hanyaKurang: true }), {
+    OR: [cariNama("surya"), { nomor: { contains: "12" } }],
+  });
+});
+
+test("namaSalahSatu hanya terisi untuk dua nama atau lebih yang dipisah koma", () => {
+  assert.deepEqual(namaSalahSatu("surya, supiyawati,syahrian , recky"), ["surya", "supiyawati", "syahrian", "recky"]);
+  assert.deepEqual(namaSalahSatu("surya, 12, recky"), ["surya", "recky"]);
+  assert.deepEqual(namaSalahSatu("surya recky"), [], "tanpa koma = semua kata wajib cocok");
+  assert.deepEqual(namaSalahSatu("surya, 12"), []);
+  assert.deepEqual(namaSalahSatu("surya,"), []);
+  assert.deepEqual(namaSalahSatu(undefined), []);
+});
+
+test("belumAdaDiTim menyebut nama yang tidak ada di tim", () => {
+  const kk = { nomor: "00012", petugas: [{ nama: "Surya Darma" }, { nama: "Recky Amin" }] };
+  assert.deepEqual(belumAdaDiTim(kk, ["surya", "supiyawati", "recky"]), ["supiyawati"]);
+  assert.deepEqual(belumAdaDiTim(kk, ["SURYA", "recky amin"]), [], "huruf besar-kecil tidak dibedakan");
+  assert.deepEqual(belumAdaDiTim(kk, ["darma surya", "amin"]), [], "urutan kata bebas, sama seperti SQL");
+  assert.deepEqual(belumAdaDiTim({ nomor: "1", petugas: [{ nama: "Rézky" }] }, ["rezky", "ani"]), ["ani"]);
 });
 
 test("syaratSaring memetakan saringan ke syarat database", () => {

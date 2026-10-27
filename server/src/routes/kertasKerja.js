@@ -247,6 +247,45 @@ const SARINGAN = new Set(["semua", "draft", "selesai", "kosong", "kurang", "loka
 /** Kata kunci lebih panjang dari ini dipotong; nama petugas pun paling 150 huruf. */
 const CARI_MAKS = 100;
 
+const adaHuruf = (s) => /\p{L}/u.test(s);
+
+/**
+ * Syarat WHERE untuk satu kata kunci (lihat syaratCari), atau null bila kata
+ * itu tidak bermakna (tanda baca saja).
+ */
+function syaratKata(kata) {
+  if (adaHuruf(kata)) return { petugas: { some: { petugas: { nama: { contains: kata } } } } };
+  const angka = kata.replace(/\D/g, "");
+  return angka ? { nomor: { contains: angka } } : null;
+}
+
+/** Syarat WHERE untuk sepotong kata kunci yang setiap katanya harus cocok, atau null. */
+function syaratSemuaKata(teks) {
+  const syarat = teks.split(/\s+/).map(syaratKata).filter(Boolean);
+  if (syarat.length === 0) return null;
+  return syarat.length === 1 ? syarat[0] : { AND: syarat };
+}
+
+/** Kata kunci dipecah pada koma; potongan yang tidak bermakna dibuang. */
+const bagianCari = (cari) =>
+  String(cari || "")
+    .slice(0, CARI_MAKS)
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => syaratSemuaKata(s));
+
+/**
+ * Potongan nama dalam pencarian "salah satu", mis. "surya, recky" ->
+ * ["surya", "recky"]. Kosong bila pencarian tidak memakai koma atau namanya
+ * kurang dari dua, karena "tim belum lengkap" baru bermakna mulai dua nama.
+ */
+function namaSalahSatu(cari) {
+  const bagian = bagianCari(cari);
+  if (bagian.length < 2) return [];
+  const nama = bagian.filter(adaHuruf);
+  return nama.length >= 2 ? nama : [];
+}
+
 /**
  * Syarat WHERE dari kata kunci pencarian: nomor kertas kerja atau nama petugas
  * di timnya.
@@ -256,24 +295,46 @@ const CARI_MAKS = 100;
  * "budi ani" menemukan tim yang berisi Budi dan Ani. Huruf besar-kecil tidak
  * dibedakan karena kolasi tabelnya utf8mb4_unicode_ci.
  *
+ * Koma berarti "salah satu": "surya, recky" menemukan tim yang berisi Surya
+ * ATAU Recky, untuk memeriksa tim yang anggotanya tersebar di beberapa kertas
+ * kerja. Dengan `hanyaKurang`, yang tersisa hanya tim yang belum memuat semua
+ * nama itu (lihat namaSalahSatu).
+ *
  * Kata tanpa huruf dianggap nomor: selain angka dibuang, dan mengetik "4"
  * cukup untuk menemukan "00004" tanpa perlu menghitung nolnya.
  *
  * NIP sengaja tidak ikut dicari: NIP 18 digit hampir pasti memuat angka pendek
  * apa pun, sehingga mengetik "12" akan menarik kertas kerja yang tidak dicari.
  */
-function syaratCari(cari) {
-  const syarat = [];
-  for (const kata of String(cari || "").slice(0, CARI_MAKS).split(/\s+/)) {
-    if (/\p{L}/u.test(kata)) {
-      syarat.push({ petugas: { some: { petugas: { nama: { contains: kata } } } } });
-    } else {
-      const angka = kata.replace(/\D/g, "");
-      if (angka) syarat.push({ nomor: { contains: angka } });
-    }
-  }
-  if (syarat.length === 0) return {};
-  return syarat.length === 1 ? syarat[0] : { AND: syarat };
+function syaratCari(cari, { hanyaKurang = false } = {}) {
+  const bagian = bagianCari(cari);
+  if (bagian.length === 0) return {};
+  if (bagian.length === 1) return syaratSemuaKata(bagian[0]);
+
+  const salahSatu = { OR: bagian.map(syaratSemuaKata) };
+  const nama = namaSalahSatu(cari);
+  if (!hanyaKurang || nama.length === 0) return salahSatu;
+  return { AND: [salahSatu, { OR: nama.map((n) => ({ NOT: syaratSemuaKata(n) })) }] };
+}
+
+/** Huruf kecil tanpa tanda aksen, mendekati kolasi utf8mb4_unicode_ci. */
+const kunciCocok = (s) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
+/**
+ * Nama dari pencarian "salah satu" yang belum ada di tim kertas kerja ini.
+ * Padanan JS dari syaratSemuaKata, supaya kartu bisa menyebut siapa yang kurang.
+ *
+ * @param {{ nomor: string, petugas: { nama: string }[] }} kk
+ * @param {string[]} nama  hasil namaSalahSatu
+ */
+function belumAdaDiTim(kk, nama) {
+  const anggota = kk.petugas.map((p) => kunciCocok(p.nama));
+  const cocok = (kata) => {
+    if (adaHuruf(kata)) return anggota.some((a) => a.includes(kunciCocok(kata)));
+    const angka = kata.replace(/\D/g, "");
+    return !angka || kk.nomor.includes(angka);
+  };
+  return nama.filter((n) => !n.split(/\s+/).every(cocok));
 }
 
 /** Syarat WHERE dari saringan status / kelengkapan berkas. */
@@ -324,12 +385,14 @@ router.get(
   wrap(async (req, res) => {
     const { hal, per, saring } = bacaPaginasi(req.query);
 
-    const cari = syaratCari(req.query.cari);
+    const nama = namaSalahSatu(req.query.cari);
+    const hanyaKurang = req.query.timKurang === "1";
+    const cari = syaratCari(req.query.cari, { hanyaKurang });
     const where = { ...cari, ...syaratSaring(saring) };
 
     const hitung = (tambahan) => prisma.kertasKerja.count({ where: { ...cari, ...tambahan } });
 
-    const [list, total, semua, draft, selesai, kosong, kurang, lokasi, belumdicek] = await Promise.all([
+    const [list, total, semua, draft, selesai, kosong, kurang, lokasi, belumdicek, timKurang] = await Promise.all([
       prisma.kertasKerja.findMany({
         where,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -345,18 +408,27 @@ router.get(
       hitung(syaratSaring("kurang")),
       hitung(syaratSaring("lokasi")),
       hitung(syaratSaring("belumdicek")),
+      // Tim belum lengkap dihitung tanpa saringan status, sama seperti `jumlah`.
+      nama.length
+        ? prisma.kertasKerja.count({ where: syaratCari(req.query.cari, { hanyaKurang: true }) })
+        : null,
     ]);
 
     const ids = list.map((k) => k.id);
     const [tidakLengkap, namaData] = await Promise.all([hitungTidakLengkap(ids), muatNamaData(ids)]);
 
     res.json({
-      baris: list.map((k) => bentukRingkas(k, tidakLengkap, namaData)),
+      baris: list.map((k) => {
+        const ringkas = bentukRingkas(k, tidakLengkap, namaData);
+        return nama.length ? { ...ringkas, belumAda: belumAdaDiTim(ringkas, nama) } : ringkas;
+      }),
       hal,
       per,
       total,
       adaLagi: hal * per < total,
       jumlah: { semua, draft, selesai, kosong, kurang, lokasi, belumdicek },
+      // Hanya untuk pencarian "salah satu" berisi dua nama atau lebih (lihat syaratCari).
+      salahSatu: nama.length ? { nama, timKurang } : null,
     });
   })
 );
@@ -779,6 +851,8 @@ module.exports = router;
 // terkirim, sementara query di atas perlu database.
 module.exports.bacaPaginasi = bacaPaginasi;
 module.exports.syaratCari = syaratCari;
+module.exports.namaSalahSatu = namaSalahSatu;
+module.exports.belumAdaDiTim = belumAdaDiTim;
 module.exports.syaratSaring = syaratSaring;
 module.exports.susunNamaData = susunNamaData;
 module.exports.bacaIdKertasKerja = bacaIdKertasKerja;

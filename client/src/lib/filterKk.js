@@ -52,6 +52,25 @@ export const lokasiPerluCek = (k) =>
 
 const KUNCI_CARI = "sensus-pajak:cari-kk";
 const KUNCI_POSISI = "sensus-pajak:posisi-kk";
+const KUNCI_TIM_KURANG = "sensus-pajak:tim-kurang-kk";
+
+/** Saklar "Belum lengkap" pada pencarian beberapa nama (dipisah koma). */
+export function bacaTimKurangKk() {
+  try {
+    return sessionStorage.getItem(KUNCI_TIM_KURANG) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function simpanTimKurangKk(nyala) {
+  try {
+    if (nyala) sessionStorage.setItem(KUNCI_TIM_KURANG, "1");
+    else sessionStorage.removeItem(KUNCI_TIM_KURANG);
+  } catch {
+    /* penyimpanan tidak tersedia */
+  }
+}
 
 /** Kata kunci pencarian terakhir di daftar kertas kerja. */
 export function bacaCariKk() {

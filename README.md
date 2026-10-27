@@ -69,6 +69,12 @@ berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengeksporny
    langsung di pita halaman tersebut — **Setujui & hapus** atau **Tolak**. Pengajuan yang ditolak
    tetap disebutkan di halaman sasarannya supaya petugas tahu, dan semua keputusan tercatat di
    tab **Riwayat**.
+8. **Cari & periksa tim** — kotak cari di daftar kertas kerja menerima nomor atau nama petugas.
+   Beberapa kata tanpa koma (`surya recky`) menemukan tim yang berisi **semua** nama itu. Nama
+   yang dipisah koma (`surya, supiyawati, syahrian, recky`) menemukan tim yang berisi **salah
+   satunya**; kartu yang timnya kurang menyebut **Belum ada: …**, dan tombol **Belum lengkap**
+   menyisakan tim yang kurang saja. Admin lalu bisa melengkapinya lewat **Tambah petugas
+   massal** (centang kartunya → **Lanjut** → pilih petugas); nama yang sudah ada di tim dilewati.
 
 ---
 
@@ -1075,22 +1081,30 @@ sehari dijawab dengan header `X-Token-Baru` berisi penggantinya.
 | `GET`    | `/kertas-kerja/:id/export`        | Unduh CSV; `?formulir=<id>` = hanya satu formulir         |
 | `GET`    | `/kertas-kerja/:id/export/xlsx`   | Unduh Excel (.xlsx), isi sama dengan CSV; `?formulir=<id>` idem |
 
-**`GET /kertas-kerja?hal=1&per=20&cari=&saring=semua`**
+**`GET /kertas-kerja?hal=1&per=20&cari=&saring=semua&timKurang=`**
 
 ```json
 {
   "baris": [ { "id": 7, "nomor": "00007", "status": "draft", "petugas": [], "jumlahData": 3, "jumlahTidakLengkap": 1, "namaData": ["Ahmad Fauzi", "Warung Bu Siti"], "lokasiStatus": "kantor" } ],
   "hal": 1, "per": 20, "total": 137, "adaLagi": true,
-  "jumlah": { "semua": 137, "draft": 40, "selesai": 97, "kurang": 12, "lokasi": 5 }
+  "jumlah": { "semua": 137, "draft": 40, "selesai": 97, "kurang": 12, "lokasi": 5 },
+  "salahSatu": null
 }
 ```
 
-| Parameter | Bawaan  | Keterangan                                                                 |
-| --------- | ------- | -------------------------------------------------------------------------- |
-| `hal`     | `1`     | Halaman, mulai dari 1                                                       |
-| `per`     | `20`    | Baris per halaman, **dibatasi 100**                                         |
-| `cari`    | —       | Penggalan nomor. Karakter non-angka dibuang, jadi `4` menemukan `00004`     |
-| `saring`  | `semua` | `semua` · `draft` · `selesai` · `kosong` (belum berisi data) · `kurang` (punya data berkas tidak lengkap) · `lokasi` (punya data, titiknya di kantor / kurang akurat / belum ada) · `belumdicek` (punya data, lokasi sensus belum dicek admin) |
+| Parameter   | Bawaan  | Keterangan                                                                 |
+| ----------- | ------- | -------------------------------------------------------------------------- |
+| `hal`       | `1`     | Halaman, mulai dari 1                                                       |
+| `per`       | `20`    | Baris per halaman, **dibatasi 100**                                         |
+| `cari`      | —       | Nomor atau nama petugas di tim; setiap kata harus cocok. Kata tanpa huruf = penggalan nomor (non-angka dibuang, jadi `4` menemukan `00004`). **Koma** = salah satu: `surya, recky` menemukan tim yang berisi Surya *atau* Recky |
+| `saring`    | `semua` | `semua` · `draft` · `selesai` · `kosong` (belum berisi data) · `kurang` (punya data berkas tidak lengkap) · `lokasi` (punya data, titiknya di kantor / kurang akurat / belum ada) · `belumdicek` (punya data, lokasi sensus belum dicek admin) |
+| `timKurang` | —       | `1` = hanya tim yang belum memuat semua nama di `cari`. Berlaku bila `cari` berisi dua nama atau lebih dipisah koma; selain itu diabaikan |
+
+Bila `cari` berisi dua nama atau lebih dipisah koma, setiap baris mendapat
+`belumAda` (nama dari kata kunci yang tidak ada di timnya, ditulis seperti
+diketik) dan `salahSatu` berisi `{ nama, timKurang }`: daftar nama itu dan
+jumlah tim yang belum lengkap (tanpa memandang saringan, sama seperti `jumlah`).
+Untuk pencarian lain `salahSatu` bernilai `null` dan `belumAda` tidak ada.
 
 Nilai yang tidak masuk akal dibulatkan ke batasnya, bukan ditolak: `per=100000`
 menjadi 100, `hal=0` menjadi 1, dan saringan yang tidak dikenal menjadi `semua`.

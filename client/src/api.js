@@ -345,9 +345,10 @@ export async function imporBankFormulir(file) {
  * @returns {Promise<{ baris, hal, per, total, adaLagi, jumlah }>}
  *   `jumlah` = angka untuk tiap tombol saringan, dihitung atas hasil pencarian.
  */
-export function listKertasKerja({ hal = 1, per = 20, cari = "", saring = "semua" } = {}) {
+export function listKertasKerja({ hal = 1, per = 20, cari = "", saring = "semua", timKurang = false } = {}) {
   const q = new URLSearchParams({ hal: String(hal), per: String(per), saring });
   if (cari) q.set("cari", cari);
+  if (timKurang) q.set("timKurang", "1");
   return request(`/kertas-kerja?${q}`);
 }
 
