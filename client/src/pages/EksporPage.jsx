@@ -10,6 +10,7 @@ import LoginAdmin from "../components/LoginAdmin.jsx";
  *   - Per kertas kerja: semua formulir, atau satu formulir di kertas kerja itu.
  *   - Per formulir: seluruh data formulir itu dari semua kertas kerja.
  *   - Per kecamatan / kelurahan objek pajak: semua formulir atau satu formulir.
+ *   - Per petugas: data di kertas kerja yang timnya memuat petugas itu.
  * Unduhannya sama dengan tombol ekspor di halaman kertas kerja & bank formulir.
  */
 
@@ -42,45 +43,75 @@ function TombolUnduh({ onExcel, onCsv, disabled }) {
 }
 
 /**
- * Per kecamatan / kelurahan objek pajak (lihat server/src/eksporWilayah.js).
- * Jumlahnya dimuat ulang setiap wilayah berganti, supaya isinya terlihat
- * sebelum mengunduh dan daftar formulirnya hanya yang berisi data di sana.
+ * Ringkasan sebelum mengunduh: jumlah kertas kerja & data, serta formulir yang
+ * berisi data beserta jumlahnya. Dimuat ulang setiap `ambil` berganti (buat
+ * dengan useCallback); null = belum ada pilihan.
+ *
+ * `formulir` hanya berlaku bila masih ada di ringkasan terbaru, supaya pilihan
+ * formulir yang tertinggal dari pilihan sebelumnya tidak ikut terkirim.
  */
-function PanelWilayah({ unduhKe }) {
+function useRingkasan(ambil) {
   const toast = useToast();
-  const [wilayah, setWilayah] = useState([]);
-  const [kecKode, setKecKode] = useState(null);
-  const [kelKode, setKelKode] = useState(null); // null = semua kelurahan
-  const [formId, setFormId] = useState(null); // null = semua formulir
   const [ringkas, setRingkas] = useState(null);
   const [memuat, setMemuat] = useState(false);
+  const [formId, setFormId] = useState(null); // null = semua formulir
 
   useEffect(() => {
-    api.getWilayah().then(setWilayah).catch((e) => toast(e.message, true));
-  }, [toast]);
-
-  useEffect(() => {
-    setFormId(null);
     setRingkas(null);
-    if (!kecKode) return undefined;
+    setMemuat(Boolean(ambil));
+    if (!ambil) return undefined;
     let batal = false;
-    setMemuat(true);
-    api
-      .ringkasEksporWilayah(kecKode, kelKode)
+    ambil()
       .then((r) => !batal && setRingkas(r))
       .catch((e) => !batal && toast(e.message, true))
       .finally(() => !batal && setMemuat(false));
     return () => {
       batal = true;
     };
-  }, [kecKode, kelKode, toast]);
+  }, [ambil, toast]);
 
-  const kec = wilayah.find((k) => k.kode === kecKode) || null;
-  const kel = kec?.kelurahan.find((l) => l.kode === kelKode) || null;
   const formulir = ringkas?.formulir || [];
   const form = formulir.find((f) => f.id === formId) || null;
   const kosong = ringkas?.data === 0;
-  const siap = Boolean(ringkas) && !memuat && !kosong;
+  return {
+    ringkas,
+    siap: Boolean(ringkas) && !memuat && !kosong,
+    kosong,
+    formId: form?.id ?? null,
+    pilihFormulir: (
+      <>
+        <span className="fk-q-name">Formulir</span>
+        <CustomSelect
+          value={form ? labelJumlah(form.judul, form.jumlah) : SEMUA_FORMULIR}
+          options={[SEMUA_FORMULIR, ...formulir.map((f) => labelJumlah(f.judul, f.jumlah))]}
+          title="Pilih formulir"
+          disabled={!ringkas || memuat || kosong}
+          onChange={(label) => setFormId(formulir.find((f) => labelJumlah(f.judul, f.jumlah) === label)?.id ?? null)}
+        />
+      </>
+    ),
+  };
+}
+
+/**
+ * Per kecamatan / kelurahan objek pajak (lihat server/src/eksporWilayah.js).
+ * Daftar formulirnya hanya yang berisi data di wilayah itu.
+ */
+function PanelWilayah({ unduhKe }) {
+  const toast = useToast();
+  const [wilayah, setWilayah] = useState([]);
+  const [kecKode, setKecKode] = useState(null);
+  const [kelKode, setKelKode] = useState(null); // null = semua kelurahan
+
+  useEffect(() => {
+    api.getWilayah().then(setWilayah).catch((e) => toast(e.message, true));
+  }, [toast]);
+
+  const ambil = useCallback(() => api.ringkasEksporWilayah(kecKode, kelKode), [kecKode, kelKode]);
+  const { ringkas, siap, kosong, formId, pilihFormulir } = useRingkasan(kecKode ? ambil : null);
+
+  const kec = wilayah.find((k) => k.kode === kecKode) || null;
+  const kel = kec?.kelurahan.find((l) => l.kode === kelKode) || null;
   const pilihan = { kecamatan: kecKode, kelurahan: kelKode, formulir: formId };
 
   return (
@@ -110,16 +141,9 @@ function PanelWilayah({ unduhKe }) {
           onChange={(nama) => setKelKode(kec?.kelurahan.find((l) => l.nama === nama)?.kode ?? null)}
         />
 
-        <span className="fk-q-name">Formulir</span>
-        <CustomSelect
-          value={form ? labelJumlah(form.judul, form.jumlah) : SEMUA_FORMULIR}
-          options={[SEMUA_FORMULIR, ...formulir.map((f) => labelJumlah(f.judul, f.jumlah))]}
-          title="Pilih formulir"
-          disabled={!siap}
-          onChange={(label) => setFormId(formulir.find((f) => labelJumlah(f.judul, f.jumlah) === label)?.id ?? null)}
-        />
+        {pilihFormulir}
 
-        {ringkas && !memuat && (
+        {ringkas && (
           <span className="fk-hint-kecil">
             {kosong
               ? "Belum ada data dengan objek pajak di wilayah ini."
@@ -134,6 +158,66 @@ function PanelWilayah({ unduhKe }) {
         disabled={!siap}
         onExcel={() => unduhKe(api.unduhWilayah(pilihan, "xlsx"))}
         onCsv={() => unduhKe(api.unduhWilayah(pilihan, "csv"))}
+      />
+    </Panel>
+  );
+}
+
+/**
+ * Per petugas: semua data di kertas kerja yang timnya memuat petugas itu -
+ * patokan yang sama dengan angka di menu Petugas.
+ */
+function PanelPetugas({ unduhKe }) {
+  const toast = useToast();
+  const [petugas, setPetugas] = useState([]);
+  const [petugasId, setPetugasId] = useState(null);
+
+  useEffect(() => {
+    api
+      .listPetugas()
+      .then((list) => setPetugas(list.filter((p) => p.jumlahKertasKerja > 0)))
+      .catch((e) => toast(e.message, true));
+  }, [toast]);
+
+  const ambil = useCallback(() => api.ringkasEksporPetugas(petugasId), [petugasId]);
+  const { ringkas, siap, kosong, formId, pilihFormulir } = useRingkasan(petugasId ? ambil : null);
+
+  const labelPetugas = (p) => labelJumlah(p.nama, p.jumlahData);
+  const dipilih = petugas.find((p) => p.id === petugasId) || null;
+  const pilihan = { petugas: petugasId, formulir: formId };
+  const tanpaData = ringkas ? ringkas.kertasKerja - ringkas.kertasKerjaBerdata : 0;
+
+  return (
+    <Panel title="Per petugas" sub="Semua data di kertas kerja yang timnya memuat petugas itu, urut nomor kertas kerja.">
+      <div className="fk-ekspor-isian">
+        <span className="fk-q-name">Petugas</span>
+        <CustomSelect
+          value={dipilih ? labelPetugas(dipilih) : ""}
+          options={petugas.map(labelPetugas)}
+          placeholder="Pilih petugas"
+          title="Pilih petugas"
+          emptyText="Belum ada petugas yang masuk tim"
+          onChange={(label) => setPetugasId(petugas.find((p) => labelPetugas(p) === label)?.id ?? null)}
+        />
+
+        {pilihFormulir}
+
+        {ringkas && (
+          <span className="fk-hint-kecil">
+            {kosong
+              ? "Kertas kerja petugas ini belum berisi data."
+              : `${formatAngka(ringkas.kertasKerja)} kertas kerja · ${formatAngka(ringkas.data)} data.`}
+            {!kosong &&
+              tanpaData > 0 &&
+              ` ${formatAngka(tanpaData)} kertas kerja belum berisi data, jadi tidak punya baris di berkas.`}
+          </span>
+        )}
+      </div>
+
+      <TombolUnduh
+        disabled={!siap}
+        onExcel={() => unduhKe(api.unduhPetugasData(pilihan, "xlsx"))}
+        onCsv={() => unduhKe(api.unduhPetugasData(pilihan, "csv"))}
       />
     </Panel>
   );
@@ -219,7 +303,7 @@ export default function EksporPage({ admin, onAuthChanged }) {
     <>
       <PageHead
         title="Ekspor Data"
-        sub="Unduh Data Sebagai Excel atau CSV: Per Kertas Kerja, Per Formulir, atau Per Kecamatan/Kelurahan."
+        sub="Unduh Data Sebagai Excel atau CSV: Per Kertas Kerja, Per Formulir, Per Kecamatan/Kelurahan, atau Per Petugas."
       />
 
       <Panel title="Per kertas kerja" sub="Satu kertas kerja — seluruh formulir atau satu formulir saja.">
@@ -279,6 +363,8 @@ export default function EksporPage({ admin, onAuthChanged }) {
       </Panel>
 
       <PanelWilayah unduhKe={unduhKe} />
+
+      <PanelPetugas unduhKe={unduhKe} />
     </>
   );
 }

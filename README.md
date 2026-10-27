@@ -1180,7 +1180,7 @@ Memutuskan pengajuan yang sudah diputuskan dijawab **409**.
 | `POST` | `/tautan-peta`     | `{ teks }` → `{ lat, lon }` dari koordinat / tautan Google Maps; tautan `maps.app.goo.gl` diikuti pengalihannya (hanya ke host Google). Dibatasi 60 per 10 menit per IP |
 | `GET`  | `/wilayah`         | Kecamatan & kelurahan Kota Banjarbaru                                             |
 
-### Ekspor per wilayah (khusus admin)
+### Ekspor per wilayah & per petugas (khusus admin)
 
 `kecamatan` dan `kelurahan` berisi kode SISMIOP dari `GET /wilayah`; `kelurahan` kosong = seluruh
 kecamatan. Kode yang tidak dikenal → **400**.
@@ -1190,6 +1190,9 @@ kecamatan. Kode yang tidak dikenal → **400**.
 | `GET`  | `/ekspor/wilayah/ringkas`  | `?kecamatan=&kelurahan=` → `{ kertasKerja, data, formulir: [{ id, judul, jumlah }], tanpaWilayah }` |
 | `GET`  | `/ekspor/wilayah`          | `?kecamatan=&kelurahan=&formulir=` → CSV; `formulir` kosong = semua formulir |
 | `GET`  | `/ekspor/wilayah/xlsx`     | Idem, Excel (.xlsx)                                                 |
+| `GET`  | `/ekspor/petugas/ringkas`  | `?petugas=<id>` → `{ kertasKerja, kertasKerjaBerdata, data, formulir: [{ id, judul, jumlah }] }`; petugas tidak dikenal → **404** |
+| `GET`  | `/ekspor/petugas`          | `?petugas=<id>&formulir=` → CSV data di kertas kerja yang timnya memuat petugas itu |
+| `GET`  | `/ekspor/petugas/xlsx`     | Idem, Excel (.xlsx)                                                 |
 
 ### Cek NOP
 
@@ -1206,7 +1209,7 @@ ditemukan · `409` data masih dipakai · `422` validasi gagal.
 
 ### Ekspor CSV & Excel
 
-Keduanya disusun di `server/src/ekspor.js` dengan isi yang sama. Tersedia empat cakupan:
+Keduanya disusun di `server/src/ekspor.js` dengan isi yang sama. Tersedia lima cakupan:
 
 | Cakupan | Tombol | Nama berkas |
 | --- | --- | --- |
@@ -1214,11 +1217,17 @@ Keduanya disusun di `server/src/ekspor.js` dengan isi yang sama. Tersedia empat 
 | Satu kertas kerja, satu formulir | **Excel / CSV** di judul grup formulir pada *Data terkumpul* | `kertas-kerja-00012-identitas-wajib-pajak.xlsx` |
 | Satu formulir, semua kertas kerja | **Excel / CSV** di baris formulir pada Bank Formulir (bila sudah ada data) | `formulir-identitas-wajib-pajak.xlsx` |
 | Satu kecamatan / kelurahan objek pajak, semua formulir atau satu formulir | Halaman **Ekspor** saja | `wilayah-cempaka-palam.xlsx`, `wilayah-cempaka-palam-pbb-p2.xlsx` |
+| Satu petugas (kertas kerja yang timnya memuat petugas itu), semua formulir atau satu formulir | Halaman **Ekspor** saja | `petugas-surya-arisandi.xlsx`, `petugas-surya-arisandi-pbb-p2.xlsx` |
 
 Semua cakupan tersedia di halaman **Ekspor** (`/ekspor`, `EksporPage.jsx`, menu tersendiri
 di sidebar & bilah tab HP): pilih kertas kerja lalu *Semua formulir* atau satu formulir, pilih
-formulir untuk seluruh kertas kerja, atau pilih kecamatan, kelurahan (*Semua kelurahan* = seluruh
-kecamatan), dan formulir, kemudian **Unduh Excel** / **Unduh CSV**.
+formulir untuk seluruh kertas kerja, pilih kecamatan, kelurahan (*Semua kelurahan* = seluruh
+kecamatan), dan formulir, atau pilih petugas dan formulir, kemudian **Unduh Excel** / **Unduh CSV**.
+
+**Per petugas** memuat semua data di kertas kerja yang timnya memuat petugas itu - patokan yang sama
+dengan angka *data · kertas kerja* di menu Petugas, jadi jumlahnya bisa dicocokkan. Kolom *Diisi oleh*
+tidak dipakai karena baru tercatat sejak ada login petugas. Kertas kerja yang belum berisi data tidak
+punya baris; layar ekspor menyebut jumlahnya.
 
 **Per kecamatan / kelurahan** (`server/src/eksporWilayah.js`) berpatokan pada letak **objek** pajak,
 bukan alamat KTP wajib pajak. Yang dihitung sebagai wilayah objek: pertanyaan *Kecamatan &

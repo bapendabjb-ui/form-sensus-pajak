@@ -534,6 +534,26 @@ export const unduhWilayah = (pilihan, jenis = "xlsx") =>
     `wilayah.${jenis === "xlsx" ? "xlsx" : "csv"}`
   );
 
+/** ?petugas=&formulir= - formulir boleh kosong (= semua formulir). */
+const queryPetugas = ({ petugas, formulir }) => {
+  const q = new URLSearchParams({ petugas: String(petugas) });
+  if (formulir) q.set("formulir", String(formulir));
+  return q;
+};
+
+/**
+ * Sebelum ekspor per petugas (semua data di kertas kerja yang timnya memuat petugas itu):
+ * { kertasKerja, kertasKerjaBerdata, data, formulir: [{ id, judul, jumlah }] }. Khusus admin.
+ */
+export const ringkasEksporPetugas = (petugas) => request(`/ekspor/petugas/ringkas?${queryPetugas({ petugas })}`);
+
+/** Unduh data per petugas. jenis: "xlsx" | "csv". */
+export const unduhPetugasData = (pilihan, jenis = "xlsx") =>
+  unduhBerkas(
+    `/ekspor/petugas${jenis === "xlsx" ? "/xlsx" : ""}?${queryPetugas(pilihan)}`,
+    `petugas.${jenis === "xlsx" ? "xlsx" : "csv"}`
+  );
+
 /* ---------- dashboard ---------- */
 
 export const getStats = () => request("/dashboard/stats");
