@@ -534,6 +534,26 @@ export const unduhWilayah = (pilihan, jenis = "xlsx") =>
     `wilayah.${jenis === "xlsx" ? "xlsx" : "csv"}`
   );
 
+/* ---------- cadangan manual ---------- */
+
+/** { database: { tersedia, ukuran }, foto: [{ bulan: "2026-10", jumlah, ukuran }] }. Khusus admin. */
+export const ringkasCadangan = () => request("/cadangan");
+
+/**
+ * Unduh cadangan: { jenis: "database" } atau { jenis: "foto", bulan: "2026-10" }.
+ * Berkasnya bisa berukuran GB, jadi tidak diambil lewat fetch (akan ditampung di
+ * memori halaman) melainkan dibuka sebagai tautan biasa yang langsung tersimpan
+ * ke disk. Tautan biasa tidak membawa token, maka tiket sekali pakai diminta dulu.
+ */
+export async function unduhCadangan(isi) {
+  const { tiket } = await request("/cadangan/tiket", { method: "POST", body: isi });
+  const a = document.createElement("a");
+  a.href = `${BASE}/cadangan/unduh?tiket=${encodeURIComponent(tiket)}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 /** ?petugas=&formulir= - formulir boleh kosong (= semua formulir). */
 const queryPetugas = ({ petugas, formulir }) => {
   const q = new URLSearchParams({ petugas: String(petugas) });

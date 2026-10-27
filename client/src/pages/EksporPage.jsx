@@ -223,6 +223,135 @@ function PanelPetugas({ unduhKe }) {
   );
 }
 
+const NAMA_BULAN = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+];
+
+/** "2026-10" -> "Oktober 2026". */
+const labelBulan = (bulan) => {
+  const [tahun, b] = bulan.split("-");
+  return `${NAMA_BULAN[Number(b) - 1] || b} ${tahun}`;
+};
+
+/** 1234567 -> "1,2 MB". */
+const formatUkuran = (byte) => {
+  const satuan = [
+    [1e9, "GB"],
+    [1e6, "MB"],
+    [1e3, "KB"],
+  ].find(([n]) => byte >= n) || [1, "B"];
+  return `${(byte / satuan[0]).toLocaleString("id-ID", { maximumFractionDigits: 1 })} ${satuan[1]}`;
+};
+
+/**
+ * Cadangan manual untuk disimpan di luar server (lihat server/src/cadangan.js):
+ * database, dan foto per bulan karena seluruh foto bisa berukuran beberapa GB.
+ */
+function PanelCadangan() {
+  const toast = useToast();
+  const [data, setData] = useState(null);
+  const [galat, setGalat] = useState("");
+  const [meminta, setMeminta] = useState(false);
+
+  useEffect(() => {
+    api
+      .ringkasCadangan()
+      .then(setData)
+      .catch((e) => setGalat(e.message));
+  }, []);
+
+  const unduh = async (isi) => {
+    setMeminta(true);
+    try {
+      await api.unduhCadangan(isi);
+      toast("Unduhan dimulai. Kemajuannya terlihat di daftar unduhan browser.");
+    } catch (e) {
+      toast(e.message, true);
+    } finally {
+      setMeminta(false);
+    }
+  };
+
+  return (
+    <Panel
+      title="Cadangan data"
+      sub="Salinan untuk disimpan di luar server, mis. harddisk kantor. Berisi seluruh data pribadi wajib pajak, jadi simpan di tempat yang aman."
+    >
+      {galat ? (
+        <p className="fk-hint">{galat}</p>
+      ) : !data ? (
+        <Loading label="Memuat ukuran cadangan..." />
+      ) : (
+        <div className="fk-cadangan">
+          <div className="fk-cadangan-baris">
+            <div className="fk-cadangan-isi">
+              <div className="fk-cadangan-judul">Database</div>
+              <div className="fk-hint-kecil">
+                Semua kertas kerja, data, petugas, dan akun
+                {data.database.ukuran ? ` · ±${formatUkuran(data.database.ukuran)} sebelum dikompres` : ""}. Unduh
+                rutin, mis. setiap hari.
+              </div>
+              {!data.database.tersedia && (
+                <div className="fk-hint-kecil fk-cadangan-galat">
+                  mysqldump tidak ditemukan di server. Isi MYSQLDUMP_PATH di .env dengan lokasinya.
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              className="fk-btn"
+              disabled={!data.database.tersedia || meminta}
+              onClick={() => unduh({ jenis: "database" })}
+            >
+              Unduh database
+            </button>
+          </div>
+
+          <div className="fk-cadangan-isi">
+            <div className="fk-cadangan-judul">Foto per bulan</div>
+            <div className="fk-hint-kecil">
+              Bulan yang sudah lewat cukup diunduh sekali; bulan berjalan diunduh ulang secara berkala.
+            </div>
+          </div>
+          {data.foto.length === 0 ? (
+            <div className="fk-hint-kecil">Belum ada foto.</div>
+          ) : (
+            data.foto.map((f) => (
+              <div className="fk-cadangan-baris" key={f.bulan}>
+                <div className="fk-cadangan-isi">
+                  <div className="fk-cadangan-judul">{labelBulan(f.bulan)}</div>
+                  <div className="fk-hint-kecil">
+                    {formatAngka(f.jumlah)} foto · {formatUkuran(f.ukuran)}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="fk-btn-ghost"
+                  disabled={meminta}
+                  onClick={() => unduh({ jenis: "foto", bulan: f.bulan })}
+                >
+                  Unduh
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 export default function EksporPage({ admin, onAuthChanged }) {
   const toast = useToast();
   // Unduhan lewat fetch bertoken bisa gagal (sesi habis, jaringan putus);
@@ -365,6 +494,8 @@ export default function EksporPage({ admin, onAuthChanged }) {
       <PanelWilayah unduhKe={unduhKe} />
 
       <PanelPetugas unduhKe={unduhKe} />
+
+      <PanelCadangan />
     </>
   );
 }

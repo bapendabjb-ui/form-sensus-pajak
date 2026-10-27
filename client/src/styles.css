@@ -566,6 +566,12 @@ html.fk-ketik .fk-fab{display:none;}
 .fk-ekspor-isian .fk-q-name{margin:6px 0 0;}
 .fk-ekspor-isian .fk-q-name:first-child{margin-top:0;}
 .fk-ekspor-aksi{display:flex; gap:8px; flex-wrap:wrap; margin-top:16px;}
+/* cadangan manual: satu baris per berkas (database, foto per bulan) */
+.fk-cadangan{display:flex; flex-direction:column; gap:10px;}
+.fk-cadangan-baris{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 12px; padding-bottom:10px; border-bottom:1px solid var(--line-soft);}
+.fk-cadangan-isi{flex:1; min-width:200px;}
+.fk-cadangan-judul{font-weight:600; font-size:14px;}
+.fk-cadangan-galat{color:var(--danger);}
 
 /* ================= foto ================= */
 .fk-foto{display:flex; flex-direction:column; gap:10px;}

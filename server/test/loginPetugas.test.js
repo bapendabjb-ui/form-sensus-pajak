@@ -83,14 +83,15 @@ test("buatPassword acak, cukup panjang, dan tanpa huruf yang mudah tertukar", ()
 
 /*
  * Gerbang login. Jalur bebasnya sempit: tanpa login hanya bisa membuka
- * konfigurasi awal, ringkasan Dashboard, dan login itu sendiri.
+ * konfigurasi awal, ringkasan Dashboard, login itu sendiri, dan unduhan cadangan
+ * bertiket (tiketnya hanya bisa diminta admin).
  */
 
-test("bebasGerbang hanya meloloskan login, konfigurasi, dan ringkasan Dashboard", () => {
-  for (const p of ["/auth/login", "/auth/me", "/auth/keluar", "/konfigurasi", "/health", "/dashboard/stats"]) {
+test("bebasGerbang hanya meloloskan login, konfigurasi, ringkasan Dashboard, dan unduhan cadangan bertiket", () => {
+  for (const p of ["/auth/login", "/auth/me", "/auth/keluar", "/konfigurasi", "/health", "/dashboard/stats", "/cadangan/unduh"]) {
     assert.equal(bebasGerbang(p), true, p);
   }
-  for (const p of ["/kertas-kerja", "/foto/12", "/petugas", "/nop/123", "/peta", "/authx", "/konfigurasi/x", "/dashboard/statsx"]) {
+  for (const p of ["/kertas-kerja", "/foto/12", "/petugas", "/nop/123", "/peta", "/authx", "/konfigurasi/x", "/dashboard/statsx", "/cadangan", "/cadangan/tiket", "/cadangan/unduhx"]) {
     assert.equal(bebasGerbang(p), false, p);
   }
 });

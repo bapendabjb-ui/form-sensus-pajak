@@ -187,7 +187,8 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │   │   ├── bentuk.js               bentuk keluaran JSON bersama
 │   │   ├── format.js               format tanggal/uang + penyusun CSV (anti rumus)
 │   │   ├── eksporWilayah.js        aturan ekspor per kecamatan / kelurahan objek pajak
-│   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, pengajuan, foto, dashboard, peta, nop, wilayah, ekspor
+│   │   ├── cadangan.js             cadangan manual: mysqldump, arsip foto per bulan, tiket unduh
+│   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, pengajuan, foto, dashboard, peta, nop, wilayah, ekspor, cadangan
 │   └── test/                       tes node:test - logika murni, tanpa database
 │
 ├── uploads/                        foto (lokal; di Railway pakai volume) — tidak di-commit
@@ -280,6 +281,7 @@ contoh (termasuk pertanyaan foto dan kecamatan & kelurahan) dan 3 petugas. Manua
 | `UPLOAD_MAX_MB`  |       | `8`             | Batas ukuran satu foto yang diterima server                             |
 | `APP_TIMEZONE`   |       | `Asia/Makassar` | Zona waktu kolom "Waktu input" pada CSV                                 |
 | `SEED_DEMO`      |       | `false`         | `true` = isi data contoh bila database kosong                           |
+| `MYSQLDUMP_PATH` |       | —               | Lokasi `mysqldump` untuk *Unduh database*; kosong = dicari otomatis      |
 | `CORS_ORIGIN`    |       | —               | Asal frontend saat dev. Kosongkan di produksi (satu origin)             |
 | `EPBB_API_URL`   |       | —               | Endpoint cek NOP EPBB, mis. `https://epbb.contoh.go.id/api/nop/cek`. Kosong = tombol **Lihat** tidak tampil |
 | `EPBB_API_KEY`   |       | —               | Kunci API EPBB — sama dengan `api_nop_key` di EPBB                       |
@@ -1180,6 +1182,14 @@ Memutuskan pengajuan yang sudah diputuskan dijawab **409**.
 | `POST` | `/tautan-peta`     | `{ teks }` → `{ lat, lon }` dari koordinat / tautan Google Maps; tautan `maps.app.goo.gl` diikuti pengalihannya (hanya ke host Google). Dibatasi 60 per 10 menit per IP |
 | `GET`  | `/wilayah`         | Kecamatan & kelurahan Kota Banjarbaru                                             |
 
+### Cadangan (khusus admin)
+
+| Method | Endpoint             | Keterangan                                                                 |
+| ------ | -------------------- | -------------------------------------------------------------------------- |
+| `GET`  | `/cadangan`          | `{ database: { tersedia, ukuran }, foto: [{ bulan, jumlah, ukuran }] }`     |
+| `POST` | `/cadangan/tiket`    | `{ jenis: "database" }` atau `{ jenis: "foto", bulan: "2026-10" }` → `{ tiket }`, sekali pakai, 2 menit. **400** bulan tidak sah · **404** tidak ada foto bulan itu · **503** mysqldump tidak ada |
+| `GET`  | `/cadangan/unduh`    | `?tiket=` → `.sql.gz` / `.tar`. Tanpa login (tiketnya izinnya). **410** tiket sudah dipakai / kedaluwarsa |
+
 ### Ekspor per wilayah & per petugas (khusus admin)
 
 `kecamatan` dan `kelurahan` berisi kode SISMIOP dari `GET /wilayah`; `kelurahan` kosong = seluruh
@@ -1285,6 +1295,45 @@ agar data wajib pajak tersimpan di Indonesia. Berkas pendukungnya ada di [`deplo
 
 Panduan langkah demi langkah, termasuk pemindahan data dan hari pindah:
 [docs/migrasi-server-kantor.md](docs/migrasi-server-kantor.md).
+
+### Cadangan manual (diunduh dari aplikasi)
+
+Cadangan terjadwal di server ikut hilang bila servernya yang rusak. Karena itu admin bisa
+mengunduh salinan dari halaman **Ekspor → Cadangan data** untuk disimpan di harddisk / flashdisk
+kantor (`server/src/cadangan.js`, `server/src/routes/cadangan.js`):
+
+| Berkas | Isi | Kapan diunduh |
+| --- | --- | --- |
+| `sensus-pajak-database-2026-10-27_1430.sql.gz` | `mysqldump` seluruh database (kertas kerja, data, petugas, akun, pengaturan) | Rutin, mis. setiap hari |
+| `sensus-pajak-foto-2026-10.tar` | Folder `uploads/2026/10` (foto dikelompokkan per bulan unggah) | Bulan yang sudah lewat cukup sekali; bulan berjalan berkala |
+
+- Dibuat dengan `mysqldump --single-transaction`: salinannya konsisten tanpa mengunci tabel, jadi
+  petugas tetap bisa menyimpan selama cadangan dibuat. Password database diberikan lewat berkas opsi
+  sementara (izin 600) yang dihapus begitu mysqldump selesai, bukan lewat argumen.
+- `mysqldump` dicari di `MYSQLDUMP_PATH`, `/www/server/mysql/bin`, `/usr/bin`, `/usr/local/bin`,
+  lalu `PATH`. Bila tidak ketemu, tombol *Unduh database* nonaktif dengan keterangannya.
+- Unduhan dialirkan langsung ke disk lewat tautan biasa (berkas foto bisa berukuran GB). Karena
+  tautan biasa tidak membawa token, admin lebih dulu meminta **tiket sekali pakai** (berlaku 2 menit);
+  `/api/cadangan/unduh` hanya menerima tiket itu. Setiap unduhan dicatat di log PM2 beserta username
+  admin-nya.
+- **`.env` tidak ikut** (JWT, password database, kunci API). Simpan salinannya terpisah.
+- Berkasnya berisi seluruh data pribadi wajib pajak dan hash password akun: simpan di tempat aman.
+
+**Memulihkan** (di server, folder aplikasi `/www/wwwroot/sensus-pajak`):
+
+```bash
+pm2 stop sensus-pajak
+# 1. Database dulu - pakai cadangan database TERBARU. Nama database & user sesuai DATABASE_URL di .env.
+gunzip -c sensus-pajak-database-2026-10-27_1430.sql.gz | mysql -u USER -p NAMA_DATABASE
+# 2. Foto, ulangi untuk setiap berkas bulan:
+tar -xf sensus-pajak-foto-2026-10.tar -C /www/wwwroot/sensus-pajak/uploads
+# 3. Nyalakan lagi
+pm2 start sensus-pajak
+```
+
+Urutannya penting: aplikasi menghapus berkas foto yang tidak tercatat di database saat menyala
+(`sapuFotoYatim`), jadi database harus pulih **sebelum** aplikasi dinyalakan. Foto yang diunggah
+setelah cadangan database dibuat tidak punya catatan, sehingga ikut terhapus sebagai foto yatim.
 
 ---
 

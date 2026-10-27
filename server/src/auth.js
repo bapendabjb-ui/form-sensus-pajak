@@ -214,9 +214,16 @@ async function namaPelaku(req) {
  * Jalur yang tetap terbuka walau login diwajibkan: login itu sendiri, konfigurasi
  * awal aplikasi, dan angka ringkasan Dashboard - supaya pimpinan bisa memantau
  * tanpa akun. Ringkasan itu hanya hitungan dan nama petugas, tanpa data wajib pajak.
+ *
+ * Unduhan cadangan dibuka lewat tautan biasa (tanpa header Authorization); izinnya
+ * tiket sekali pakai yang hanya bisa diminta admin (routes/cadangan.js).
  */
 const bebasGerbang = (path) =>
-  path === "/konfigurasi" || path === "/health" || path === "/dashboard/stats" || path.startsWith("/auth/");
+  path === "/konfigurasi" ||
+  path === "/health" ||
+  path === "/dashboard/stats" ||
+  path === "/cadangan/unduh" ||
+  path.startsWith("/auth/");
 
 /**
  * Gerbang login untuk seluruh /api.
