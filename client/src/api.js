@@ -367,22 +367,6 @@ export const setStatusKertasKerja = (id, status) =>
   request(`/kertas-kerja/${id}/status`, { method: "PUT", body: { status } });
 export const deleteKertasKerja = (id) => request(`/kertas-kerja/${id}`, { method: "DELETE", auth: true });
 
-/**
- * Titik objek kertas kerja (satu kertas kerja = satu rumah / bidang). Terbuka
- * untuk petugas; token admin ikut dikirim bila ada supaya namanya tercatat.
- * Ketiganya mengembalikan detail kertas kerja terbaru.
- */
-export const tetapkanTitikKk = (id, lat, lon) =>
-  request(`/kertas-kerja/${id}/titik`, { method: "PUT", body: { lat, lon }, auth: true });
-export const hapusTitikKk = (id) =>
-  request(`/kertas-kerja/${id}/titik`, { method: "PUT", body: { hapus: true }, auth: true });
-/** Titik dari GPS saat berada di lokasi. `posisi` = { lat, lon, akurasi }. */
-export const rekamTitikKk = (id, posisi) =>
-  request(`/kertas-kerja/${id}/rekam`, { method: "PUT", body: posisi, auth: true });
-
-/** Tandai lokasi sensus sudah dicek (terkunci untuk petugas). Khusus admin. Mengembalikan detail kertas kerja. */
-export const setLokasiDicek = (id, dicek) =>
-  request(`/kertas-kerja/${id}/lokasi-dicek`, { method: "PUT", body: { dicek }, auth: true });
 /** Tandai koordinat objek sebuah data sudah dicek (terkunci untuk petugas). Khusus admin. Mengembalikan data. */
 export const setKoordinatDicek = (entriId, dicek) =>
   request(`/entri/${entriId}/koordinat-dicek`, { method: "PUT", body: { dicek }, auth: true });
@@ -393,6 +377,7 @@ export const getEntri = (id) => request(`/entri/${id}`);
 /**
  * `dariEpbb` = id pertanyaan yang isinya masih asli dari data EPBB (penanda "Data EPBB").
  * `berkas`   = { berkasLengkap, catatanBerkas } - penanda berkas tidak lengkap.
+ * `rekamKoordinat` = posisi HP saat menyimpan, direkam diam-diam sebagai bukti kunjungan.
  */
 export const createEntri = (kertasKerjaId, formulirId, jawaban, dariEpbb = [], berkas = {}, rekamKoordinat = null) =>
   request(`/kertas-kerja/${kertasKerjaId}/entri`, {
@@ -400,7 +385,7 @@ export const createEntri = (kertasKerjaId, formulirId, jawaban, dariEpbb = [], b
     body: { formulirId, jawaban, dariEpbb, ...berkas, rekamKoordinat },
   });
 /**
- * Mengubah data tidak merekam posisi; titik objek ditetapkan di tingkat kertas kerja.
+ * Mengubah data tidak merekam posisi.
  * Token admin ikut dikirim bila ada: koordinat objek yang sudah dicek hanya bisa diubah admin.
  */
 export const updateEntri = (id, jawaban, dariEpbb = [], berkas = {}) =>

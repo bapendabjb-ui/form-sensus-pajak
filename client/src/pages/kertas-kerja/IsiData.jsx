@@ -24,7 +24,7 @@ import { IkonEpbb, CheckIcon } from "../../components/Icons.jsx";
 import { useAdmin } from "../../lib/admin.js";
 import { pantauPosisi, ambilPosisi } from "../../lib/rekamPosisi.js";
 import { nilaiTitik } from "../../lib/cekLokasi.js";
-import { StatusGps, TombolDicek, namaAdmin } from "../../components/LokasiObjek.jsx";
+import { TombolDicek, namaAdmin } from "../../components/LokasiObjek.jsx";
 import { formatWaktu, urlPeta } from "../../lib/format.js";
 import { bersihkanDrafLama, useKonfigurasi } from "../../lib/konfigurasi.js";
 import { kembali, pasangPenjaga } from "../../lib/router.js";
@@ -44,43 +44,17 @@ function titikDariFormulir(pertanyaan, answers) {
 }
 
 /**
- * Konfirmasi saat data baru akan tersimpan dengan lokasi yang perlu diperiksa.
- * `asal` = "formulir" (koordinat pertanyaan Lokasi) atau "gps" (posisi perangkat,
- * yang menjadi titik kertas kerja selama belum ada yang lebih baik).
+ * Konfirmasi saat data baru akan tersimpan dengan koordinat pertanyaan Lokasi
+ * yang perlu diperiksa: diambil dengan GPS di kantor, atau kurang akurat.
  */
-function dialogLokasi(asal, nilai, titik, aturan) {
+function dialogLokasi(nilai, titik, aturan) {
   const kantor = aturan?.kantor?.nama || "kantor";
-  if (asal === "formulir") {
-    return {
-      judul: nilai === "kantor" ? `Koordinat diambil di area ${kantor}` : `Koordinat kurang akurat (±${Math.round(titik.akurasi)} m)`,
-      pesan:
-        "Koordinat di pertanyaan Lokasi diambil dengan GPS di tempat Anda berada sekarang, bukan di objeknya. " +
-        "Tekan Kembali lalu Pilih di peta, atau tempel koordinatnya dari Google Maps.",
-      ya: "Tetap simpan",
-      tidak: "Kembali",
-    };
-  }
-  const nanti = "Lokasi sensusnya bisa ditetapkan di peta pada halaman kertas kerja.";
-  if (nilai === "kantor") {
-    return {
-      judul: `Anda berada di area ${kantor}`,
-      pesan: `Kertas kerja ini belum punya lokasi sensus, jadi titiknya akan tercatat di kantor dan ditandai untuk diperiksa. ${nanti}`,
-      ya: "Tetap simpan",
-      tidak: "Kembali",
-    };
-  }
-  if (nilai === "kasar") {
-    return {
-      judul: `Lokasi kurang akurat (±${Math.round(titik.akurasi)} m)`,
-      pesan: `Biasanya karena GPS HP mati atau berada di dalam ruangan. Tunggu sebentar di tempat terbuka, atau tetap simpan. ${nanti}`,
-      ya: "Tetap simpan",
-      tidak: "Kembali",
-    };
-  }
   return {
-    judul: "Lokasi belum terekam",
-    pesan: `Kertas kerja ini belum punya titik lokasi. Pastikan izin lokasi dan GPS HP aktif. ${nanti}`,
-    ya: "Simpan tanpa lokasi",
+    judul: nilai === "kantor" ? `Koordinat diambil di area ${kantor}` : `Koordinat kurang akurat (±${Math.round(titik.akurasi)} m)`,
+    pesan:
+      "Koordinat di pertanyaan Lokasi diambil dengan GPS di tempat Anda berada sekarang, bukan di objeknya. " +
+      "Tekan Kembali lalu Pilih di peta, atau tempel koordinatnya dari Google Maps.",
+    ya: "Tetap simpan",
     tidak: "Kembali",
   };
 }
@@ -115,22 +89,16 @@ export function IsiData({ kkId, formulirId, entriId }) {
   const [error, setError] = useState("");
   const [menyimpan, setMenyimpan] = useState(null); // "simpan" | "lagi" | null
   const [draf, setDraf] = useState(null); // draf tersimpan yang belum dipulihkan
-  // Data baru: kertas kerjanya sudah punya titik yang baik? Bila ya, posisi
-  // petugas saat ini (mis. di kantor) tidak lagi perlu dikhawatirkan.
-  const [titikKkBaik, setTitikKkBaik] = useState(false);
   // Mengubah data: koordinat objeknya sudah dicek admin? { oleh, waktu } | null.
   // Bila ya, petugas hanya bisa melihatnya; server juga menolak perubahannya.
   const [koordinatDicek, setKoordinatDicek] = useState(null);
   const wadah = useRef(null);
   const berubah = useRef(false);
   const aturanLokasi = useKonfigurasi().lokasi || null;
-  // Posisi perangkat untuk data BARU, dipantau sejak layar dibuka
-  // supaya GPS sempat mengunci sebelum Simpan dan statusnya terlihat petugas.
-  // Mengubah data tidak merekam posisi: GPS asli hanya berganti lewat
-  // "Rekam ulang di sini" di panel lokasi.
-  const [gps, setGps] = useState({ status: "mencari", posisi: null, galat: "" });
-  const gpsRef = useRef(gps);
-  const [ulangGps, setUlangGps] = useState(0);
+  // Posisi perangkat untuk data BARU, direkam diam-diam saat Simpan sebagai
+  // bukti kunjungan (tidak ditampilkan). Dipantau sejak layar dibuka supaya
+  // GPS sempat mengunci. Mengubah data tidak merekam posisi.
+  const gpsRef = useRef({ status: "mencari", posisi: null, galat: "" });
 
   const urlKembali = urlKk(kkId);
   const kunciDraf = entriId ? `sensus-pajak:draf:data-${entriId}` : `sensus-pajak:draf:kk${kkId}-f${formulirId}`;
@@ -139,9 +107,8 @@ export function IsiData({ kkId, formulirId, entriId }) {
     if (entriId) return undefined;
     return pantauPosisi((k) => {
       gpsRef.current = k;
-      setGps(k);
     });
-  }, [entriId, ulangGps]);
+  }, [entriId]);
 
   const hapusDraf = useCallback(() => {
     try {
@@ -188,7 +155,6 @@ export function IsiData({ kkId, formulirId, entriId }) {
           if (batal) return;
           f = form;
           setNomor(kk.nomor);
-          setTitikKkBaik(kk.entri.length > 0 && kk.lokasi?.status === "baik");
           kosongkan(form);
         }
         setFormulir(f);
@@ -351,30 +317,19 @@ export function IsiData({ kkId, formulirId, entriId }) {
 
     setMenyimpan(lanjut ? "lagi" : "simpan");
 
-    // Data baru: minta konfirmasi bila lokasinya perlu diperiksa. Tidak
-    // memblokir: GPS bisa gagal karena alasan yang wajar.
-    //   1. koordinat pertanyaan Lokasi yang diambil dengan GPS di kantor / kasar;
-    //   2. posisi perangkat, hanya bila kertas kerjanya belum punya titik yang
-    //      baik - kalau sudah, data yang dilengkapi di kantor tidak masalah.
+    // Data baru: minta konfirmasi bila koordinat pertanyaan Lokasi diambil
+    // dengan GPS di kantor / kurang akurat. Tidak memblokir: GPS bisa gagal
+    // karena alasan yang wajar. Posisi HP direkam apa adanya, tanpa ditanyakan.
     let rekam = null;
-    let gpsBaik = false;
     if (!entriId) {
-      rekam = await ambilPosisi(() => gpsRef.current);
-      gpsBaik = nilaiTitik(rekam, aturanLokasi) === "baik";
       const dariForm = titikDariFormulir(pertanyaan, answers);
       const nilaiForm = dariForm ? nilaiTitik({ ...dariForm, manual: dariForm.sumber === "peta" }, aturanLokasi) : "baik";
-      const nilaiGps = titikKkBaik ? "baik" : nilaiTitik(rekam, aturanLokasi);
-      const dialog =
-        nilaiForm !== "baik"
-          ? dialogLokasi("formulir", nilaiForm, dariForm, aturanLokasi)
-          : nilaiGps !== "baik"
-            ? dialogLokasi("gps", nilaiGps, rekam, aturanLokasi)
-            : null;
-      if (dialog) {
+      if (nilaiForm !== "baik") {
         setMenyimpan(null);
-        if (!(await konfirmasi(dialog))) return;
+        if (!(await konfirmasi(dialogLokasi(nilaiForm, dariForm, aturanLokasi)))) return;
         setMenyimpan(lanjut ? "lagi" : "simpan");
       }
+      rekam = await ambilPosisi(() => gpsRef.current);
     }
 
     try {
@@ -385,8 +340,6 @@ export function IsiData({ kkId, formulirId, entriId }) {
         : await api.createEntri(kkId, formulirId, payload, idDariEpbb, berkas, rekam);
       berubah.current = false;
       hapusDraf();
-      // Data ini membawa GPS di lokasi: kertas kerjanya kini punya titik yang baik.
-      if (gpsBaik) setTitikKkBaik(true);
       toast(`Data "${judulEntri(hasil.formulir.pertanyaan, hasil.jawaban)}" tersimpan.`);
 
       if (lanjut) {
@@ -597,16 +550,6 @@ export function IsiData({ kkId, formulirId, entriId }) {
           )}
         </div>
       </section>
-
-      {/* Dekat tombol Simpan: petugas melihat status lokasi sebelum menyimpan. */}
-      {!entriId && (
-        <StatusGps
-          gps={gps}
-          aturan={aturanLokasi}
-          titikSudahAda={titikKkBaik}
-          onUlangi={() => setUlangGps((n) => n + 1)}
-        />
-      )}
 
       {entriId &&
         (admin ? (

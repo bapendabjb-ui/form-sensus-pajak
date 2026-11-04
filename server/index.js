@@ -98,8 +98,6 @@ app.get("/api/konfigurasi", async (_req, res, next) => {
       lokasi: {
         kantor: batas.KANTOR,
         akurasiKasarM: batas.AKURASI_KASAR_M,
-        akurasiRekamUlangM: batas.AKURASI_REKAM_ULANG_M,
-        jarakJauhM: batas.JARAK_JAUH_M,
       },
       periodeData: counter?.periode ?? 0,
       // true = klien langsung menampilkan layar login bagi yang belum masuk.
@@ -197,13 +195,6 @@ async function start() {
       .catch((e) => console.error("[Sensus Pajak] pembersihan foto gagal:", e.message));
   sapu();
   setInterval(sapu, 6 * 3600 * 1000).unref();
-
-  // Status lokasi kertas kerja yang belum pernah dihitung (mis. setelah migrasi)
-  // atau berubah karena aturannya berubah (mis. radius kantor).
-  require("./src/lokasiKk")
-    .selaraskanLokasiKk()
-    .then((n) => n && console.log(`[Sensus Pajak] status lokasi ${n} kertas kerja diperbarui.`))
-    .catch((e) => console.error("[Sensus Pajak] penghitungan status lokasi gagal:", e.message));
 
   const admin = await ensureAdminSeed();
   console.log(

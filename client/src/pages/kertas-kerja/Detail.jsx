@@ -10,9 +10,7 @@ import Sheet from "../../components/Sheet.jsx";
 import { PitaPengajuan, AjukanHapus } from "../../components/PengajuanHapus.jsx";
 import { judulEntri, ringkasEntri, fotoEntri } from "../../lib/ringkas.js";
 import { formatWaktu } from "../../lib/format.js";
-import { LABEL_STATUS } from "../../lib/cekLokasi.js";
-import { LokasiKertasKerja, TombolDicek } from "../../components/LokasiObjek.jsx";
-import { useKonfigurasi } from "../../lib/konfigurasi.js";
+import { TombolDicek } from "../../components/LokasiObjek.jsx";
 import { IkonFormulir } from "../../components/Icons.jsx";
 import { bacaFilterKk } from "../../lib/filterKk.js";
 import { useAdmin, useHanyaLihat } from "../../lib/admin.js";
@@ -53,7 +51,6 @@ export function DetailKertasKerja({ id }) {
   // Saringan daftar data: "kurang" = berkas tidak lengkap, "lokasi" = koordinat
   // di pertanyaan Lokasi (objek lain, mis. rumah kedua PBB-P2) perlu dicek.
   const [saring, setSaring] = useState(() => (bacaFilterKk() === "kurang" ? "kurang" : null));
-  const aturanLokasi = useKonfigurasi().lokasi || null;
 
   const muat = useCallback(async () => {
     setLoading(true);
@@ -125,25 +122,20 @@ export function DetailKertasKerja({ id }) {
   const ubahStatus = async () => {
     const tujuan = kk.status === "selesai" ? "draft" : "selesai";
 
-    // Sebelum selesai: lokasi yang perlu dicek ditunjukkan dulu. Hanya
+    // Sebelum selesai: koordinat objek yang perlu dicek ditunjukkan dulu. Hanya
     // konfirmasi, bukan larangan - GPS bisa gagal karena alasan yang wajar.
-    const titikPerluCek = kk.entri.length > 0 && kk.lokasi.status !== "baik";
     const objekPerluCek = kk.entri.filter(objekMeragukan).length;
-    if (tujuan === "selesai" && (titikPerluCek || objekPerluCek)) {
-      const rincian = [];
-      if (titikPerluCek) rincian.push(`Lokasi sensus: ${LABEL_STATUS[kk.lokasi.status].toLowerCase()}.`);
-      if (objekPerluCek) {
-        rincian.push(`${objekPerluCek} koordinat di pertanyaan Lokasi diambil di kantor atau kurang akurat.`);
-      }
+    if (tujuan === "selesai" && objekPerluCek) {
       const ya = await konfirmasi({
         judul: "Lokasi perlu dicek",
-        pesan: `${rincian.join(" ")} Tetapkan titiknya di peta, atau rekam saat berada di lokasi.`,
+        pesan:
+          `${objekPerluCek} koordinat di pertanyaan Lokasi diambil di kantor atau kurang akurat. ` +
+          "Buka datanya lalu pilih titiknya di peta, atau tempel koordinat dari Google Maps.",
         ya: "Tetap tandai selesai",
         tidak: "Periksa dulu",
       });
       if (!ya) {
-        if (titikPerluCek) document.getElementById("lokasi-sensus")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        else setSaring("lokasi");
+        setSaring("lokasi");
         return;
       }
     }
@@ -222,7 +214,6 @@ export function DetailKertasKerja({ id }) {
     kurang: { jumlah: jumlahKurang, cocok: (e) => !e.berkasLengkap },
     lokasi: { jumlah: jumlahObjek, cocok: objekMeragukan },
   };
-  const titikPerluCek = totalData > 0 && kk.lokasi.status !== "baik";
   // Saringan yang hasilnya kosong (mis. semua sudah diperbaiki) tidak berlaku.
   const saringAktif = saring && SARING[saring].jumlah > 0 ? saring : null;
   const kelompokTampil = saringAktif
@@ -267,7 +258,6 @@ export function DetailKertasKerja({ id }) {
             </p>
           </div>
           <span className="fk-kk-pills">
-            {titikPerluCek && <span className="fk-pill is-lokasi">{LABEL_STATUS[kk.lokasi.status]}</span>}
             <BerkasPill jumlah={jumlahKurang} />
             <StatusPill status={kk.status} />
           </span>
@@ -358,8 +348,6 @@ export function DetailKertasKerja({ id }) {
           </>
         )}
       </section>
-
-      <LokasiKertasKerja kk={kk} aturan={aturanLokasi} admin={admin} hanyaLihat={hanyaLihat} onBerubah={setKk} />
 
       {/* Menambah data hanya lewat tombol + melayang. Daftar formulir tidak lagi
           ada di halaman, supaya tidak tertukar dengan data yang sudah terkumpul. */}

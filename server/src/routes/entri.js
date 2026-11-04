@@ -63,8 +63,7 @@ router.put(
     // Koordinat rekaman (GPS asli) sengaja tidak disentuh di sini, termasuk
     // bila masih kosong. Data yang tersimpan di lapangan sebelum GPS mengunci
     // lalu diperbaiki di kantor dulu terisi diam-diam dengan titik kantor.
-    // GPS asli kini hanya terekam saat data dibuat; titik objek ditetapkan di
-    // tingkat kertas kerja (PUT /api/kertas-kerja/:id/titik dan /rekam).
+    // GPS asli kini hanya terekam saat data dibuat.
     const diubahOleh = await namaPelaku(req);
     let dilepas = [];
     await prisma.$transaction(async (tx) => {

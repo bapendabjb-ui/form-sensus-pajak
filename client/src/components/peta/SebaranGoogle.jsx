@@ -6,7 +6,7 @@ import { PUSAT_AWAL, PetaMemuat, isiBalon, svgTitik, warnaTitik, svgKlaster, KLA
 /**
  * Mesin Google untuk Peta Sensus: seluruh titik hasil sensus, hanya untuk
  * dilihat. Tampilannya mengikuti SebaranLeaflet - warna menurut status kertas
- * kerja, titik GPS terekam otomatis digambar berlubang.
+ * kerja.
  *
  * kunci  : kunci Maps JavaScript API dari /api/konfigurasi
  * titik  : [{ entriId, lat, lon, judul, formulir, nomor, status, sumber, ... }]
@@ -30,7 +30,7 @@ function ikonSvg(lib, { svg, ukuran }) {
 
 /** Gambar titik yang sama dengan peta cadangan. */
 const ikonTitik = (lib, t) =>
-  ikonSvg(lib, svgTitik({ warna: warnaTitik(t), berlubang: t.sumber === "gps", dicek: t.dicek }));
+  ikonSvg(lib, svgTitik({ warna: warnaTitik(t), dicek: t.dicek }));
 
 /**
  * Pengelompok titik: hanya titik di layar yang digambar, dan titik berdekatan

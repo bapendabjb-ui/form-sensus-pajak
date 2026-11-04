@@ -6,7 +6,7 @@ const express = require("express");
 const prisma = require("../prisma");
 const { wrap } = require("../http");
 const { bentukTim } = require("../bentuk");
-const { adaTitik, titikKk } = require("../cekLokasi");
+const { adaTitik } = require("../cekLokasi");
 const { pembatas } = require("../laju");
 const { simpanSementara } = require("../simpanSementara");
 
@@ -48,42 +48,14 @@ function judulEntri(jawaban = []) {
 const punyaTitik = adaTitik;
 
 /**
- * Titik-titik peta dari daftar kertas kerja beserta datanya. Klien
- * menampilkan kedua jenisnya terpisah, jadi tidak ada yang disaring di sini.
- *
- *   - jenis "kk"  : satu titik per kertas kerja - lokasi sensusnya (lihat
- *                   src/cekLokasi.js: ditetapkan di peta, rekam di lokasi, atau
- *                   GPS terbaik datanya). `entriId` null.
- *   - jenis "data": satu titik per data yang mengisi pertanyaan Lokasi, mis.
- *                   Koordinat Objek Pajak pada PBB-P2 (`sumber` "formulir").
+ * Titik-titik peta: satu titik per data yang mengisi pertanyaan Lokasi, mis.
+ * Koordinat Objek Pajak pada PBB-P2 (jenis "data", `sumber` "formulir").
  */
 function susunTitikPeta(kks) {
   const titik = [];
   for (const kk of kks) {
     const entri = kk.entri || [];
     const dasar = { kertasKerjaId: kk.id, nomor: kk.nomor, status: kk.status, petugas: bentukTim(kk.petugas) };
-
-    const t = titikKk(kk, entri);
-    if (t) {
-      const kurang = entri.filter((e) => !e.berkasLengkap).length;
-      titik.push({
-        ...dasar,
-        jenis: "kk",
-        entriId: null,
-        dicek: Boolean(kk.lokasiDicekAt),
-        lat: t.lat,
-        lon: t.lon,
-        // "koreksi" = ditunjuk di peta; "rekam" = direkam di lokasi; "gps" = GPS
-        // terekam otomatis saat data disimpan
-        sumber: t.sumber,
-        judul: entri.map((e) => judulEntri(e.jawaban)).find(Boolean) || "",
-        formulir: `${entri.length} data`,
-        jumlahData: entri.length,
-        berkasLengkap: kurang === 0,
-        catatanBerkas: kurang ? `${kurang} data` : "",
-        updatedAt: entri.reduce((a, e) => (e.updatedAt > a ? e.updatedAt : a), new Date(0)),
-      });
-    }
 
     for (const e of entri) {
       const lokasi = (e.jawaban || []).find((j) => j.pertanyaan.tipe === "lokasi" && adaTitik(j.nilai));
@@ -126,19 +98,11 @@ async function susunJawabanPeta() {
       id: true,
       nomor: true,
       status: true,
-      titikLat: true,
-      titikLon: true,
-      titikAkurasi: true,
-      titikSumber: true,
-      lokasiDicekAt: true,
       petugas: { include: { petugas: true } },
       entri: {
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         select: {
           id: true,
-          rekamLat: true,
-          rekamLon: true,
-          rekamAkurasi: true,
           koordinatDicekAt: true,
           berkasLengkap: true,
           catatanBerkas: true,
@@ -160,10 +124,7 @@ async function susunJawabanPeta() {
 // Dipakai bersama semua pembuka peta sampai ada data yang berubah (lihat src/simpanSementara.js).
 const bacaJawabanPeta = simpanSementara({ umurMs: 60 * 1000, susun: susunJawabanPeta });
 
-/**
- * GET /api/peta -> titik hasil sensus: satu per kertas kerja (lokasi sensus,
- * jenis "kk") dan satu per data berkoordinat (pertanyaan Lokasi, jenis "data").
- */
+/** GET /api/peta -> titik hasil sensus: satu per data berkoordinat (pertanyaan Lokasi). */
 router.get(
   "/",
   batasiLaju,

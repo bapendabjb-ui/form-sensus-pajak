@@ -12,7 +12,6 @@ import {
   FILTER_KK,
   bacaFilterKk,
   simpanFilterKk,
-  lokasiPerluCek,
   bacaCariKk,
   simpanCariKk,
   bacaTimKurangKk,
@@ -21,7 +20,6 @@ import {
   ambilPosisiKk,
 } from "../../lib/filterKk.js";
 import { kapitalTiapKata } from "../../lib/kapital.js";
-import { LABEL_STATUS } from "../../lib/cekLokasi.js";
 import { useAdmin, useHanyaLihat } from "../../lib/admin.js";
 import { useKonfigurasi } from "../../lib/konfigurasi.js";
 import { navigate, pasangPenjaga } from "../../lib/router.js";
@@ -94,7 +92,7 @@ const KOSONG = {
   hal: 1,
   total: 0,
   adaLagi: false,
-  jumlah: { semua: 0, draft: 0, selesai: 0, kosong: 0, kurang: 0, lokasi: 0, belumdicek: 0 },
+  jumlah: { semua: 0, draft: 0, selesai: 0, kosong: 0, kurang: 0 },
 };
 
 export function DaftarKertasKerja() {
@@ -223,12 +221,6 @@ export function DaftarKertasKerja() {
 
   /** "surya recky" -> "surya, recky": dari "semua nama" menjadi "salah satunya". */
   const pisahkanKoma = () => setCari(cari.trim().split(/\s+/).join(", "));
-
-  // Saringan khusus admin tidak boleh tertinggal setelah admin keluar: tombolnya
-  // hilang, tetapi daftarnya masih tersaring tanpa petugas tahu sebabnya.
-  useEffect(() => {
-    if (!admin && filter === "belumdicek") pilihFilter("semua");
-  }, [admin, filter]);
 
   const keluarPilih = () => {
     setMemilih(false);
@@ -442,7 +434,7 @@ export function DaftarKertasKerja() {
             )
           )}
           <div className="fk-filter" role="tablist" aria-label="Saring kertas kerja">
-            {FILTER_KK.filter(([, , opsi]) => admin || !opsi?.admin).map(([kunci, label]) => (
+            {FILTER_KK.map(([kunci, label]) => (
               <button
                 type="button"
                 role="tab"
@@ -451,7 +443,7 @@ export function DaftarKertasKerja() {
                 className={
                   "fk-filter-btn" +
                   (filter === kunci ? " is-on" : "") +
-                  (kunci === "kurang" ? " is-kurang" : kunci === "lokasi" || kunci === "belumdicek" ? " is-lokasi" : "")
+                  (kunci === "kurang" ? " is-kurang" : "")
                 }
                 onClick={() => pilihFilter(kunci)}
               >
@@ -483,11 +475,7 @@ export function DaftarKertasKerja() {
                     ? "Semua kertas kerja sudah berisi data."
                   : filter === "kurang"
                     ? "Tidak ada kertas kerja dengan berkas tidak lengkap."
-                    : filter === "lokasi"
-                      ? "Semua kertas kerja sudah punya titik lokasi yang baik."
-                      : filter === "belumdicek"
-                        ? "Semua lokasi sensus sudah dicek."
-                      : "Tidak ada kertas kerja pada saringan ini."}
+                    : "Tidak ada kertas kerja pada saringan ini."}
             </Empty>
           ) : (
             <>
@@ -528,12 +516,6 @@ export function DaftarKertasKerja() {
                           {k.jumlahData} data · {formatWaktu(k.createdAt)}
                         </div>
                       </div>
-                      {lokasiPerluCek(k) && <span className="fk-pill is-lokasi">{LABEL_STATUS[k.lokasiStatus]}</span>}
-                      {k.lokasiDicek && (
-                        <span className="fk-pill is-done" title="Lokasi sensus sudah dicek admin">
-                          ✓ Dicek
-                        </span>
-                      )}
                       <BerkasPill jumlah={k.jumlahTidakLengkap} />
                       <StatusPill status={k.status} />
                       {/* Aksi tambahan hanya di desktop; di HP semuanya ada di halaman kertas kerja.

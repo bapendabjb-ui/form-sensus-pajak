@@ -18,8 +18,7 @@ const FOTO_MAKS_PER_PERTANYAAN = 10;
  * dalam radius ini dianggap diisi di kantor, bukan di lokasi objek pajak.
  *
  * Radiusnya sekitar gedung dan halamannya saja (semula 150 m, diperkecil
- * 2026-10-27 karena ada objek sensus di dekat kantor). Status lokasi yang
- * tersimpan disesuaikan sendiri saat server menyala (src/lokasiKk.js).
+ * 2026-10-27 karena ada objek sensus di dekat kantor).
  */
 const KANTOR = { nama: "kantor BPPRD", lat: -3.439325, lon: 114.829525, radiusM: 50 };
 
@@ -30,17 +29,9 @@ const KANTOR = { nama: "kantor BPPRD", lat: -3.439325, lon: 114.829525, radiusM:
  */
 const AKURASI_KASAR_M = 100;
 
-/** Rekam ulang lokasi hanya diterima bila GPS setidaknya seteliti ini. */
-const AKURASI_REKAM_ULANG_M = 50;
-
-/** Titik objek yang berjarak lebih dari ini dari GPS asli ditandai untuk admin. */
-const JARAK_JAUH_M = 500;
-
 module.exports = {
   PETUGAS_MAKS,
   FOTO_MAKS_PER_PERTANYAAN,
   KANTOR,
   AKURASI_KASAR_M,
-  AKURASI_REKAM_ULANG_M,
-  JARAK_JAUH_M,
 };

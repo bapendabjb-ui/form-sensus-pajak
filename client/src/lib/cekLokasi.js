@@ -1,5 +1,6 @@
 /**
- * Pemeriksaan lokasi di layar isi data - salinan server/src/cekLokasi.js.
+ * Pemeriksaan koordinat pertanyaan Lokasi di layar isi data - salinan
+ * server/src/cekLokasi.js.
  *
  * Angkanya (titik kantor, batas akurasi) datang dari server lewat
  * /api/konfigurasi; di sini hanya rumusnya. Status yang dihitung server untuk
@@ -30,16 +31,3 @@ export function nilaiTitik(t, aturan) {
   if (typeof t.akurasi === "number" && t.akurasi > akurasiKasarM) return "kasar";
   return "baik";
 }
-
-/** "850 m" / "2,3 km". */
-export function formatJarak(m) {
-  if (m === null || m === undefined) return "";
-  return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} km`;
-}
-
-/** Label singkat untuk data yang lokasinya perlu diperiksa. */
-export const LABEL_STATUS = {
-  tanpa: "Lokasi belum ada",
-  kantor: "Lokasi di kantor",
-  kasar: "Lokasi kurang akurat",
-};

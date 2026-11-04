@@ -376,7 +376,7 @@ Yang bisa dilakukan pejabat:
 - **Mengganti password sendiri** dan keluar.
 
 Yang tidak bisa: membuat kertas kerja, menambah / mengubah data, menandai
-selesai, menetapkan atau merekam lokasi sensus, mengunggah foto, mengajukan
+selesai, mengunggah foto, mengajukan
 hapus, cek NOP ke EPBB, serta semua aksi khusus admin (ekspor, pengajuan hapus,
 formulir, petugas).
 
@@ -487,7 +487,7 @@ build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
 | `formulir`              | Bank formulir + `ikon` (nama ikon kartu, kosong = nomor) + `urutan` (susunan tampil, diatur admin lewat seret) |
 | `pertanyaan`            | `tipe` (19 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `luas`, `nik`, `npwp`, `niknpwp`, `telepon` & `nop`), `label`, `keterangan`, `wajib`, `range_harga`, `isi_epbb`, `kolom` (`""`/`kiri`/`kanan`), `urutan` |
 | `pertanyaan_opsi`       | Opsi dropdown/radio/checkbox & daftar "Jenis tarif"                         |
-| `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status`, `titik_*` (titik objek yang ditetapkan), `lokasi_status` (kolom `judul` tidak dipakai lagi) |
+| `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status` (kolom `judul`, `titik_*`, `lokasi_status`, dan `lokasi_dicek_*` tidak dipakai lagi) |
 | `kertas_kerja_petugas`  | Tim petugas (1–8), `urutan` 0 = penanggung jawab                            |
 | `entri`                 | Satu data: `kertas_kerja_id` + `formulir_id` (boleh berulang); `berkas_lengkap` + `catatan_berkas` |
 | `jawaban`               | `nilai` JSON, **UNIQUE(entri_id, pertanyaan_id)**                           |
@@ -676,42 +676,40 @@ menganggapnya kosong, sehingga pertanyaan wajib akan gagal validasi. Di CSV, sel
 > Geolocation hanya berjalan di **konteks aman**: HTTPS atau `localhost`. Di Railway sudah HTTPS.
 > Petugas juga harus mengizinkan akses lokasi saat browser bertanya.
 
-### Koordinat otomatis & pemeriksaan lokasi
+### Koordinat & pemeriksaan lokasi
 
-**Satu kertas kerja = satu objek** (rumah / bidang yang disensus), jadi titik lokasinya satu per
-kertas kerja, bukan per data. Ada tiga macam koordinat:
+Ada dua macam koordinat:
 
 | Koordinat | Asal | Dipakai untuk |
 | --------- | ---- | ------------- |
-| **GPS asli** per data | Posisi perangkat petugas saat data **baru** disimpan (kolom `entri.rekam_*`). Tidak bisa diubah. | Bukti kunjungan, dan titik kertas kerja selama belum ditetapkan |
-| **Titik kertas kerja** | Ditetapkan di peta / ditempel dari Google Maps, atau **Rekam di sini** di lokasi (kolom `kertas_kerja.titik_*`). Bila belum ada: GPS terbaik di antara datanya — yang di lapangan dan paling teliti. | Peta Sensus tampilan **Lokasi sensus** (satu titik per kertas kerja); pemeriksaan lokasi |
-| **Pertanyaan Lokasi** di formulir | Diisi petugas, mis. Koordinat Objek Pajak pada PBB-P2 — termasuk rumah kedua di tempat lain. | Peta Sensus tampilan **Koordinat objek** (satu titik per data yang mengisinya) |
+| **Pertanyaan Lokasi** di formulir | Diisi petugas, mis. Koordinat Objek Pajak pada PBB-P2 — termasuk rumah kedua di tempat lain. | Peta Sensus (satu titik per data yang mengisinya) dan pemeriksaan lokasi |
+| **GPS asli** per data | Posisi HP petugas saat data **baru** disimpan (kolom `entri.rekam_*`), direkam diam-diam tanpa ditampilkan. Tidak bisa diubah. | Bukti kunjungan, tersimpan di database |
 
 | Kapan | Yang terjadi |
 | ----- | ------------ |
-| Mengisi data baru | Posisi dipantau sejak layar dibuka, dan statusnya tampil di atas tombol **Simpan**: ✓ terekam, belum terekam, kurang akurat (> 100 m), atau **di area kantor BPPRD** (radius 50 m, `KANTOR` di `server/src/batas.js`). Konfirmasi hanya muncul bila **kertas kerjanya belum punya titik yang baik**, atau koordinat pertanyaan Lokasi diambil dengan GPS di kantor. |
-| Mengubah data | Posisi **tidak** direkam. Dulu GPS yang masih kosong diisi saat data disimpan ulang, sehingga data yang diperbaiki di kantor mendapat titik kantor. |
-| Halaman kertas kerja | Panel **Lokasi sensus**: asal titik, ringkasan GPS data ("3 data: 2 di lokasi, 1 di area kantor"), tombol **Tetapkan di peta** (dengan kolom tempel Google Maps), **Rekam di sini** (hanya diterima bila akurasinya ≤ 50 m dan di luar area kantor), dan **Pakai GPS data**. Petugas maupun admin bisa memakainya; pelakunya dicatat. |
-| Daftar kertas kerja | Saringan **Lokasi perlu dicek** dan label per kartu. Statusnya disimpan di `kertas_kerja.lokasi_status` (`src/lokasiKk.js`), dihitung ulang setiap data dibuat/dihapus atau titik ditetapkan, dan diselaraskan saat server start: status yang belum ada diisi, dan status yang berubah karena aturannya diganti (mis. radius kantor) dibetulkan. |
-| Tandai selesai | Bila titik kertas kerja atau koordinat pertanyaan Lokasi perlu dicek, muncul konfirmasi: **Periksa dulu** (menggulir ke panel Lokasi sensus) atau **Tetap tandai selesai**. |
+| Mengisi data baru | Posisi HP dipantau sejak layar dibuka dan direkam saat **Simpan**. Konfirmasi muncul bila koordinat pertanyaan Lokasi diambil dengan GPS **di area kantor BPPRD** (radius 50 m, `KANTOR` di `server/src/batas.js`) atau kurang akurat (> 100 m). |
+| Mengubah data | Posisi HP **tidak** direkam. |
+| Halaman kertas kerja | Data yang koordinatnya perlu dicek berlabel, dan bisa disaring dengan **Cek koordinat**. |
+| Tandai selesai | Bila ada koordinat pertanyaan Lokasi yang perlu dicek, muncul konfirmasi: **Periksa dulu** (menyaring data itu) atau **Tetap tandai selesai**. |
 
-Titik kantor dan ambang akurasinya ada di `server/src/batas.js` (`KANTOR`, `AKURASI_KASAR_M`,
-`AKURASI_REKAM_ULANG_M`, `JARAK_JAUH_M`) dan dikirim ke klien lewat `/api/konfigurasi`. Aturan
-penilaiannya ada di `server/src/cekLokasi.js`, dengan salinan di `client/src/lib/cekLokasi.js`.
+Titik kantor dan ambang akurasinya ada di `server/src/batas.js` (`KANTOR`, `AKURASI_KASAR_M`) dan
+dikirim ke klien lewat `/api/konfigurasi`. Aturan penilaiannya ada di `server/src/cekLokasi.js`,
+dengan salinan di `client/src/lib/cekLokasi.js`.
 
-**Sudah dicek & kunci (admin).** Admin menandai koordinat yang sudah diperiksa: lokasi sensus per
-kertas kerja (centang di panel Lokasi sensus) dan koordinat objek per data (centang di samping baris
-data, di bawah pertanyaan Lokasi pada layar Ubah Data, atau tombol di balon Peta Sensus). Yang
-sudah dicek **terkunci untuk petugas** — tombol peta / GPS disembunyikan, pertanyaan Lokasi hanya
-bisa dilihat, dan server menolak / mengabaikan perubahannya — sementara admin tetap bisa
-menyesuaikan tanpa melepas centang. Lokasi sensus yang masih mengikuti GPS data dibekukan saat
-dicentang (`titik_sumber = "data"`) supaya tidak bergeser oleh data yang ditambah belakangan.
-Saringan pembantu: **Lokasi belum dicek** di daftar kertas kerja (khusus admin) dan **Belum dicek /
-Sudah dicek** di Peta Sensus; titik yang sudah dicek bertanda ✓.
+**Sudah dicek & kunci (admin).** Admin menandai koordinat objek yang sudah diperiksa (centang di
+samping baris data, di bawah pertanyaan Lokasi pada layar Ubah Data, atau tombol di balon Peta
+Sensus). Yang sudah dicek **terkunci untuk petugas** — pertanyaan Lokasi hanya bisa dilihat, dan
+server menolak / mengabaikan perubahannya — sementara admin tetap bisa menyesuaikan tanpa melepas
+centang. Peta Sensus punya saringan **Belum dicek / Sudah dicek**; titik yang sudah dicek bertanda ✓.
 
 Titik yang ditunjuk di peta tidak diperiksa terhadap area kantor, supaya objek yang bertetangga
-dengan kantor tetap bisa ditandai. Admin tetap bisa membandingkannya dengan GPS asli: jaraknya
-dari GPS lapangan terbaik tampil di panel, dan yang lebih dari 500 m ditandai **Jauh dari GPS**. Aplikasi web tidak bisa mendeteksi aplikasi pemalsu GPS (*fake GPS*).
+dengan kantor tetap bisa ditandai. Aplikasi web tidak bisa mendeteksi aplikasi pemalsu GPS (*fake GPS*).
+
+> **Fitur "Lokasi sensus" per kertas kerja dihapus (2026-11-04):** panel *Tetapkan di peta /
+> Rekam di sini / Buka di Google Maps / Lokasi sensus sudah dicek*, label status lokasi dan saringan
+> *Lokasi perlu dicek / Lokasi belum dicek* di daftar kertas kerja, tampilan *Lokasi sensus* di Peta
+> Sensus, bilah status GPS di layar isi data, serta endpoint `/kertas-kerja/:id/titik`, `/rekam`,
+> dan `/lokasi-dicek`. Kolom databasenya dibiarkan supaya isian lama tidak hilang.
 
 ### Peta Google
 
@@ -1078,9 +1076,6 @@ sehari dijawab dengan header `X-Token-Baru` berisi penggantinya.
 | `PUT`    | `/kertas-kerja/:id/petugas`       | 🔒 `{ petugasIds }` — ganti tim                           |
 | `POST`   | `/kertas-kerja/tambah-petugas`    | 🔒 `{ kertasKerjaIds, petugasIds }` — tambahkan petugas ke banyak tim sekaligus (anggota lama tetap; tim yang akan lebih dari 8 orang dilewati) → `{ ditambahkan, sudahAda, penuh, tidakDitemukan }` |
 | `PUT`    | `/kertas-kerja/:id/status`        | `{ status }` — `selesai` butuh minimal 1 data (**422**)   |
-| `PUT`    | `/kertas-kerja/:id/titik`         | `{ lat, lon }` atau `{ hapus: true }` — tetapkan titik objek lewat peta / kembali ke GPS data. Terbuka; admin yang login tercatat namanya |
-| `PUT`    | `/kertas-kerja/:id/lokasi-dicek`  | 🔒 `{ dicek }` — tandai lokasi sensus sudah dicek (terkunci untuk petugas). **422** bila belum ada titik |
-| `PUT`    | `/kertas-kerja/:id/rekam`         | `{ lat, lon, akurasi }` — titik objek dari GPS di lokasi. **422** bila akurasi > 50 m / tidak diketahui, atau posisinya di area kantor |
 | `POST`   | `/kertas-kerja/:id/entri`         | `{ formulirId, jawaban, berkasLengkap?, catatanBerkas? }` — tambah satu data |
 | `DELETE` | `/kertas-kerja/:id`               | 🔒 Hapus beserta seluruh data & foto                      |
 | `GET`    | `/kertas-kerja/:id/export`        | Unduh CSV; `?formulir=<id>` = hanya satu formulir         |
@@ -1090,9 +1085,9 @@ sehari dijawab dengan header `X-Token-Baru` berisi penggantinya.
 
 ```json
 {
-  "baris": [ { "id": 7, "nomor": "00007", "status": "draft", "petugas": [], "jumlahData": 3, "jumlahTidakLengkap": 1, "namaData": ["Ahmad Fauzi", "Warung Bu Siti"], "lokasiStatus": "kantor" } ],
+  "baris": [ { "id": 7, "nomor": "00007", "status": "draft", "petugas": [], "jumlahData": 3, "jumlahTidakLengkap": 1, "namaData": ["Ahmad Fauzi", "Warung Bu Siti"] } ],
   "hal": 1, "per": 20, "total": 137, "adaLagi": true,
-  "jumlah": { "semua": 137, "draft": 40, "selesai": 97, "kurang": 12, "lokasi": 5 },
+  "jumlah": { "semua": 137, "draft": 40, "selesai": 97, "kosong": 3, "kurang": 12 },
   "salahSatu": null
 }
 ```
@@ -1102,7 +1097,7 @@ sehari dijawab dengan header `X-Token-Baru` berisi penggantinya.
 | `hal`       | `1`     | Halaman, mulai dari 1                                                       |
 | `per`       | `20`    | Baris per halaman, **dibatasi 100**                                         |
 | `cari`      | —       | Nomor atau nama petugas di tim; setiap kata harus cocok. Kata tanpa huruf = penggalan nomor (non-angka dibuang, jadi `4` menemukan `00004`). **Koma** = salah satu: `surya, recky` menemukan tim yang berisi Surya *atau* Recky |
-| `saring`    | `semua` | `semua` · `draft` · `selesai` · `kosong` (belum berisi data) · `kurang` (punya data berkas tidak lengkap) · `lokasi` (punya data, titiknya di kantor / kurang akurat / belum ada) · `belumdicek` (punya data, lokasi sensus belum dicek admin) |
+| `saring`    | `semua` | `semua` · `draft` · `selesai` · `kosong` (belum berisi data) · `kurang` (punya data berkas tidak lengkap). Nilai lain = `semua` |
 | `timKurang` | —       | `1` = hanya tim yang belum memuat semua nama di `cari`. Berlaku bila `cari` berisi dua nama atau lebih dipisah koma; selain itu diabaikan |
 
 Bila `cari` berisi dua nama atau lebih dipisah koma, setiap baris mendapat

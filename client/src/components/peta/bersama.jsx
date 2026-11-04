@@ -31,20 +31,17 @@ export const zoomAkurasi = (m) => (m == null || m <= 50 ? 18 : m <= 150 ? 17 : m
  * supaya ketiganya persis sama.
  *
  *   - lingkaran berwarna menurut status, berbingkai putih;
- *   - berlubang (putih dengan cincin berwarna) untuk posisi GPS terekam otomatis;
  *   - sudah dicek admin: sedikit lebih besar, dengan centang di tengahnya.
  *
  * @returns {{ svg: string, ukuran: number }}
  */
-export function svgTitik({ warna, berlubang = false, dicek = false }) {
+export function svgTitik({ warna, dicek = false }) {
   const ukuran = dicek ? 22 : 16;
   const c = ukuran / 2;
   const r = c - 2;
-  const isi = berlubang
-    ? `<circle cx="${c}" cy="${c}" r="${r}" fill="#fff" stroke="${warna}" stroke-width="3"/>`
-    : `<circle cx="${c}" cy="${c}" r="${r}" fill="${warna}" stroke="#fff" stroke-width="2"/>`;
+  const isi = `<circle cx="${c}" cy="${c}" r="${r}" fill="${warna}" stroke="#fff" stroke-width="2"/>`;
   const centang = dicek
-    ? `<path d="M${c - 4.2} ${c + 0.2}l2.8 2.8 5.6-5.8" fill="none" stroke="${berlubang ? warna : "#fff"}" ` +
+    ? `<path d="M${c - 4.2} ${c + 0.2}l2.8 2.8 5.6-5.8" fill="none" stroke="#fff" ` +
       `stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`
     : "";
   const svg =
@@ -192,21 +189,15 @@ const ringkasTim = (petugas = []) => {
 };
 
 /** Keterangan asal titik di balon. */
-const ASAL_TITIK = {
-  gps: "Titik dari GPS saat pendataan",
-  rekam: "Titik direkam di lokasi",
-  koreksi: "Titik ditetapkan di peta",
-  formulir: "Koordinat dari pertanyaan Lokasi",
-};
+const ASAL_TITIK = { formulir: "Koordinat dari pertanyaan Lokasi" };
 
 /**
  * HTML isi balon sebuah titik; semua teks dari data sudah di-escape.
  * `bisaCek` = admin: ada tombol "sudah dicek" (.fk-balon-cek).
  */
 export function isiBalon(t, { bisaCek = false } = {}) {
-  const kk = !t.entriId;
   const baris = [
-    `<strong>${aman(t.judul || (kk ? `Kertas kerja ${t.nomor}` : t.formulir))}</strong>`,
+    `<strong>${aman(t.judul || t.formulir)}</strong>`,
     `<span class="fk-balon-sub">${aman(t.nomor)} · ${aman(t.formulir)}</span>`,
     `<span class="fk-balon-sub">${aman(ringkasTim(t.petugas))}</span>`,
   ];
@@ -216,7 +207,7 @@ export function isiBalon(t, { bisaCek = false } = {}) {
     const catatan = t.catatanBerkas ? `: ${aman(t.catatanBerkas)}` : "";
     baris.push(`<span class="fk-balon-kurang">Berkas tidak lengkap${catatan}</span>`);
   }
-  const tombol = [`<button type="button" class="fk-balon-buka">${kk ? "Buka kertas kerja" : "Buka data"}</button>`];
+  const tombol = [`<button type="button" class="fk-balon-buka">Buka data</button>`];
   if (bisaCek) {
     tombol.push(
       `<button type="button" class="fk-balon-cek${t.dicek ? " is-on" : ""}">${t.dicek ? "Buka kunci" : "✓ Sudah dicek"}</button>`

@@ -11,7 +11,6 @@
 const prisma = require("./prisma");
 const { notFound } = require("./http");
 const { hapusBerkas } = require("./foto");
-const { perbaruiLokasiKk } = require("./lokasiKk");
 
 /**
  * Tutup pengajuan menunggu yang cocok dengan `where`. Mengembalikan promise
@@ -42,7 +41,7 @@ async function hapusKertasKerja(id, admin) {
 
 /** Hapus satu entri beserta fotonya. */
 async function hapusEntri(id, admin) {
-  const ada = await prisma.entri.findUnique({ where: { id }, select: { id: true, kertasKerjaId: true } });
+  const ada = await prisma.entri.findUnique({ where: { id }, select: { id: true } });
   if (!ada) throw notFound("Data tidak ditemukan.");
 
   const berkas = await prisma.foto.findMany({ where: { entriId: id }, select: { berkas: true } });
@@ -51,8 +50,6 @@ async function hapusEntri(id, admin) {
     prisma.entri.delete({ where: { id } }),
   ]);
   await hapusBerkas(berkas.map((f) => f.berkas));
-  // GPS data yang dihapus bisa jadi satu-satunya titik kertas kerjanya.
-  await perbaruiLokasiKk(ada.kertasKerjaId);
 }
 
 module.exports = { tutupPengajuan, hapusKertasKerja, hapusEntri };

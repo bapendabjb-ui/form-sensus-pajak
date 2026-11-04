@@ -239,6 +239,5 @@ module.exports = {
   muatEntri,
   bacaBerkas,
   bacaRekamKoordinat,
-  bacaKoordinat,
   hitungTidakLengkap,
 };

@@ -172,11 +172,13 @@ model KertasKerja {
   judul     String            @default("") @db.VarChar(200)
   status    StatusKertasKerja @default(draft)
   createdAt DateTime          @default(now()) @map("created_at")
-  /// Lokasi sensus - rumah / bidang yang disensus (satu kertas kerja = satu objek).
-  /// Diisi bila ditetapkan dengan sengaja: "peta" = ditunjuk di peta atau ditempel
-  /// dari Google Maps, "gps" = Rekam di sini di lokasi, "data" = GPS terbaik
-  /// datanya yang dibekukan saat admin menandai sudah dicek. Kosong = memakai
-  /// GPS terbaik yang terekam otomatis saat data-datanya disimpan.
+  /// TIDAK DIPAKAI LAGI (titik_* sampai lokasi_dicek_oleh): sisa fitur "lokasi
+  /// sensus" per kertas kerja yang dihapus 2026-11-04. Kolomnya dibiarkan supaya
+  /// isian lama tetap ada; aplikasi tidak lagi membaca atau menulisnya.
+  ///
+  /// Dulu: titik rumah / bidang yang disensus. "peta" = ditunjuk di peta atau
+  /// ditempel dari Google Maps, "gps" = Rekam di sini di lokasi, "data" = GPS
+  /// terbaik datanya yang dibekukan saat admin menandai sudah dicek.
   titikLat      Float?    @map("titik_lat")
   titikLon      Float?    @map("titik_lon")
   titikAkurasi  Float?    @map("titik_akurasi")
@@ -184,11 +186,10 @@ model KertasKerja {
   titikWaktu    DateTime? @map("titik_waktu")
   /// Username admin yang menetapkan, atau "petugas" bila tanpa login.
   titikOleh     String    @default("") @map("titik_oleh") @db.VarChar(64)
-  /// Hasil pemeriksaan lokasi (baik | tanpa | kantor | kasar), disimpan supaya
-  /// daftar kertas kerja bisa disaring di database. Null = belum dihitung;
-  /// server menghitungnya saat start (lihat src/lokasiKk.js).
+  /// Dulu: hasil pemeriksaan lokasi (baik | tanpa | kantor | kasar) untuk saringan
+  /// "Lokasi perlu dicek". Tidak lagi dihitung.
   lokasiStatus  String?   @map("lokasi_status") @db.VarChar(10)
-  /// Lokasi sensus sudah dicek admin: terkunci, hanya admin yang bisa mengubahnya.
+  /// Dulu: lokasi sensus sudah dicek admin.
   lokasiDicekAt   DateTime? @map("lokasi_dicek_at")
   lokasiDicekOleh String    @default("") @map("lokasi_dicek_oleh") @db.VarChar(64)
 

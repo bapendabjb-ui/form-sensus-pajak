@@ -30,8 +30,8 @@ test("pejabat tidak bisa menulis apa pun selain akunnya sendiri", () => {
   const tulis = [
     ["POST", "/kertas-kerja"],
     ["PUT", "/kertas-kerja/1/status"],
-    ["PUT", "/kertas-kerja/1/titik"],
-    ["PUT", "/kertas-kerja/1/rekam"],
+    ["PUT", "/kertas-kerja/1/petugas"],
+    ["PUT", "/entri/1/koordinat-dicek"],
     ["POST", "/kertas-kerja/1/entri"],
     ["PUT", "/entri/1"],
     ["DELETE", "/entri/1"],

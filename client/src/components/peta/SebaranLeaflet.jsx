@@ -21,13 +21,9 @@ import { PUSAT_AWAL, isiBalon, svgTitik, warnaTitik, svgKlaster, KLASTER_ZOOM_MA
  * jenis  : "peta" | "satelit"
  */
 
-/**
- * Warna = status kertas kerja. Titik dari koordinat yang terekam otomatis
- * digambar berlubang supaya tidak tertukar dengan titik yang sengaja diukur
- * petugas lewat pertanyaan lokasi - ketelitiannya bisa jauh berbeda.
- */
+/** Warna = status kertas kerja; sudah dicek admin bercentang. */
 const ikonTitik = (t) => {
-  const { svg, ukuran } = svgTitik({ warna: warnaTitik(t), berlubang: t.sumber === "gps", dicek: t.dicek });
+  const { svg, ukuran } = svgTitik({ warna: warnaTitik(t), dicek: t.dicek });
   return L.divIcon({
     className: `fk-titik${t.dicek ? " is-dicek" : ""}`,
     html: svg,

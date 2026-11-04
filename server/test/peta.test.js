@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-// Kedua fungsi ini memang diekspor routes/peta.js untuk diuji terpisah:
+// Fungsi-fungsi ini memang diekspor routes/peta.js untuk diuji terpisah:
 // keduanya murni dan menentukan titik mana yang muncul di peta serta namanya.
 const { punyaTitik, judulEntri, susunTitikPeta } = require("../src/routes/peta");
 
@@ -46,20 +46,16 @@ test("judulEntri melewati tipe yang bukan teks dan teks kosong", () => {
   assert.equal(judulEntri(undefined), "");
 });
 
-/* ---------- susunTitikPeta: satu titik per kertas kerja ---------- */
+/* ---------- susunTitikPeta: satu titik per data berkoordinat ---------- */
 
-const KANTOR_DEKAT = { lat: -3.43895, lon: 114.829525 };
 const RUMAH = { lat: -3.4419, lon: 114.8409 };
-const RUMAH_KEDUA = { lat: -3.4700, lon: 114.8000 };
+const RUMAH_KEDUA = { lat: -3.47, lon: 114.8 };
 
 const jawabTeks = (nilai) => ({ pertanyaan: { tipe: "text", urutan: 0 }, nilai });
 const jawabLokasi = (t, sumber = "peta") => ({ pertanyaan: { tipe: "lokasi", urutan: 1 }, nilai: { ...t, akurasi: null, sumber } });
 
-const entri = (id, gps, jawaban = [], lain = {}) => ({
+const entri = (id, jawaban = [], lain = {}) => ({
   id,
-  rekamLat: gps ? gps.lat : null,
-  rekamLon: gps ? gps.lon : null,
-  rekamAkurasi: gps ? 8 : null,
   berkasLengkap: true,
   catatanBerkas: "",
   updatedAt: new Date(2026, 9, id),
@@ -68,63 +64,32 @@ const entri = (id, gps, jawaban = [], lain = {}) => ({
   ...lain,
 });
 
-const kk = (lain) => ({
-  id: 1,
-  nomor: "00001",
-  status: "draft",
-  titikLat: null,
-  titikLon: null,
-  titikAkurasi: null,
-  titikSumber: "",
-  petugas: [],
-  ...lain,
-});
+const kk = (lain) => ({ id: 1, nomor: "00001", status: "draft", petugas: [], ...lain });
 
-test("susunTitikPeta: banyak data dalam satu kertas kerja menjadi satu titik", () => {
-  const t = susunTitikPeta([
-    kk({ entri: [entri(1, RUMAH, [jawabTeks("Bu Siti")]), entri(2, RUMAH), entri(3, KANTOR_DEKAT)] }),
-  ]);
-  assert.equal(t.length, 1);
-  assert.equal(t[0].jenis, "kk");
-  assert.equal(t[0].entriId, null);
-  assert.equal(t[0].sumber, "gps");
-  assert.equal(t[0].lat, RUMAH.lat, "GPS di lapangan, bukan yang di kantor");
-  assert.equal(t[0].judul, "Bu Siti");
-  assert.equal(t[0].jumlahData, 3);
-});
-
-test("susunTitikPeta: rumah kedua dari pertanyaan Lokasi PBB-P2 tampil terpisah", () => {
-  const t = susunTitikPeta([
-    kk({ entri: [entri(1, RUMAH), entri(2, RUMAH, [jawabTeks("Rumah kedua"), jawabLokasi(RUMAH_KEDUA)])] }),
-  ]);
-  assert.equal(t.length, 2);
-  const objek = t.find((x) => x.entriId === 2);
-  assert.equal(objek.jenis, "data");
-  assert.equal(objek.sumber, "formulir");
-  assert.equal(objek.lat, RUMAH_KEDUA.lat);
-});
-
-test("susunTitikPeta: koordinat Lokasi di tempat yang sama tetap jadi titik data sendiri", () => {
-  // Kedua jenis ditampilkan terpisah oleh klien, jadi tidak ada yang dibuang.
-  const t = susunTitikPeta([kk({ entri: [entri(1, RUMAH, [jawabLokasi(RUMAH)])] })]);
-  assert.deepEqual(t.map((x) => x.jenis).sort(), ["data", "kk"]);
-});
-
-test("susunTitikPeta: titik yang ditetapkan didahulukan, berkas kurang terhitung", () => {
+test("susunTitikPeta: satu titik per data yang mengisi pertanyaan Lokasi", () => {
   const t = susunTitikPeta([
     kk({
-      titikLat: RUMAH_KEDUA.lat,
-      titikLon: RUMAH_KEDUA.lon,
-      titikSumber: "peta",
-      entri: [entri(1, KANTOR_DEKAT, [], { berkasLengkap: false })],
+      entri: [
+        entri(1, [jawabTeks("Bu Siti"), jawabLokasi(RUMAH)]),
+        entri(2, [jawabTeks("Rumah kedua"), jawabLokasi(RUMAH_KEDUA)], { berkasLengkap: false }),
+      ],
     }),
   ]);
-  assert.equal(t[0].sumber, "koreksi");
-  assert.equal(t[0].lat, RUMAH_KEDUA.lat);
-  assert.equal(t[0].berkasLengkap, false);
-  assert.equal(t[0].catatanBerkas, "1 data");
+  assert.equal(t.length, 2);
+  assert.ok(t.every((x) => x.jenis === "data" && x.sumber === "formulir"));
+  const kedua = t.find((x) => x.entriId === 2);
+  assert.equal(kedua.lat, RUMAH_KEDUA.lat);
+  assert.equal(kedua.judul, "Rumah kedua");
+  assert.equal(kedua.formulir, "Formulir 2");
+  assert.equal(kedua.berkasLengkap, false);
 });
 
-test("susunTitikPeta: kertas kerja tanpa titik sama sekali tidak muncul", () => {
-  assert.deepEqual(susunTitikPeta([kk({ entri: [entri(1, null)] })]), []);
+test("susunTitikPeta: data tanpa koordinat Lokasi tidak muncul (titik kertas kerja sudah dihapus)", () => {
+  assert.deepEqual(susunTitikPeta([kk({ entri: [entri(1, [jawabTeks("Tanpa titik")])] })]), []);
+  assert.deepEqual(susunTitikPeta([kk({ entri: [entri(1, [jawabLokasi({ lat: null, lon: null })])] })]), []);
+});
+
+test("susunTitikPeta: tanda sudah dicek mengikuti koordinat objek datanya", () => {
+  const [t] = susunTitikPeta([kk({ entri: [entri(1, [jawabLokasi(RUMAH)], { koordinatDicekAt: new Date() })] })]);
+  assert.equal(t.dicek, true);
 });

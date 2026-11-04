@@ -105,11 +105,6 @@ export default function PetaSebaran({
           <span className="fk-legenda">
             <IkonTitik warna={WARNA_STATUS.draft} /> Draft
           </span>
-          {titik.some((t) => t.sumber === "gps") && (
-            <span className="fk-legenda">
-              <IkonTitik warna="#647380" berlubang /> Terekam otomatis
-            </span>
-          )}
           {titik.some((t) => t.dicek) && (
             <span className="fk-legenda">
               <IkonTitik warna={WARNA_STATUS.selesai} dicek /> Sudah dicek
