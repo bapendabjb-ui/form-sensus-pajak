@@ -7,6 +7,7 @@ import {
   IkonTitik,
   PenahanPeta,
   WARNA_STATUS,
+  ContohLapisan,
 } from "./peta/bersama.jsx";
 import { IkonLayarPenuh, IkonTutupPenuh } from "./Icons.jsx";
 
@@ -28,6 +29,7 @@ const SebaranLeaflet = lazy(() => import("./peta/SebaranLeaflet.jsx"));
  * keterangan : teks ringkas di samping legenda, mis. jumlah titik
  * kosong : pesan di atas peta bila tidak ada titik; petanya tetap tampil
  *          supaya tata letak tidak melompat saat saringan diganti
+ * lapisan : lapisan GIS yang menyala dan sudah termuat (lib/lapisanPeta.js useLapisanPeta().aktif)
  */
 export default function PetaSebaran({
   titik = [],
@@ -37,6 +39,7 @@ export default function PetaSebaran({
   alat = null,
   keterangan = null,
   kosong = "",
+  lapisan = [],
 }) {
   const [jenis, setJenis] = useState("peta");
   const [penuh, setPenuh] = useState(false);
@@ -70,10 +73,20 @@ export default function PetaSebaran({
         onCek={onCek}
         kunciPandang={kunciPandang}
         jenis={jenis}
+        lapisan={lapisan}
       />
     );
   } else if (mesin.jenis === "leaflet") {
-    kanvas = <SebaranLeaflet titik={titik} onBuka={onBuka} onCek={onCek} kunciPandang={kunciPandang} jenis={jenis} />;
+    kanvas = (
+      <SebaranLeaflet
+        titik={titik}
+        onBuka={onBuka}
+        onCek={onCek}
+        kunciPandang={kunciPandang}
+        jenis={jenis}
+        lapisan={lapisan}
+      />
+    );
   }
 
   const labelPenuh = penuh ? "Tutup layar penuh" : "Layar penuh";
@@ -110,6 +123,11 @@ export default function PetaSebaran({
               <IkonTitik warna={WARNA_STATUS.selesai} dicek /> Sudah dicek
             </span>
           )}
+          {lapisan.map((l) => (
+            <span className="fk-legenda" key={l.id}>
+              <ContohLapisan warna={l.warna} /> {l.nama}
+            </span>
+          ))}
         </div>
         {keterangan && <span className="fk-peta-keterangan">{keterangan}</span>}
       </div>

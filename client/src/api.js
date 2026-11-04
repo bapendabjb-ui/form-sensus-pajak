@@ -167,7 +167,8 @@ async function request(path, { method = "GET", body, tanpaToken = false } = {}) 
   }
 
   const tipe = res.headers.get("content-type") || "";
-  const data = tipe.includes("application/json") ? await res.json().catch(() => ({})) : await res.text();
+  // application/json, dan turunannya seperti application/geo+json (lapisan peta).
+  const data = /[/+]json\b/.test(tipe) ? await res.json().catch(() => ({})) : await res.text();
 
   periksaJawaban(res, data, tokenTerkirim);
 
@@ -479,30 +480,47 @@ function namaDariHeader(disposition) {
   return cocok ? decodeURIComponent(cocok[1].trim()) : "";
 }
 
-/** Unduh CSV satu kertas kerja. `formulirId` membatasi ke satu formulir. */
-export const unduhCsv = (id, formulirId) =>
-  unduhBerkas(`/kertas-kerja/${id}/export${formulirId ? `?formulir=${formulirId}` : ""}`, "kertas-kerja.csv");
+/*
+ * Jenis berkas ekspor: "xlsx" | "csv" | "geojson" | "kml". CSV ada di jalur
+ * dasar ekspornya, jenis lain di jalur dasar + "/<jenis>" (server/src/ekspor.js
+ * rutekanEkspor). GeoJSON & KML berisi titik untuk QGIS / ArcGIS / Google Earth.
+ */
+const JENIS_EKSPOR = ["xlsx", "csv", "geojson", "kml"];
+const jenisSah = (jenis) => (JENIS_EKSPOR.includes(jenis) ? jenis : "xlsx");
+const akhiran = (jenis) => (jenisSah(jenis) === "csv" ? "" : `/${jenisSah(jenis)}`);
 
-/** Unduh Excel (.xlsx) satu kertas kerja. */
-export const unduhExcel = (id, formulirId) =>
-  unduhBerkas(
-    `/kertas-kerja/${id}/export/xlsx${formulirId ? `?formulir=${formulirId}` : ""}`,
-    "kertas-kerja.xlsx"
-  );
-
-/** Unduh seluruh data satu formulir dari semua kertas kerja. jenis: "xlsx" | "csv". */
-export const unduhFormulir = (id, jenis = "xlsx") =>
-  unduhBerkas(
-    `/formulir/${id}/export${jenis === "xlsx" ? "/xlsx" : ""}`,
-    `formulir.${jenis === "xlsx" ? "xlsx" : "csv"}`
-  );
+/** Jenis ekspor untuk aplikasi peta - jawabannya membawa jumlah titik (lihat infoTitik). */
+export const jenisPeta = (jenis) => jenis === "geojson" || jenis === "kml";
 
 /**
- * Unduh seluruh data semua formulir dari semua kertas kerja, satu baris per
- * kertas kerja. jenis: "xlsx" | "csv".
+ * Dari header jawaban unduhan GeoJSON / KML: { titik, tanpaTitik } - berapa
+ * titik yang ikut dan berapa baris yang tidak ikut karena belum berkoordinat.
  */
+export const infoTitik = (headers) => ({
+  titik: Number(headers?.get?.("x-jumlah-titik")) || 0,
+  tanpaTitik: Number(headers?.get?.("x-tanpa-titik")) || 0,
+});
+
+/** Unduh satu kertas kerja. `formulirId` membatasi ke satu formulir. */
+export const unduhKertasKerja = (id, formulirId, jenis = "xlsx") =>
+  unduhBerkas(
+    `/kertas-kerja/${id}/export${akhiran(jenis)}${formulirId ? `?formulir=${formulirId}` : ""}`,
+    `kertas-kerja.${jenisSah(jenis)}`
+  );
+
+/** Unduh CSV satu kertas kerja. `formulirId` membatasi ke satu formulir. */
+export const unduhCsv = (id, formulirId) => unduhKertasKerja(id, formulirId, "csv");
+
+/** Unduh Excel (.xlsx) satu kertas kerja. */
+export const unduhExcel = (id, formulirId) => unduhKertasKerja(id, formulirId, "xlsx");
+
+/** Unduh seluruh data satu formulir dari semua kertas kerja. */
+export const unduhFormulir = (id, jenis = "xlsx") =>
+  unduhBerkas(`/formulir/${id}/export${akhiran(jenis)}`, `formulir.${jenisSah(jenis)}`);
+
+/** Unduh seluruh data semua formulir dari semua kertas kerja, satu baris per kertas kerja. */
 export const unduhSemuaData = (jenis = "xlsx") =>
-  unduhBerkas(`/ekspor/semua${jenis === "xlsx" ? "/xlsx" : ""}`, `semua-data.${jenis === "xlsx" ? "xlsx" : "csv"}`);
+  unduhBerkas(`/ekspor/semua${akhiran(jenis)}`, `semua-data.${jenisSah(jenis)}`);
 
 /** ?kecamatan=&kelurahan=&formulir= - kode SISMIOP; kelurahan & formulir boleh kosong. */
 const queryWilayah = ({ kecamatan, kelurahan, formulir }) => {
@@ -519,12 +537,9 @@ const queryWilayah = ({ kecamatan, kelurahan, formulir }) => {
 export const ringkasEksporWilayah = (kecamatan, kelurahan) =>
   request(`/ekspor/wilayah/ringkas?${queryWilayah({ kecamatan, kelurahan })}`);
 
-/** Unduh data per kecamatan / kelurahan objek pajak. jenis: "xlsx" | "csv". */
+/** Unduh data per kecamatan / kelurahan objek pajak. */
 export const unduhWilayah = (pilihan, jenis = "xlsx") =>
-  unduhBerkas(
-    `/ekspor/wilayah${jenis === "xlsx" ? "/xlsx" : ""}?${queryWilayah(pilihan)}`,
-    `wilayah.${jenis === "xlsx" ? "xlsx" : "csv"}`
-  );
+  unduhBerkas(`/ekspor/wilayah${akhiran(jenis)}?${queryWilayah(pilihan)}`, `wilayah.${jenisSah(jenis)}`);
 
 /* ---------- cadangan manual ---------- */
 
@@ -563,12 +578,9 @@ const queryPetugas = ({ petugas, formulir }) => {
  */
 export const ringkasEksporPetugas = (petugas) => request(`/ekspor/petugas/ringkas?${queryPetugas({ petugas })}`);
 
-/** Unduh data per petugas. jenis: "xlsx" | "csv". */
+/** Unduh data per petugas. */
 export const unduhPetugasData = (pilihan, jenis = "xlsx") =>
-  unduhBerkas(
-    `/ekspor/petugas${jenis === "xlsx" ? "/xlsx" : ""}?${queryPetugas(pilihan)}`,
-    `petugas.${jenis === "xlsx" ? "xlsx" : "csv"}`
-  );
+  unduhBerkas(`/ekspor/petugas${akhiran(jenis)}?${queryPetugas(pilihan)}`, `petugas.${jenisSah(jenis)}`);
 
 /* ---------- dashboard ---------- */
 
@@ -578,6 +590,63 @@ export const getStats = () => request("/dashboard/stats");
 
 /** Semua titik hasil sensus, satu titik per data. */
 export const listPeta = () => request("/peta");
+
+/* ---------- lapisan peta dari GIS (QGIS / ArcGIS) ---------- */
+
+/** [{ id, nama, warna, tampil, jumlahFitur, ukuran, versi, dibuatOleh, createdAt }], tanpa isinya. */
+export const listLapisan = () => request("/lapisan");
+
+const isiLapisanCache = new Map(); // versi -> Promise<FeatureCollection>
+
+/**
+ * GeoJSON sebuah lapisan. Isi lapisan tidak pernah berubah selama `versi`-nya
+ * sama, jadi cukup diunduh sekali per sesi - membuka ulang Peta Sensus atau
+ * menyalakan ulang lapisannya tidak mengunduh lagi.
+ */
+export function isiLapisan(l) {
+  if (!isiLapisanCache.has(l.versi)) {
+    const janji = request(`/lapisan/${l.id}`).catch((e) => {
+      isiLapisanCache.delete(l.versi);
+      throw e;
+    });
+    isiLapisanCache.set(l.versi, janji);
+  }
+  return isiLapisanCache.get(l.versi);
+}
+
+/**
+ * Unggah lapisan GeoJSON (multipart). Khusus admin.
+ * Mengembalikan lapisan baru + `dilewati` (fitur tanpa geometri).
+ */
+export async function unggahLapisan(file, { nama = "", warna = "", tampil = true } = {}) {
+  const data = new FormData();
+  data.append("nama", nama);
+  data.append("warna", warna);
+  data.append("tampil", tampil ? "true" : "false");
+  data.append("berkas", file, file.name || "lapisan.geojson");
+
+  const headers = kepalaToken();
+  let res;
+  try {
+    res = await fetch(`${BASE}/lapisan`, { method: "POST", headers, body: data });
+  } catch {
+    throw new ApiError(0, "Tidak dapat menghubungi server. Periksa koneksi Anda.");
+  }
+  const body = await res.json().catch(() => ({}));
+  periksaJawaban(res, body, Boolean(headers.Authorization));
+  if (res.status === 413) {
+    // Ditolak proxy web server (Nginx client_max_body_size) sebelum sampai ke aplikasi.
+    throw new ApiError(413, "Berkas melebihi batas unggah server web. Perkecil berkasnya atau minta batas unggah Nginx dinaikkan.");
+  }
+  if (!res.ok) throw new ApiError(res.status, body.error || `Unggah lapisan gagal (${res.status}).`, body);
+  return body;
+}
+
+/** Ubah nama / warna / tampil-saat-dibuka sebuah lapisan. Khusus admin. */
+export const ubahLapisan = (id, data) => request(`/lapisan/${id}`, { method: "PUT", body: data });
+
+/** Hapus lapisan. Khusus admin. */
+export const hapusLapisan = (id) => request(`/lapisan/${id}`, { method: "DELETE" });
 
 /* ---------- cek NOP ke EPBB ---------- */
 

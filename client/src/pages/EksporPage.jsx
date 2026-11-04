@@ -6,13 +6,15 @@ import { PageHead, Panel, Loading, ErrorBox } from "../components/Ui.jsx";
 import LoginAdmin from "../components/LoginAdmin.jsx";
 
 /**
- * Halaman ekspor: satu tempat untuk mengunduh data sebagai Excel atau CSV.
+ * Halaman ekspor: satu tempat untuk mengunduh data sebagai Excel atau CSV, atau
+ * sebagai titik GeoJSON / KML untuk aplikasi peta (QGIS, ArcGIS, Google Earth).
  *   - Per kertas kerja: semua formulir, atau satu formulir di kertas kerja itu.
  *   - Per formulir: seluruh data formulir itu dari semua kertas kerja, atau
  *     seluruh data semua formulir (satu baris per kertas kerja).
  *   - Per kecamatan / kelurahan objek pajak: semua formulir atau satu formulir.
  *   - Per petugas: data di kertas kerja yang timnya memuat petugas itu.
  * Unduhannya sama dengan tombol ekspor di halaman kertas kerja & bank formulir.
+ * GeoJSON / KML berisi baris yang sama dengan Excel, hanya yang berkoordinat.
  */
 
 const SEMUA_FORMULIR = "Semua formulir";
@@ -32,28 +34,45 @@ const labelKk = (k) => {
 const labelJumlah = (judul, jumlah) => `${judul} · ${jumlah} data`;
 
 /**
- * Tombol Excel & CSV. Selama berkas disiapkan server keduanya terkunci:
- * ekspor besar butuh beberapa detik, dan klik berulang membuat server
- * menyusun berkas yang sama berkali-kali sekaligus.
+ * Tombol Excel, CSV, GeoJSON, dan KML. `onUnduh(jenis)` memulai unduhan dan
+ * mengembalikan header jawabannya (undefined bila gagal - galatnya sudah
+ * ditampilkan pemanggil). Selama berkas disiapkan server semua tombol terkunci:
+ * ekspor besar butuh beberapa detik, dan klik berulang membuat server menyusun
+ * berkas yang sama berkali-kali sekaligus.
  */
-function TombolUnduh({ onExcel, onCsv, disabled }) {
-  const [sibuk, setSibuk] = useState(""); // "" | "xlsx" | "csv"
-  const jalankan = (jenis, unduh) => async () => {
+function TombolUnduh({ onUnduh, disabled }) {
+  const toast = useToast();
+  const [sibuk, setSibuk] = useState(""); // "" | "xlsx" | "csv" | "geojson" | "kml"
+  const jalankan = (jenis) => async () => {
     setSibuk(jenis);
     try {
-      await unduh();
+      const headers = await onUnduh(jenis);
+      if (headers && api.jenisPeta(jenis)) {
+        // Berkas peta hanya memuat baris berkoordinat; kabarkan yang tertinggal.
+        const { titik, tanpaTitik } = api.infoTitik(headers);
+        const tertinggal = tanpaTitik
+          ? ` ${formatAngka(tanpaTitik)} baris belum berkoordinat, jadi tidak ikut.`
+          : "";
+        toast(`${formatAngka(titik)} titik diunduh.${tertinggal}`);
+      }
     } finally {
       setSibuk("");
     }
   };
+  const tombol = (jenis, label, kelas) => (
+    <button type="button" className={kelas} onClick={jalankan(jenis)} disabled={disabled || !!sibuk}>
+      {sibuk === jenis ? "Menyiapkan..." : label}
+    </button>
+  );
   return (
     <div className="fk-ekspor-aksi">
-      <button type="button" className="fk-btn" onClick={jalankan("xlsx", onExcel)} disabled={disabled || !!sibuk}>
-        {sibuk === "xlsx" ? "Menyiapkan..." : "Unduh Excel"}
-      </button>
-      <button type="button" className="fk-btn-ghost" onClick={jalankan("csv", onCsv)} disabled={disabled || !!sibuk}>
-        {sibuk === "csv" ? "Menyiapkan..." : "Unduh CSV"}
-      </button>
+      {tombol("xlsx", "Unduh Excel", "fk-btn")}
+      {tombol("csv", "Unduh CSV", "fk-btn-ghost")}
+      <div className="fk-ekspor-peta" role="group" aria-label="Titik untuk aplikasi peta">
+        <span className="fk-hint-kecil">Titik untuk QGIS / ArcGIS:</span>
+        {tombol("geojson", "GeoJSON", "fk-btn-ghost")}
+        {tombol("kml", "KML", "fk-btn-ghost")}
+      </div>
     </div>
   );
 }
@@ -170,11 +189,7 @@ function PanelWilayah({ unduhKe }) {
         )}
       </div>
 
-      <TombolUnduh
-        disabled={!siap}
-        onExcel={() => unduhKe(api.unduhWilayah(pilihan, "xlsx"))}
-        onCsv={() => unduhKe(api.unduhWilayah(pilihan, "csv"))}
-      />
+      <TombolUnduh disabled={!siap} onUnduh={(jenis) => unduhKe(api.unduhWilayah(pilihan, jenis))} />
     </Panel>
   );
 }
@@ -255,11 +270,7 @@ function PanelPetugas({ unduhKe }) {
         )}
       </div>
 
-      <TombolUnduh
-        disabled={!siap}
-        onExcel={() => unduhKe(api.unduhPetugasData(pilihan, "xlsx"))}
-        onCsv={() => unduhKe(api.unduhPetugasData(pilihan, "csv"))}
-      />
+      <TombolUnduh disabled={!siap} onUnduh={(jenis) => unduhKe(api.unduhPetugasData(pilihan, jenis))} />
     </Panel>
   );
 }
@@ -397,7 +408,12 @@ export default function EksporPage({ admin, onAuthChanged }) {
   const toast = useToast();
   // Unduhan lewat fetch bertoken bisa gagal (sesi habis, jaringan putus);
   // tanpa ini galatnya tenggelam sebagai promise yang ditolak diam-diam.
-  const unduhKe = (janji) => janji.catch((e) => toast(e.message, true));
+  // Gagal = undefined, supaya TombolUnduh tidak mengabarkan jumlah titik.
+  const unduhKe = (janji) =>
+    janji.catch((e) => {
+      toast(e.message, true);
+      return undefined;
+    });
   const [kkList, setKkList] = useState([]);
   const [formList, setFormList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -478,7 +494,7 @@ export default function EksporPage({ admin, onAuthChanged }) {
     <>
       <PageHead
         title="Ekspor Data"
-        sub="Unduh Data Sebagai Excel atau CSV: Per Kertas Kerja, Per Formulir, Per Kecamatan/Kelurahan, atau Per Petugas."
+        sub="Unduh Data Sebagai Excel atau CSV, atau Sebagai Titik GeoJSON/KML Untuk QGIS & ArcGIS: Per Kertas Kerja, Per Formulir, Per Kecamatan/Kelurahan, atau Per Petugas."
       />
 
       <Panel title="Per kertas kerja" sub="Satu kertas kerja — seluruh formulir atau satu formulir saja.">
@@ -510,8 +526,7 @@ export default function EksporPage({ admin, onAuthChanged }) {
 
         <TombolUnduh
           disabled={!kkTerpilih || memuatGrup}
-          onExcel={() => unduhKe(api.unduhExcel(kkId, kkFormId || undefined))}
-          onCsv={() => unduhKe(api.unduhCsv(kkId, kkFormId || undefined))}
+          onUnduh={(jenis) => unduhKe(api.unduhKertasKerja(kkId, kkFormId || undefined, jenis))}
         />
       </Panel>
 
@@ -550,8 +565,7 @@ export default function EksporPage({ admin, onAuthChanged }) {
 
         <TombolUnduh
           disabled={!formTerpilih && !semuaData}
-          onExcel={() => unduhKe(semuaData ? api.unduhSemuaData("xlsx") : api.unduhFormulir(formId, "xlsx"))}
-          onCsv={() => unduhKe(semuaData ? api.unduhSemuaData("csv") : api.unduhFormulir(formId, "csv"))}
+          onUnduh={(jenis) => unduhKe(semuaData ? api.unduhSemuaData(jenis) : api.unduhFormulir(formId, jenis))}
         />
       </Panel>
 

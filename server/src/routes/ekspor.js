@@ -4,6 +4,9 @@
  * Ekspor per kecamatan / kelurahan objek pajak (aturannya di
  * src/eksporWilayah.js), per petugas, dan seluruh data. Susunan kolomnya sama
  * dengan ekspor per kertas kerja dan per formulir (src/ekspor.js). Khusus admin.
+ *
+ * Setiap ekspor tersedia sebagai CSV (jalur dasarnya), /xlsx, /geojson, dan
+ * /kml - dipasang sekaligus oleh rutekanEkspor.
  */
 
 const express = require("express");
@@ -12,7 +15,7 @@ const config = require("../config");
 const { requireAdmin } = require("../auth");
 const { wrap, badRequest, notFound, parseId } = require("../http");
 const { includePertanyaan } = require("../bentuk");
-const { susunTabel, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
+const { susunTabel, baseUrlEkspor, namaBerkas, rutekanEkspor } = require("../ekspor");
 const { muatEntriEkspor } = require("../muatEkspor");
 const { pertanyaanObjek, bacaPilihanWilayah, saringWilayah } = require("../eksporWilayah");
 
@@ -140,19 +143,8 @@ async function dataEksporWilayah(req) {
   });
 }
 
-/** GET /api/ekspor/wilayah?kecamatan=&kelurahan=&formulir= -> CSV (BOM UTF-8). */
-router.get(
-  "/wilayah",
-  requireAdmin,
-  wrap(async (req, res) => kirimCsv(res, await dataEksporWilayah(req)))
-);
-
-/** GET /api/ekspor/wilayah/xlsx?kecamatan=&kelurahan=&formulir= -> Excel, isi sama dengan CSV. */
-router.get(
-  "/wilayah/xlsx",
-  requireAdmin,
-  wrap(async (req, res) => kirimXlsx(res, await dataEksporWilayah(req)))
-);
+/** GET /api/ekspor/wilayah[/xlsx|/geojson|/kml]?kecamatan=&kelurahan=&formulir= */
+rutekanEkspor(router, "/wilayah", requireAdmin, dataEksporWilayah);
 
 /* ---------- per petugas ---------- */
 
@@ -247,19 +239,8 @@ async function dataEksporPetugas(req) {
   return susunBerkas(req, entri, formId, namaPetugas(daftar));
 }
 
-/** GET /api/ekspor/petugas?petugas=&formulir= -> CSV (BOM UTF-8). */
-router.get(
-  "/petugas",
-  requireAdmin,
-  wrap(async (req, res) => kirimCsv(res, await dataEksporPetugas(req)))
-);
-
-/** GET /api/ekspor/petugas/xlsx?petugas=&formulir= -> Excel, isi sama dengan CSV. */
-router.get(
-  "/petugas/xlsx",
-  requireAdmin,
-  wrap(async (req, res) => kirimXlsx(res, await dataEksporPetugas(req)))
-);
+/** GET /api/ekspor/petugas[/xlsx|/geojson|/kml]?petugas=&formulir= */
+rutekanEkspor(router, "/petugas", requireAdmin, dataEksporPetugas);
 
 /* ---------- seluruh data ---------- */
 
@@ -273,19 +254,8 @@ async function dataEksporSemua(req) {
   return susunBerkas(req, entri, null, { namaBagian: ["semua-data"], judul: "Semua data" });
 }
 
-/** GET /api/ekspor/semua -> CSV (BOM UTF-8). */
-router.get(
-  "/semua",
-  requireAdmin,
-  wrap(async (req, res) => kirimCsv(res, await dataEksporSemua(req)))
-);
-
-/** GET /api/ekspor/semua/xlsx -> Excel, isi sama dengan CSV. */
-router.get(
-  "/semua/xlsx",
-  requireAdmin,
-  wrap(async (req, res) => kirimXlsx(res, await dataEksporSemua(req)))
-);
+/** GET /api/ekspor/semua[/xlsx|/geojson|/kml] */
+rutekanEkspor(router, "/semua", requireAdmin, dataEksporSemua);
 
 module.exports = router;
 

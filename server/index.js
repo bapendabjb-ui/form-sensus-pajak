@@ -73,6 +73,7 @@ app.use("/api/pengajuan-hapus", require("./src/routes/pengajuan"));
 app.use("/api/foto", require("./src/routes/foto"));
 app.use("/api/dashboard", require("./src/routes/dashboard"));
 app.use("/api/peta", require("./src/routes/peta"));
+app.use("/api/lapisan", require("./src/routes/lapisan"));
 app.use("/api/nop", require("./src/routes/nop"));
 app.use("/api/tautan-peta", require("./src/routes/tautanPeta"));
 app.use("/api/wilayah", require("./src/routes/wilayah"));
@@ -91,6 +92,8 @@ app.get("/api/konfigurasi", async (_req, res, next) => {
       petugasMaks: batas.PETUGAS_MAKS,
       fotoMaksPerPertanyaan: batas.FOTO_MAKS_PER_PERTANYAAN,
       uploadMaksMb: config.uploadMaxMb,
+      // Unggahan lapisan peta GeoJSON paling besar (src/lapisanPeta.js).
+      lapisanMaksMb: require("./src/lapisanPeta").UNGGAH_MAKS_MB,
       cekNop: require("./src/epbb").aktif(),
       // Kosong = klien langsung memakai peta OpenStreetMap / Esri.
       googleMapsKey: config.googleMapsKey,

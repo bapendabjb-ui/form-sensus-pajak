@@ -8,7 +8,7 @@ const { wrap, badRequest, notFound, conflict, parseId } = require("../http");
 const { includePertanyaan, bentukFormulir } = require("../bentuk");
 const { hapusBerkas, sapuFotoYatim } = require("../foto");
 const { tutupPengajuan } = require("../hapus");
-const { susunTabel, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
+const { susunTabel, baseUrlEkspor, namaBerkas, rutekanEkspor } = require("../ekspor");
 const { muatEntriEkspor } = require("../muatEkspor");
 const { bacaPayload, susunBerkasBank, bacaBerkasBank } = require("../bankFormulir");
 
@@ -202,19 +202,11 @@ async function dataEksporFormulir(req) {
   };
 }
 
-/** GET /api/formulir/:id/export -> CSV seluruh data formulir ini dari semua kertas kerja. Khusus admin. */
-router.get(
-  "/:id/export",
-  requireAdmin,
-  wrap(async (req, res) => kirimCsv(res, await dataEksporFormulir(req)))
-);
-
-/** GET /api/formulir/:id/export/xlsx -> Excel, isi sama dengan CSV. Khusus admin. */
-router.get(
-  "/:id/export/xlsx",
-  requireAdmin,
-  wrap(async (req, res) => kirimXlsx(res, await dataEksporFormulir(req)))
-);
+/**
+ * GET /api/formulir/:id/export -> CSV seluruh data formulir ini dari semua kertas
+ * kerja; /xlsx, /geojson, dan /kml berisi tabel yang sama. Khusus admin.
+ */
+rutekanEkspor(router, "/:id/export", requireAdmin, dataEksporFormulir);
 
 /* ---------- route admin (penyusunan formulir) ---------- */
 

@@ -570,6 +570,9 @@ html.fk-ketik .fk-fab{display:none;}
 .fk-ekspor-isian .fk-q-name{margin:6px 0 0;}
 .fk-ekspor-isian .fk-q-name:first-child{margin-top:0;}
 .fk-ekspor-aksi{display:flex; gap:8px; flex-wrap:wrap; margin-top:16px;}
+/* GeoJSON / KML: dipisah garis dari Excel & CSV supaya jelas kegunaannya lain. */
+.fk-ekspor-peta{display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding-left:12px; border-left:1px solid var(--line);}
+@media (max-width:560px){ .fk-ekspor-peta{width:100%; padding:10px 0 0; border-left:0; border-top:1px solid var(--line-soft);} .fk-ekspor-peta .fk-hint-kecil{width:100%;} }
 /* cadangan manual: satu baris per berkas (database, foto per bulan) */
 .fk-cadangan{display:flex; flex-direction:column; gap:10px;}
 .fk-cadangan-baris{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 12px; padding-bottom:10px; border-bottom:1px solid var(--line-soft);}
@@ -772,6 +775,51 @@ html.fk-ketik .fk-fab{display:none;}
 .fk-balon-cek{border:1px solid var(--brand); background:var(--brand); color:#fff; font-size:12px; font-weight:600; padding:6px 10px; border-radius:8px; cursor:pointer;}
 .fk-balon-cek.is-on{border-color:var(--line); background:var(--surface); color:var(--muted);}
 .fk-balon-dicek{font-size:12px; font-weight:600; color:var(--brand-dark);}
+
+/* ---- lapisan dari GIS (Peta Sensus): tombol, daftar, balon, pengelolaan ---- */
+.fk-lapisan{position:relative;}
+.fk-lapisan-btn{display:inline-flex; align-items:center; gap:6px; min-height:34px; font-weight:600;}
+.fk-lapisan-btn.is-aktif{border-color:var(--brand); background:var(--brand-tint); color:var(--brand-dark);}
+.fk-lapisan-jumlah{min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--brand); color:#fff; font-size:11px; line-height:18px; text-align:center;}
+.fk-lapisan-panel{left:0; width:300px; max-width:calc(100vw - 32px); max-height:min(380px, 60vh); overflow:auto; padding:6px;}
+.fk-lapisan-daftar{display:flex; flex-direction:column; gap:2px;}
+.fk-lapisan-opsi{display:flex; align-items:center; gap:10px; width:100%; border:0; background:transparent; padding:9px 10px; border-radius:8px; text-align:left; color:var(--ink);}
+.fk-lapisan-opsi:hover{background:#F2F5F7;}
+.fk-lapisan-opsi.is-on .fk-ind{border-color:var(--brand);}
+.fk-lapisan-teks{display:flex; flex-direction:column; min-width:0; flex:1;}
+.fk-lapisan-nama{font-size:14px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.fk-lapisan-galat{color:var(--danger);}
+.fk-lapisan-kelola{align-self:flex-start; margin:6px 4px 2px;}
+.fk-lapisan-kembali{margin:2px 0 10px;}
+/* Contoh warna: kotak bergaris seperti bidangnya di peta. */
+.fk-lapisan-contoh{width:16px; height:12px; flex:none; border-radius:3px; border:2px solid var(--warna); background:transparent; background:color-mix(in srgb, var(--warna) 20%, transparent);}
+.fk-sheet-isi .fk-lapisan-opsi{min-height:56px; padding:12px 6px; border-radius:0; border-bottom:1px solid var(--line-soft);}
+.fk-sheet-isi .fk-lapisan-nama{font-size:16px;}
+@media (max-width:560px){ .fk-lapisan-label{display:none;} }
+.fk-balon-tabel{border-collapse:collapse; font-size:12px; margin-top:4px;}
+.fk-balon-tabel th{text-align:left; font-weight:500; color:var(--muted); padding:2px 10px 2px 0; vertical-align:top; white-space:nowrap;}
+.fk-balon-tabel td{color:var(--ink); padding:2px 0; overflow-wrap:anywhere;}
+.fk-kelola-lapisan{display:flex; flex-direction:column; gap:18px; padding:4px 0 6px;}
+.fk-kelola-bagian{display:flex; flex-direction:column; gap:8px;}
+.fk-kelola-bagian .fk-q-name{margin:4px 0 0;}
+.fk-kelola-bagian p{margin:0; line-height:1.5;}
+.fk-kelola-bagian .fk-ekspor-aksi{margin-top:4px;}
+.fk-kelola-judul{font-weight:600; font-size:14.5px;}
+.fk-berkas-pilih{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.fk-palet{display:flex; gap:8px; flex-wrap:wrap;}
+.fk-palet-warna{width:28px; height:28px; padding:0; border-radius:50%; border:2px solid #fff; background:var(--warna); box-shadow:0 0 0 1px var(--line);}
+.fk-palet-warna.is-on{box-shadow:0 0 0 2px var(--ink);}
+.fk-palet-warna:disabled{opacity:.5; cursor:default;}
+.fk-palet.is-kecil{gap:6px;}
+.fk-palet.is-kecil .fk-palet-warna{width:22px; height:22px;}
+.fk-lapisan-baris{display:flex; flex-direction:column; gap:8px; padding:12px 0; border-top:1px solid var(--line-soft);}
+.fk-lapisan-baris-atas{display:flex; align-items:center; gap:10px; min-width:0;}
+.fk-lapisan-baris-aksi{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.fk-lapisan-ubah{display:flex; align-items:center; gap:8px; flex:1; min-width:0;}
+.fk-lapisan-ubah .fk-input{flex:1; min-width:0; padding:6px 10px;}
+.fk-mini-saklar{display:inline-flex; align-items:center; gap:4px;}
+.fk-mini-saklar.is-on{border-color:var(--brand); background:var(--brand-tint); color:var(--brand-dark);}
+.fk-lapisan-yakin{display:flex; flex-direction:column; gap:8px; padding:10px 12px; border-radius:10px; background:#FBE9E7; color:#A5312A; font-size:13px;}
 /* Peta Google digambar di kanvas tersendiri supaya lapisan "memuat" milik React tidak bertabrakan dengannya. */
 .fk-peta-kanvas{position:absolute; inset:0;}
 .fk-peta-memuat{position:absolute; inset:0; z-index:1; display:flex; align-items:center; justify-content:center; gap:10px; background:#E6EAEF; color:var(--muted); font-size:13px;}

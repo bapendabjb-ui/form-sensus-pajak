@@ -19,7 +19,7 @@ const { hapusKertasKerja } = require("../hapus");
 const { includePengajuanTerakhir, bentukPengajuanTerakhir } = require("../pengajuan");
 const { jawabanLokasiPertama, ringkasLokasiEntri } = require("../cekLokasi");
 const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require("../bentuk");
-const { susunTabel, barisTanpaData, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
+const { susunTabel, barisTanpaData, baseUrlEkspor, namaBerkas, rutekanEkspor } = require("../ekspor");
 
 const router = express.Router();
 
@@ -672,22 +672,10 @@ async function dataEkspor(req) {
 }
 
 /**
- * GET /api/kertas-kerja/:id/export[?formulir=<id>] -> CSV (BOM UTF-8). Khusus admin.
- * Satu baris per data. Kolom pertanyaan dikelompokkan per formulir; sel milik
- * formulir lain dibiarkan kosong.
+ * GET /api/kertas-kerja/:id/export[?formulir=<id>] -> CSV (BOM UTF-8); /xlsx,
+ * /geojson, dan /kml berisi tabel yang sama (lihat dataEkspor). Khusus admin.
  */
-router.get(
-  "/:id/export",
-  requireAdmin,
-  wrap(async (req, res) => kirimCsv(res, await dataEkspor(req)))
-);
-
-/** GET /api/kertas-kerja/:id/export/xlsx[?formulir=<id>] -> Excel, isi sama dengan CSV. */
-router.get(
-  "/:id/export/xlsx",
-  requireAdmin,
-  wrap(async (req, res) => kirimXlsx(res, await dataEkspor(req)))
-);
+rutekanEkspor(router, "/:id/export", requireAdmin, dataEkspor);
 
 module.exports = router;
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 // Plugin ini menempel pada window.L, yang dipasang oleh "leaflet" di atas -
@@ -6,7 +6,17 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import { pasangUbin } from "../../lib/ubinPeta";
-import { PUSAT_AWAL, isiBalon, svgTitik, warnaTitik, svgKlaster, KLASTER_ZOOM_MAKS } from "./bersama.jsx";
+import {
+  PUSAT_AWAL,
+  isiBalon,
+  svgTitik,
+  warnaTitik,
+  svgKlaster,
+  KLASTER_ZOOM_MAKS,
+  isiBalonLapisan,
+  gayaLapisan,
+  TITIK_LAPISAN_RADIUS,
+} from "./bersama.jsx";
 
 /**
  * Mesin cadangan Peta Sensus (Leaflet + OpenStreetMap / Esri): banyak titik
@@ -19,6 +29,8 @@ import { PUSAT_AWAL, isiBalon, svgTitik, warnaTitik, svgKlaster, KLASTER_ZOOM_MA
  * kunciPandang : pandangan dirapatkan ulang hanya bila nilai ini berganti
  *                (tampilan / saringan), bukan setiap titik berubah tanda
  * jenis  : "peta" | "satelit"
+ * lapisan : [{ versi, nama, warna, data }] - lapisan GIS yang menyala (lib/lapisanPeta.js),
+ *           digambar di bawah titik sensus
  */
 
 /** Warna = status kertas kerja; sudah dicek admin bercentang. */
@@ -32,11 +44,35 @@ const ikonTitik = (t) => {
   });
 };
 
-export default function SebaranLeaflet({ titik = [], onBuka, onCek = null, kunciPandang, jenis }) {
+/**
+ * Satu lapisan GIS sebagai L.GeoJSON. Digambar di kanvas, bukan SVG: ribuan
+ * bidang persil sebagai elemen SVG membuat geser dan zoom tersendat.
+ */
+function buatLapisanGis(l, kanvas) {
+  const g = gayaLapisan(l.warna);
+  const titik = (f) => /Point$/.test(f?.geometry?.type || "");
+  return L.geoJSON(l.data, {
+    renderer: kanvas,
+    style: (f) =>
+      titik(f)
+        ? { color: "#fff", weight: 1.5, opacity: 1, fillColor: g.isi, fillOpacity: 0.95 }
+        : { color: g.garis, weight: g.tebal, opacity: 0.9, fillColor: g.isi, fillOpacity: g.isiTembus },
+    pointToLayer: (_f, latlng) => L.circleMarker(latlng, { renderer: kanvas, radius: TITIK_LAPISAN_RADIUS }),
+    onEachFeature: (f, layer) => layer.bindPopup(() => isiBalonLapisan(l.nama, f.properties), { maxWidth: 320 }),
+  });
+}
+
+/** Kunci gambar sebuah lapisan: berganti bila isi, nama, atau warnanya berganti. */
+const kunciLapisan = (l) => `${l.versi}|${l.warna}|${l.nama}`;
+
+export default function SebaranLeaflet({ titik = [], onBuka, onCek = null, kunciPandang, jenis, lapisan = [] }) {
   const wadah = useRef(null);
   const peta = useRef(null);
   const ubin = useRef(null);
   const lapisanTitik = useRef(null);
+  const kanvas = useRef(null);
+  // Tetap satu Map selama komponen hidup (bukan ref: isinya dibaca saat dibersihkan).
+  const [lapisanGis] = useState(() => new Map()); // kunciLapisan -> L.GeoJSON
   const bukaRef = useRef(onBuka);
   bukaRef.current = onBuka;
   const cekRef = useRef(onCek);
@@ -50,6 +86,7 @@ export default function SebaranLeaflet({ titik = [], onBuka, onCek = null, kunci
     // pengelompok titik langsung membutuhkan batas zoom peta.
     const m = L.map(wadah.current, { center: [PUSAT_AWAL.lat, PUSAT_AWAL.lon], zoom: 12, maxZoom: 19 });
     peta.current = m;
+    kanvas.current = L.canvas({ padding: 0.5 });
     // Kelompok titik: hanya yang terlihat yang digambar, zoom tetap ringan.
     lapisanTitik.current = L.markerClusterGroup({
       maxClusterRadius: 50,
@@ -75,8 +112,33 @@ export default function SebaranLeaflet({ titik = [], onBuka, onCek = null, kunci
       peta.current = null;
       ubin.current = null;
       lapisanTitik.current = null;
+      kanvas.current = null;
+      // Ikut terhapus bersama petanya; kosongkan supaya peta baru (mis. saat
+      // efek dijalankan dua kali di mode pengembangan) menggambarnya lagi.
+      lapisanGis.clear();
     };
-  }, []);
+  }, [lapisanGis]);
+
+  // Lapisan GIS: pasang yang baru menyala, lepas yang dimatikan / berubah warna.
+  useEffect(() => {
+    const m = peta.current;
+    if (!m) return;
+    const ingin = new Map(lapisan.map((l) => [kunciLapisan(l), l]));
+    for (const [k, layer] of lapisanGis) {
+      if (ingin.has(k)) continue;
+      layer.remove();
+      lapisanGis.delete(k);
+    }
+    for (const [k, l] of ingin) {
+      if (lapisanGis.has(k)) continue;
+      try {
+        lapisanGis.set(k, buatLapisanGis(l, kanvas.current).addTo(m));
+      } catch (e) {
+        // GeoJSON yang ditolak Leaflet tidak boleh menjatuhkan seluruh peta.
+        console.warn(`[Sensus Pajak] lapisan "${l.nama}" tidak dapat digambar:`, e.message);
+      }
+    }
+  }, [lapisan, lapisanGis]);
 
   // Ganti lapisan peta jalan / satelit. Sumber ubin dipilih di lib/ubinPeta.js:
   // pemasangan bisa tertunda sesaat saat sumber peta jalan diuji lebih dulu.

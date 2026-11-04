@@ -130,6 +130,7 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── router.js           alamat per layar + tombol Kembali HP + konfirmasi keluar
 │       │   ├── admin.js            status login admin untuk komponen dalam
 │       │   ├── konfigurasi.js      batas aplikasi dari server (petugasMaks dll.)
+│       │   ├── lapisanPeta.js      lapisan GIS di Peta Sensus: daftar, nyala/mati per browser, unduh isi
 │       │   ├── useDragUrut.js      seret (drag & drop) untuk menyusun ulang daftar
 │       │   ├── useMobile.js        deteksi tata letak HP
 │       │   └── useOutside.js
@@ -146,6 +147,8 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── LokasiInput.jsx     titik GPS + akurasi
 │       │   ├── Dialog.jsx          dialog konfirmasi aplikasi (pengganti window.confirm)
 │       │   ├── PengajuanHapus.jsx  pita pengajuan menunggu + isian "Ajukan hapus"
+│       │   ├── KelolaLapisan.jsx   admin: unggah / atur / hapus lapisan GIS (GeoJSON)
+│       │   ├── peta/               mesin peta Google & Leaflet, bersama.jsx, PilihLapisan.jsx (tombol Lapisan)
 │       │   ├── Fields.jsx          semua 16 tipe input pengisian (termasuk NIK, NPWP, NOP, RT & RW)
 │       │   └── Toast.jsx, Ui.jsx
 │       └── pages/
@@ -187,10 +190,12 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │   │   ├── bentuk.js               bentuk keluaran JSON bersama
 │   │   ├── format.js               format tanggal/uang + penyusun CSV (anti rumus)
 │   │   ├── ekspor.js               susunan tabel ekspor (satu pintu untuk semua jenis ekspor) + penulis CSV & Excel
+│   │   ├── eksporPeta.js           tabel ekspor -> titik GeoJSON / KML untuk QGIS, ArcGIS, Google Earth
+│   │   ├── lapisanPeta.js          pembaca & perapi GeoJSON lapisan GIS (tolak CRS selain EPSG:4326)
 │   │   ├── muatEkspor.js           pemuatan data ekspor besar secara bertahap (hemat memori)
 │   │   ├── eksporWilayah.js        aturan ekspor per kecamatan / kelurahan objek pajak
 │   │   ├── cadangan.js             cadangan manual: mysqldump, arsip foto per bulan, tiket unduh
-│   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, pengajuan, foto, dashboard, peta, nop, wilayah, ekspor, cadangan
+│   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, pengajuan, foto, dashboard, peta, lapisan, nop, wilayah, ekspor, cadangan
 │   └── test/                       tes node:test - logika murni, tanpa database
 │
 ├── uploads/                        foto (lokal; di Railway pakai volume) — tidak di-commit
@@ -472,6 +477,8 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `peta.test.js`         | Titik tanpa koordinat tidak pernah masuk peta                          |
 | `kertasKerja.test.js`  | Batas paginasi daftar, serta pencarian & penyaringan yang pindah ke server |
 | `ekspor.test.js`       | Lokasi terekspor sebagai kolom latitude & longitude, utuh di Excel; semua jenis ekspor memberi urutan, *No. data*, dan isi baris yang sama |
+| `eksporPeta.test.js`   | GeoJSON / KML: titik [bujur, lintang] dari kolom Lokasi, baris tanpa koordinat dihitung, kolom sama di setiap titik, teks KML di-escape |
+| `lapisanPeta.test.js`  | Lapisan GIS: berkas UTM / TM-3 ditolak, koordinat dibulatkan, batas ukuran isi                |
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) menjalankan lint, tes,
 build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
@@ -495,6 +502,7 @@ build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
 | `foto`                  | Berkas foto: `berkas` (path relatif), `entri_id`, `pertanyaan_id`, `mime`   |
 | `pengajuan_hapus`       | Pengajuan hapus dari petugas: `jenis` (`kertas_kerja`/`entri`), tautan sasaran, salinan `nomor_kk` & `judul`, `alasan`, `pengaju`, `status` (`menunggu`/`disetujui`/`ditolak`), `diputuskan_at`, `diputuskan_oleh` |
 | `nomor_counter`         | Tepat 1 baris (`id = 1`) untuk penomoran                                    |
+| `lapisan_peta`          | Lapisan GIS di Peta Sensus: `nama`, `warna`, `tampil` (menyala saat peta dibuka), `isi` GeoJSON (`LONGTEXT`, maks. 12 MB), `jumlah_fitur`, `ukuran`, `dibuat_oleh` |
 
 Perilaku relasi:
 
@@ -510,6 +518,9 @@ Perilaku relasi:
   yang sudah tersimpan tidak hilang saat admin menambah atau mengurutkan ulang pertanyaan.
 
 ### Migrasi dari versi sebelumnya
+
+Migrasi `20261104100000_lapisan_peta` hanya menambah tabel `lapisan_peta` (lapisan GIS di Peta
+Sensus); tidak ada data lama yang berubah.
 
 Migrasi `20260915120000_tipe_telepon` menambah satu nilai enum tipe pertanyaan: `telepon`
 (satu atau lebih nomor telepon berketerangan, mis. `Pemilik - 081234567890`).
@@ -607,7 +618,9 @@ dengan OpenStreetMap / Esri World Imagery sebagai cadangan (lihat [Peta Google](
   **Dipilih di peta**.
 - Di ekspor CSV/Excel, Lokasi dipecah jadi tiga kolom: `… (Latitude)`, `… (Longitude)`, dan
   `… (Keterangan)` berisi `±12 m` (akurasi GPS) atau `dipilih di peta`. Di Excel koordinatnya angka
-  utuh sampai 7 desimal, jadi bisa disaring, diurutkan, atau diimpor ke aplikasi peta.
+  utuh sampai 7 desimal, jadi bisa disaring, diurutkan, atau diimpor ke aplikasi peta. Untuk QGIS
+  dan ArcGIS lebih mudah lagi lewat ekspor **GeoJSON / KML** (lihat
+  [Ekspor ke QGIS / ArcGIS](#ekspor-ke-qgis--arcgis-geojson--kml)).
 - Petugas bisa mengambil GPS dulu lalu membetulkannya di peta — penanda ikut pindah ke titik GPS.
 - Potongan peta diambil dari internet, jadi **peta butuh koneksi**; Ambil lokasi (GPS) tetap jalan tanpanya.
 
@@ -756,6 +769,72 @@ layar yang digambar. Gambar titik dan kelompok (SVG) sama untuk kedua peta
 **CSP.** Host Google hanya masuk Content-Security-Policy bila kuncinya diisi
 (`server/src/keamanan.js`), mengikuti daftar resmi Google. Daftar itu juga memuat `'unsafe-eval'`,
 yang dibutuhkan Maps JavaScript API. `'unsafe-inline'` sengaja tidak dipakai di `script-src`.
+
+### Ekspor ke QGIS / ArcGIS (GeoJSON / KML)
+
+Setiap panel di halaman **Ekspor** punya tombol **GeoJSON** dan **KML** di samping Excel / CSV
+(`server/src/eksporPeta.js`). Isinya tabel yang sama dengan Excel (baris, kolom, dan urutannya),
+tetapi setiap baris menjadi satu **titik**:
+
+- Koordinat titik diambil dari kolom Lokasi pertama yang terisi di baris itu. Baris tanpa koordinat
+  tidak ikut; setelah mengunduh, layar menyebut berapa titik yang ikut dan berapa baris yang
+  tertinggal (header `X-Jumlah-Titik` / `X-Tanpa-Titik`). Tanpa satu titik pun → **400**.
+- *Semua formulir* = satu titik per baris kertas kerja, jadi titik objek pajak sekaligus membawa
+  identitas wajib pajak dari formulir lain di kertas kerja itu.
+- Koordinatnya **WGS 84 (EPSG:4326)** derajat desimal, persis dari GPS HP. Kolom angka tetap angka;
+  sel kosong ditulis `null` supaya setiap titik punya kolom yang sama; judul kolom kembar diberi
+  akhiran ` (2)`.
+- **GeoJSON** untuk QGIS dan ArcGIS. **KML** (Schema + SimpleData, susunan yang juga ditulis GDAL)
+  untuk Google Earth / Google My Maps; nama tiap titik = nomor kertas kerja.
+- Berkasnya ditulis bertahap. Atribut diulang di setiap titik, jadi berkas seluruh data bisa
+  puluhan MB, tetapi memori server hanya naik puluhan MB (uji 20.000 titik × 60 kolom: berkas
+  62 MB, memori +40 MB).
+
+| Aplikasi         | Cara membuka                                                                       |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| QGIS             | Seret berkas `.geojson` ke kanvas, atau *Layer → Add Layer → Add Vector Layer*. CRS terbaca sendiri |
+| ArcGIS Pro       | Tool **JSON To Features** untuk `.geojson`, atau **KML To Layer** untuk `.kml`     |
+| ArcGIS Online    | *Content → New item →* berkas `.geojson`                                           |
+| Google Earth Pro | *File → Open* berkas `.kml`                                                        |
+
+Peta blok / persil ber-CRS UTM 50S (EPSG:32750) atau TM-3 tetap bisa ditumpuk: QGIS dan ArcGIS
+memproyeksikan ulang sendiri selama CRS tiap layer benar. Citra satelit Google dan Esri bisa
+bergeser beberapa meter satu sama lain, jadi titik yang ditunjuk petugas di satelit Google bisa
+tampak sedikit bergeser di atas citra Esri atau peta persil.
+
+### Lapisan dari GIS (QGIS / ArcGIS)
+
+Peta Sensus bisa menampilkan lapisan dari GIS (batas kelurahan, blok PBB, ZNT, atau persil) di
+bawah titik sensus. Tombol **Lapisan** di bilah alat peta menyalakan / mematikannya; pilihan itu
+tersimpan di browser masing-masing. Mengetuk bidang lapisan membuka balon berisi atributnya
+(paling banyak 12 kolom). Lapisan digambar di peta Google maupun peta cadangan (Leaflet, di kanvas
+supaya ribuan persil tetap ringan) dan tampil di legenda. Kodenya: `client/src/lib/lapisanPeta.js`
+(daftar, nyala/mati, pengunduhan), `components/peta/PilihLapisan.jsx`, `components/KelolaLapisan.jsx`.
+
+**Mengunggah (admin):** **Lapisan → Kelola lapisan…** → pilih berkas, beri nama dan warna, dan
+pilih apakah langsung tampil saat peta dibuka. Dari sana juga ganti nama, ganti warna, atur
+*Tampil saat peta dibuka*, atau hapus. Mengganti isi = hapus lalu unggah ulang.
+
+Berkasnya **GeoJSON berkoordinat EPSG:4326 (WGS 84)**:
+
+- QGIS: klik kanan layer → *Export → Save Features As…* → Format **GeoJSON**, CRS **EPSG:4326 - WGS 84**.
+- ArcGIS Pro: tool **Features To JSON**, centang *Output to GeoJSON* dan *Project to WGS_1984*.
+
+| Aturan (`server/src/lapisanPeta.js`) | Batas / perilaku |
+| --- | --- |
+| Ukuran berkas | 18 MB (`UNGGAH_MAKS_MB`), di bawah batas Nginx 20m panduan server; dicek juga di browser |
+| Isi tersimpan setelah dirapikan | 12 MB, karena batas paket MariaDB bawaan (`max_allowed_packet`) 16 MB |
+| Jumlah fitur | 50.000 |
+| CRS | Member `crs` selain CRS84 / EPSG:4326 ditolak. Koordinat di luar ±180 / ±90 (meter UTM / TM-3 tanpa member `crs`) juga ditolak. Pesannya berisi cara menyimpan ulang |
+| Perapian | Koordinat dibulatkan 6 desimal (±11 cm), nilai Z dibuang, atribut kosong dibuang, fitur tanpa geometri dilewati (jumlahnya dikabarkan) |
+
+Isinya disimpan di tabel `lapisan_peta` (kolom `LONGTEXT`), jadi ikut cadangan database.
+`GET /api/lapisan/:id` dijawab gzip dari simpanan memori dan **304** selama isinya sama (`ETag`); di
+browser, isi lapisan diunduh sekali per sesi.
+
+**Hak akses.** Siapa pun yang boleh membuka Peta Sensus (bila *wajib login* menyala: admin, petugas,
+pejabat) bisa melihat lapisan beserta atributnya. Buang dulu kolom data pribadi yang tidak perlu
+(mis. NIK pemilik persil) di QGIS sebelum mengunggah. Mengunggah, mengubah, dan menghapus khusus admin.
 
 ---
 
@@ -1061,6 +1140,7 @@ sehari dijawab dengan header `X-Token-Baru` berisi penggantinya.
 | `DELETE` | `/formulir/:id` | 🔒 **409** bila sudah diisi; `?force=true` tetap menghapus   |
 | `GET`    | `/formulir/:id/export`      | Unduh CSV seluruh data formulir ini dari semua kertas kerja |
 | `GET`    | `/formulir/:id/export/xlsx` | Idem, format Excel (.xlsx)                                  |
+| `GET`    | `/formulir/:id/export/geojson` · `/kml` | Idem, titik untuk QGIS / ArcGIS / Google Earth ([lihat](#ekspor-ke-qgis--arcgis-geojson--kml)) |
 | `GET`    | `/formulir/ekspor-bank`     | 🔒 Unduh seluruh bank formulir sebagai JSON (susunan saja, tanpa data) |
 | `POST`   | `/formulir/impor`           | 🔒 Body = isi berkas ekspor-bank. Tambah formulir di akhir daftar; judul yang sudah ada dilewati → `{ dibaca, ditambahkan, dilewati[], ditolak[] }` |
 
@@ -1080,6 +1160,7 @@ sehari dijawab dengan header `X-Token-Baru` berisi penggantinya.
 | `DELETE` | `/kertas-kerja/:id`               | 🔒 Hapus beserta seluruh data & foto                      |
 | `GET`    | `/kertas-kerja/:id/export`        | Unduh CSV; `?formulir=<id>` = hanya satu formulir         |
 | `GET`    | `/kertas-kerja/:id/export/xlsx`   | Unduh Excel (.xlsx), isi sama dengan CSV; `?formulir=<id>` idem |
+| `GET`    | `/kertas-kerja/:id/export/geojson` · `/kml` | Idem, titik untuk aplikasi peta; **400** bila tidak ada data berkoordinat |
 
 **`GET /kertas-kerja?hal=1&per=20&cari=&saring=semua&timKurang=`**
 
@@ -1175,7 +1256,7 @@ Memutuskan pengajuan yang sudah diputuskan dijawab **409**.
 | ------ | ------------------ | --------------------------------------------------------------------------------- |
 | `GET`  | `/dashboard/stats` | Kertas kerja, selesai, data, data berkas tidak lengkap (`tidakLengkap`), pengajuan hapus menunggu (`pengajuanHapus`), foto, formulir, petugas + 10 petugas dengan kertas kerja terbanyak (`rekapPetugas`) |
 | `GET`  | `/health`          | Health check (dipakai Railway)                                                    |
-| `GET`  | `/konfigurasi`     | Batas aplikasi: `petugasMaks`, `fotoMaksPerPertanyaan`, `uploadMaksMb`, `cekNop`, `lokasi` (titik kantor & batas akurasi), `googleMapsKey` |
+| `GET`  | `/konfigurasi`     | Batas aplikasi: `petugasMaks`, `fotoMaksPerPertanyaan`, `uploadMaksMb`, `lapisanMaksMb`, `cekNop`, `lokasi` (titik kantor & batas akurasi), `googleMapsKey` |
 | `POST` | `/tautan-peta`     | `{ teks }` → `{ lat, lon }` dari koordinat / tautan Google Maps; tautan `maps.app.goo.gl` diikuti pengalihannya (hanya ke host Google). Dibatasi 60 per 10 menit per IP |
 | `GET`  | `/wilayah`         | Kecamatan & kelurahan Kota Banjarbaru                                             |
 
@@ -1203,6 +1284,22 @@ kecamatan. Kode yang tidak dikenal → **400**.
 | `GET`  | `/ekspor/semua`            | CSV seluruh data semua formulir dari semua kertas kerja, satu baris per kertas kerja |
 | `GET`  | `/ekspor/semua/xlsx`       | Idem, Excel (.xlsx)                                                 |
 
+Setiap ekspor di atas (dan ekspor per kertas kerja & per formulir) juga tersedia sebagai
+`…/geojson` dan `…/kml` dengan query yang sama: satu titik per baris berkoordinat, header
+`X-Jumlah-Titik` & `X-Tanpa-Titik`, **400** bila tidak ada satu titik pun.
+
+### Lapisan peta
+
+| Method   | Endpoint       | Keterangan                                                                      |
+| -------- | -------------- | ------------------------------------------------------------------------------- |
+| `GET`    | `/lapisan`     | `[{ id, nama, warna, tampil, jumlahFitur, ukuran, versi, dibuatOleh, createdAt }]` tanpa isinya |
+| `GET`    | `/lapisan/:id` | GeoJSON FeatureCollection (gzip, `ETag` → **304**)                              |
+| `POST`   | `/lapisan`     | 🔒 Multipart `berkas` (+ `nama`, `warna` `#RRGGBB`, `tampil`) → lapisan + `dilewati`. **400** CRS bukan EPSG:4326, berkas / isi terlalu besar, tanpa fitur |
+| `PUT`    | `/lapisan/:id` | 🔒 `{ nama?, warna?, tampil? }`                                                  |
+| `DELETE` | `/lapisan/:id` | 🔒 Hapus                                                                        |
+
+Kedua `GET` dibatasi 600 permintaan per 10 menit per IP.
+
 ### Cek NOP
 
 | Method | Endpoint     | Keterangan                                                                                          |
@@ -1218,7 +1315,8 @@ ditemukan · `409` data masih dipakai · `422` validasi gagal.
 
 ### Ekspor CSV & Excel
 
-Keduanya disusun di `server/src/ekspor.js` dengan isi yang sama. Tersedia enam cakupan:
+Keduanya disusun di `server/src/ekspor.js` dengan isi yang sama; GeoJSON / KML untuk aplikasi peta
+memakai tabel yang sama ([Ekspor ke QGIS / ArcGIS](#ekspor-ke-qgis--arcgis-geojson--kml)). Tersedia enam cakupan:
 
 | Cakupan | Tombol | Nama berkas |
 | --- | --- | --- |
@@ -1233,7 +1331,8 @@ Semua cakupan tersedia di halaman **Ekspor** (`/ekspor`, `EksporPage.jsx`, menu 
 di sidebar & bilah tab HP): pilih kertas kerja lalu *Semua formulir* atau satu formulir, pilih
 formulir untuk seluruh kertas kerja (*Semua formulir* = seluruh data), pilih kecamatan, kelurahan
 (*Semua kelurahan* = seluruh kecamatan), dan formulir, atau pilih petugas dan formulir, kemudian
-**Unduh Excel** / **Unduh CSV**. Selama berkas disiapkan, kedua tombolnya terkunci (*Menyiapkan...*).
+**Unduh Excel** / **Unduh CSV** (atau **GeoJSON** / **KML**). Selama berkas disiapkan, semua tombolnya
+terkunci (*Menyiapkan...*).
 
 **Seluruh data** sama dengan menggabungkan ekspor *Semua formulir* setiap kertas kerja, urut nomor
 kertas kerja. Kertas kerja yang belum berisi data tidak punya baris; layar ekspor menyebut jumlahnya.

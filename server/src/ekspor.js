@@ -1,9 +1,10 @@
 "use strict";
 
 /**
- * Ekspor data ke CSV dan Excel (.xlsx) - per kertas kerja, per formulir, per
- * wilayah, per petugas, dan seluruh data. Semuanya lewat susunTabel, jadi
- * data yang sama tampil sama di ekspor mana pun.
+ * Ekspor data ke CSV, Excel (.xlsx), dan berkas peta (GeoJSON / KML, lihat
+ * src/eksporPeta.js) - per kertas kerja, per formulir, per wilayah, per
+ * petugas, dan seluruh data. Semuanya lewat susunTabel, jadi data yang sama
+ * tampil sama di ekspor mana pun.
  *
  * Dua susunan: satu formulir saja -> satu baris per data (susunEkspor);
  * "Semua formulir" -> satu baris per kertas kerja, kolom tiap formulir
@@ -17,6 +18,8 @@
 const { PassThrough } = require("stream");
 const ExcelJS = require("exceljs");
 const config = require("./config");
+const { wrap } = require("./http");
+const { kirimPeta } = require("./eksporPeta");
 const { csvNilai, buildCsv, formatNpwp, formatWaktuID, groupNum, keteranganLokasi } = require("./format");
 const { bentukTim, petaJawaban } = require("./bentuk");
 const { rincianWilayah } = require("./wilayah");
@@ -60,8 +63,9 @@ function kolomPertanyaan(formulir, baseUrl) {
           return Number.isFinite(n) ? { teks: String(v[k]), angka: n, format: FORMAT_KOORDINAT } : teks("");
         };
         return [
-          { f, judul: `${judul} (Latitude)`, sel: koordinat("lat") },
-          { f, judul: `${judul} (Longitude)`, sel: koordinat("lon") },
+          // `koordinat` menandai kolom titik untuk ekspor peta (lihat pasanganTitik).
+          { f, judul: `${judul} (Latitude)`, koordinat: "lat", sel: koordinat("lat") },
+          { f, judul: `${judul} (Longitude)`, koordinat: "lon", sel: koordinat("lon") },
           { f, judul: `${judul} (Keterangan)`, sel: (j) => teks(titik(j) && keteranganLokasi(titik(j))) },
         ];
       }
@@ -102,6 +106,16 @@ function kolomPertanyaan(formulir, baseUrl) {
   );
 }
 
+/**
+ * Letak kolom Lokasi di tabel: [[indeks latitude, indeks longitude], ...], urut
+ * kolom. Longitude selalu tepat sesudah latitude (lihat kolomPertanyaan).
+ *
+ * @param {object[]} kolom  kolom pertanyaan, urut
+ * @param {number} awal     indeks kolom pertama `kolom` di tabel
+ */
+const pasanganTitik = (kolom, awal) =>
+  kolom.flatMap((k, i) => (k.koordinat === "lat" ? [[awal + i, awal + i + 1]] : []));
+
 /** Kolom identitas kertas kerja: nomor, status, tim petugas. */
 function kolomKertasKerja(kk) {
   const tim = bentukTim(kk.petugas);
@@ -136,7 +150,7 @@ function nomoriData(data) {
  *        (+ petugas), SUDAH terurut sesuai keinginan pemanggil
  * @param {object[]} formulir  formulir (+ pertanyaan) yang kolomnya ditampilkan, urut
  * @param {Map} [nomorData]  "No. data" tiap entri (lihat susunTabel); bawaan dihitung dari `data`
- * @returns {{ header: string[], baris: object[][] }}
+ * @returns {{ header: string[], baris: object[][], titik: number[][] }}  `titik`: lihat pasanganTitik
  */
 function susunEkspor(data, formulir, { baseUrl, timezone, nomorData = nomoriData(data) }) {
   const kolom = kolomPertanyaan(formulir, baseUrl);
@@ -153,6 +167,7 @@ function susunEkspor(data, formulir, { baseUrl, timezone, nomorData = nomoriData
     "Catatan kekurangan berkas",
     ...kolom.map((k) => k.judul),
   ];
+  const titik = pasanganTitik(kolom, header.length - kolom.length);
   const judulForm = new Map(formulir.map((f) => [f.id, f.judul]));
 
   const identitasKk = new Map();
@@ -173,7 +188,7 @@ function susunEkspor(data, formulir, { baseUrl, timezone, nomorData = nomoriData
     ];
   });
 
-  return { header, baris };
+  return { header, baris, titik };
 }
 
 /**
@@ -191,13 +206,17 @@ function susunEkspor(data, formulir, { baseUrl, timezone, nomorData = nomoriData
  * @param {{ kk: object, e: object }[]} data  seperti susunEkspor, SUDAH terurut
  *        (data satu kertas kerja berurutan, tiap formulir urut waktu input)
  * @param {object[]} formulir  formulir (+ pertanyaan) yang kolomnya ditampilkan, urut
- * @returns {{ header: string[], baris: object[][] }}
+ * @returns {{ header: string[], baris: object[][], titik: number[][] }}
  */
 function susunEksporPerKk(data, formulir, { baseUrl, timezone }) {
   const blok = formulir.map((f) => ({
     f,
     kolom: [
-      ...kolomPertanyaan([f], baseUrl).map((k) => ({ judul: k.judul, sel: (_e, j) => k.sel(j) })),
+      ...kolomPertanyaan([f], baseUrl).map((k) => ({
+        judul: k.judul,
+        koordinat: k.koordinat,
+        sel: (_e, j) => k.sel(j),
+      })),
       {
         judul: `${f.judul} - Kelengkapan berkas`,
         sel: (e) => teks(e.berkasLengkap === false ? "Tidak lengkap" : "Lengkap"),
@@ -207,7 +226,9 @@ function susunEksporPerKk(data, formulir, { baseUrl, timezone }) {
       { judul: `${f.judul} - Diisi oleh`, sel: (e) => teks(e.dibuatOleh) },
     ],
   }));
-  const header = ["Nomor", "Status", "Petugas", "NIP", ...blok.flatMap((b) => b.kolom.map((k) => k.judul))];
+  const kolomForm = blok.flatMap((b) => b.kolom);
+  const header = ["Nomor", "Status", "Petugas", "NIP", ...kolomForm.map((k) => k.judul)];
+  const titik = pasanganTitik(kolomForm, header.length - kolomForm.length);
 
   // Kelompokkan per kertas kerja; urutan kemunculan pertama dipertahankan.
   const perKk = new Map();
@@ -231,7 +252,7 @@ function susunEksporPerKk(data, formulir, { baseUrl, timezone }) {
       baris.push([...identitas, ...sel]);
     }
   }
-  return { header, baris };
+  return { header, baris, titik };
 }
 
 /**
@@ -385,6 +406,31 @@ async function kirimXlsx(res, { nama, sheet, tabel }) {
   res.send(Buffer.from(buffer));
 }
 
+/** Akhiran jalur -> pengirim berkas. CSV tetap di jalur dasarnya, seperti sejak awal. */
+const PENGIRIM = {
+  "": kirimCsv,
+  "/xlsx": kirimXlsx,
+  "/geojson": (res, berkas) => kirimPeta(res, berkas, "geojson"),
+  "/kml": (res, berkas) => kirimPeta(res, berkas, "kml"),
+};
+
+/**
+ * Pasang keempat unduhan sebuah ekspor di router: `jalur` (CSV), `jalur/xlsx`,
+ * `jalur/geojson`, dan `jalur/kml`. Isi keempatnya tabel yang sama dari
+ * `susun(req)` -> { nama, sheet, tabel }.
+ *
+ * @param {Function} penjaga  middleware izin, mis. requireAdmin
+ */
+function rutekanEkspor(router, jalur, penjaga, susun) {
+  for (const [akhiran, kirim] of Object.entries(PENGIRIM)) {
+    router.get(
+      jalur + akhiran,
+      penjaga,
+      wrap(async (req, res) => kirim(res, await susun(req)))
+    );
+  }
+}
+
 module.exports = {
   susunTabel,
   susunEkspor,
@@ -396,4 +442,5 @@ module.exports = {
   keXlsx,
   kirimCsv,
   kirimXlsx,
+  rutekanEkspor,
 };

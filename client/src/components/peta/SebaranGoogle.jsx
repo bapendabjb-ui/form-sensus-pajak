@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { MarkerClusterer, SuperClusterViewportAlgorithm } from "@googlemaps/markerclusterer";
 import { muatGoogleMaps, tandaiGoogleGagal } from "../../lib/googleMaps.js";
-import { PUSAT_AWAL, PetaMemuat, isiBalon, svgTitik, warnaTitik, svgKlaster, KLASTER_ZOOM_MAKS } from "./bersama.jsx";
+import {
+  PUSAT_AWAL,
+  PetaMemuat,
+  isiBalon,
+  svgTitik,
+  warnaTitik,
+  svgKlaster,
+  KLASTER_ZOOM_MAKS,
+  isiBalonLapisan,
+  gayaLapisan,
+  TITIK_LAPISAN_RADIUS,
+} from "./bersama.jsx";
 
 /**
  * Mesin Google untuk Peta Sensus: seluruh titik hasil sensus, hanya untuk
@@ -14,9 +25,49 @@ import { PUSAT_AWAL, PetaMemuat, isiBalon, svgTitik, warnaTitik, svgKlaster, KLA
  * onCek  : (titik) => void | null  - admin: tombol "sudah dicek" di balon
  * kunciPandang : pandangan dirapatkan ulang hanya bila nilai ini berganti
  * jenis  : "peta" | "satelit"
+ * lapisan : [{ versi, nama, warna, data }] - lapisan GIS yang menyala (lib/lapisanPeta.js),
+ *           digambar di bawah titik sensus
  */
 
 const TIPE = { peta: "roadmap", satelit: "hybrid" };
+
+/** Kunci gambar sebuah lapisan: berganti bila isi, nama, atau warnanya berganti. */
+const kunciLapisan = (l) => `${l.versi}|${l.warna}|${l.nama}`;
+
+/** Satu lapisan GIS sebagai google.maps.Data; ketukan pada bidangnya membuka balon atribut. */
+function buatLapisanGis(lib, peta, balon, l) {
+  const g = gayaLapisan(l.warna);
+  const d = new lib.Data({ map: peta });
+  d.addGeoJson(l.data);
+  d.setStyle({
+    strokeColor: g.garis,
+    strokeWeight: g.tebal,
+    strokeOpacity: 0.9,
+    fillColor: g.isi,
+    fillOpacity: g.isiTembus,
+    // Hanya berlaku untuk titik.
+    icon: {
+      path: lib.SymbolPath.CIRCLE,
+      scale: TITIK_LAPISAN_RADIUS,
+      fillColor: g.isi,
+      fillOpacity: 0.95,
+      strokeColor: "#fff",
+      strokeWeight: 1.5,
+    },
+  });
+  d.addListener("click", (e) => {
+    const properti = {};
+    e.feature.forEachProperty((v, k) => {
+      properti[k] = v;
+    });
+    const isi = document.createElement("div");
+    isi.innerHTML = isiBalonLapisan(l.nama, properti); // semua teks sudah di-escape
+    balon.setContent(isi);
+    balon.setPosition(e.latLng);
+    balon.open({ map: peta });
+  });
+  return d;
+}
 const ZOOM_MAKS_RAPAT = 17;
 
 /** Ikon Google dari gambar SVG bersama (lihat svgTitik / svgKlaster). */
@@ -53,11 +104,13 @@ function buatPengelompok(lib, peta) {
   }
 }
 
-export default function SebaranGoogle({ kunci, titik = [], onBuka, onCek = null, kunciPandang, jenis }) {
+export default function SebaranGoogle({ kunci, titik = [], onBuka, onCek = null, kunciPandang, jenis, lapisan = [] }) {
   const wadah = useRef(null);
   const peta = useRef(null);
   const balon = useRef(null);
   const penanda = useRef([]);
+  // Tetap satu Map selama komponen hidup (bukan ref: isinya dibaca saat dibersihkan).
+  const [lapisanGis] = useState(() => new Map()); // kunciLapisan -> google.maps.Data
   const kelompok = useRef(null);
   const g = useRef(null);
   const bukaRef = useRef(onBuka);
@@ -106,6 +159,8 @@ export default function SebaranGoogle({ kunci, titik = [], onBuka, onCek = null,
       }
       for (const p of penanda.current) p.setMap(null);
       penanda.current = [];
+      for (const d of lapisanGis.values()) d.setMap(null);
+      lapisanGis.clear();
       if (balon.current) balon.current.close();
       if (peta.current && g.current) g.current.event.clearInstanceListeners(peta.current);
       peta.current = null;
@@ -116,6 +171,28 @@ export default function SebaranGoogle({ kunci, titik = [], onBuka, onCek = null,
   useEffect(() => {
     if (peta.current) peta.current.setMapTypeId(TIPE[jenis]);
   }, [jenis, siap]);
+
+  // Lapisan GIS: pasang yang baru menyala, lepas yang dimatikan / berubah warna.
+  useEffect(() => {
+    const m = peta.current;
+    const lib = g.current;
+    if (!m || !lib) return;
+    const ingin = new Map(lapisan.map((l) => [kunciLapisan(l), l]));
+    for (const [k, d] of lapisanGis) {
+      if (ingin.has(k)) continue;
+      d.setMap(null);
+      lapisanGis.delete(k);
+    }
+    for (const [k, l] of ingin) {
+      if (lapisanGis.has(k)) continue;
+      try {
+        lapisanGis.set(k, buatLapisanGis(lib, m, balon.current, l));
+      } catch (e) {
+        // GeoJSON yang ditolak Google tidak boleh menjatuhkan seluruh peta.
+        console.warn(`[Sensus Pajak] lapisan "${l.nama}" tidak dapat digambar:`, e.message);
+      }
+    }
+  }, [lapisan, siap, lapisanGis]);
 
   // Gambar ulang titik setiap daftarnya berubah (mis. saringan diganti).
   useEffect(() => {

@@ -73,6 +73,30 @@ model Pengaturan {
   @@map("pengaturan")
 }
 
+/// Lapisan peta dari aplikasi GIS (QGIS / ArcGIS), mis. batas blok PBB atau
+/// persil, yang digambar di atas Peta Sensus. Diunggah admin sebagai GeoJSON
+/// EPSG:4326 (src/lapisanPeta.js). Isinya tidak pernah diubah: mengganti berkas
+/// = hapus lalu unggah ulang, jadi id + createdAt cukup sebagai versi cache.
+model LapisanPeta {
+  id          Int      @id @default(autoincrement())
+  nama        String   @db.VarChar(100)
+  /// Warna garis dan isian, "#RRGGBB".
+  warna       String   @default("#2563EB") @db.VarChar(7)
+  /// true = langsung menyala saat Peta Sensus dibuka; tiap pemakai tetap bisa mematikannya.
+  tampil      Boolean  @default(true)
+  /// FeatureCollection yang sudah dirapikan (koordinat 6 desimal, tanpa Z).
+  /// Paling besar 12 MB: batas paket MariaDB bawaan (max_allowed_packet) 16 MB.
+  isi         String   @db.LongText
+  jumlahFitur Int      @map("jumlah_fitur")
+  /// Ukuran `isi` dalam byte.
+  ukuran      Int
+  /// Username admin yang mengunggah.
+  dibuatOleh  String   @default("") @map("dibuat_oleh") @db.VarChar(64)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("lapisan_peta")
+}
+
 /// Bank formulir. Setiap formulir dapat diisi berkali-kali di dalam kertas kerja.
 model Formulir {
   id        Int      @id @default(autoincrement())

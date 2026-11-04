@@ -216,3 +216,38 @@ export function isiBalon(t, { bisaCek = false } = {}) {
   baris.push(`<div class="fk-balon-aksi">${tombol.join("")}</div>`);
   return `<div class="fk-balon">${baris.join("")}</div>`;
 }
+
+/* ---------- lapisan dari GIS (lib/lapisanPeta.js) ---------- */
+
+/** Atribut yang tampil di balon bidang lapisan; sisanya cukup disebut jumlahnya. */
+const ATRIBUT_BALON_MAKS = 12;
+
+/**
+ * HTML balon sebuah bidang / garis / titik lapisan: nama lapisan lalu
+ * atributnya dari QGIS (mis. NOP, nomor blok). Semua teks di-escape.
+ */
+export function isiBalonLapisan(namaLapisan, properti) {
+  const isi = Object.entries(properti || {}).filter(([, v]) => v !== null && v !== undefined && v !== "");
+  const baris = isi
+    .slice(0, ATRIBUT_BALON_MAKS)
+    .map(([k, v]) => `<tr><th>${aman(k)}</th><td>${aman(v)}</td></tr>`)
+    .join("");
+  const lebih = isi.length - ATRIBUT_BALON_MAKS;
+  return (
+    `<div class="fk-balon fk-balon-lapisan"><strong>${aman(namaLapisan)}</strong>` +
+    (baris ? `<table class="fk-balon-tabel">${baris}</table>` : `<span class="fk-balon-sub">Tanpa atribut</span>`) +
+    (lebih > 0 ? `<span class="fk-balon-sub">+${lebih} atribut lain</span>` : "") +
+    "</div>"
+  );
+}
+
+/** Gaya bidang & garis lapisan: garis tegas, isian tipis supaya peta di bawahnya tetap terbaca. */
+export const gayaLapisan = (warna) => ({ garis: warna, tebal: 2, isi: warna, isiTembus: 0.12 });
+
+/** Titik lapisan: lingkaran kecil berbingkai putih, lebih kecil dari titik sensus. */
+export const TITIK_LAPISAN_RADIUS = 5;
+
+/** Contoh warna lapisan di legenda dan daftar lapisan. */
+export function ContohLapisan({ warna }) {
+  return <span className="fk-lapisan-contoh" style={{ "--warna": warna }} aria-hidden="true" />;
+}

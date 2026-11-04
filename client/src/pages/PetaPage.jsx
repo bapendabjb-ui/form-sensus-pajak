@@ -5,6 +5,8 @@ import { useToast } from "../components/Toast.jsx";
 import CustomSelect from "../components/CustomSelect.jsx";
 import { useAdmin } from "../lib/admin.js";
 import { navigate } from "../lib/router.js";
+import { useLapisanPeta } from "../lib/lapisanPeta.js";
+import PilihLapisan from "../components/peta/PilihLapisan.jsx";
 
 // Leaflet berat; hanya diunduh saat halaman peta benar-benar dibuka.
 const PetaSebaran = lazy(() => import("../components/PetaSebaran.jsx"));
@@ -33,6 +35,8 @@ export default function PetaPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saring, setSaring] = useState("semua");
+  // Lapisan dari GIS (batas blok, persil) di bawah titik sensus.
+  const lapisan = useLapisanPeta();
 
   const muat = useCallback(async () => {
     setLoading(true);
@@ -81,14 +85,17 @@ export default function PetaPage() {
   }));
 
   const alat = (
-    <div className={"fk-peta-saring" + (saring === "semua" ? "" : " is-aktif")}>
-      <CustomSelect
-        title="Saring titik"
-        value={pilihanSaring.find((p) => p.kunci === saring).teks}
-        options={pilihanSaring.map((p) => p.teks)}
-        onChange={(teks) => setSaring(pilihanSaring.find((p) => p.teks === teks).kunci)}
-      />
-    </div>
+    <>
+      <div className={"fk-peta-saring" + (saring === "semua" ? "" : " is-aktif")}>
+        <CustomSelect
+          title="Saring titik"
+          value={pilihanSaring.find((p) => p.kunci === saring).teks}
+          options={pilihanSaring.map((p) => p.teks)}
+          onChange={(teks) => setSaring(pilihanSaring.find((p) => p.teks === teks).kunci)}
+        />
+      </div>
+      <PilihLapisan lapisan={lapisan} admin={Boolean(admin)} />
+    </>
   );
 
   const kosong = tampil.length === 0 ? "Tidak ada titik pada saringan ini." : "";
@@ -119,6 +126,7 @@ export default function PetaPage() {
               `${tampil.length.toLocaleString("id-ID")} titik dari ${jumlahKk.toLocaleString("id-ID")} kertas kerja`
             }
             kosong={kosong}
+            lapisan={lapisan.aktif}
           />
         </Suspense>
       )}

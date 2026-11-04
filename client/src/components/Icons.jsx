@@ -43,6 +43,7 @@ import {
   IdCard,
   Images,
   Landmark,
+  Layers,
   LayoutGrid,
   LocateFixed,
   Lock,
@@ -107,6 +108,8 @@ export const IkonLokasiSaya = () => <LocateFixed size={22} strokeWidth={2} aria-
 /** Tombol layar penuh peta: buka / tutup. */
 export const IkonLayarPenuh = () => <Maximize2 size={15} strokeWidth={GARIS} aria-hidden="true" />;
 export const IkonTutupPenuh = () => <Minimize2 size={15} strokeWidth={GARIS} aria-hidden="true" />;
+/** Lapisan peta dari GIS (Peta Sensus). */
+export const IkonLapisan = () => <Layers size={15} strokeWidth={GARIS} aria-hidden="true" />;
 
 /** Panah dropdown; CSS memutarnya lewat kelas is-open. */
 export const Chevron = ({ open }) => (
