@@ -21,15 +21,7 @@ const { includePengajuanTerakhir, bentukPengajuanTerakhir } = require("../pengaj
 const { jawabanLokasiPertama, ringkasLokasiKk, ringkasLokasiEntri, nilaiTitik, gpsTerbaik } = require("../cekLokasi");
 const { perbaruiLokasiKk } = require("../lokasiKk");
 const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require("../bentuk");
-const {
-  susunEkspor,
-  susunEksporPerKk,
-  barisTanpaData,
-  baseUrlEkspor,
-  namaBerkas,
-  kirimCsv,
-  kirimXlsx,
-} = require("../ekspor");
+const { susunTabel, barisTanpaData, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
 
 const router = express.Router();
 
@@ -814,20 +806,14 @@ async function dataEkspor(req) {
   const pilih = req.query.formulir ? parseId(req.query.formulir) : null;
   const formulir = pilih ? semua.filter((f) => f.id === pilih) : semua;
 
-  const urutForm = new Map(formulir.map((f, i) => [f.id, i]));
-  const data = kk.entri
-    .filter((e) => urutForm.has(e.formulirId))
-    .sort(
-      (a, b) =>
-        urutForm.get(a.formulirId) - urutForm.get(b.formulirId) || a.createdAt - b.createdAt || a.id - b.id
-    )
-    .map((e) => ({ kk, e }));
-
   // Satu formulir: satu baris per data. Semua formulir: satu baris untuk
   // kertas kerja ini, kolom tiap formulir berdampingan.
-  const susun = pilih ? susunEkspor : susunEksporPerKk;
-  const tabel = susun(data, formulir, { baseUrl: baseUrlEkspor(req), timezone: config.timezone });
-  if (data.length === 0) tabel.baris.push(barisTanpaData(kk));
+  const tabel = susunTabel(
+    kk.entri.map((e) => ({ kk, e })),
+    formulir,
+    { perData: Boolean(pilih), baseUrl: baseUrlEkspor(req), timezone: config.timezone }
+  );
+  if (tabel.baris.length === 0) tabel.baris.push(barisTanpaData(kk));
 
   const satu = pilih && formulir[0];
   return {

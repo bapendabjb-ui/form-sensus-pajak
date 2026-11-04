@@ -11,6 +11,7 @@ const {
   formatRtRw,
   formatLuas,
   formatNomorTelepon,
+  formatWaktuID,
   groupNum,
 } = require("../src/format");
 
@@ -74,4 +75,19 @@ test("format identitas tidak mengubah deret digit jadi angka hitung", () => {
   assert.equal(formatNomorTelepon("081234567890"), "0812-3456-7890");
   assert.equal(groupNum(1234567.5), "1.234.567,5");
   assert.ok(formatNpwp("123456789012345").includes("."));
+});
+
+/*
+ * Formatter tanggal disimpan per zona waktu (membuatnya untuk setiap baris
+ * ekspor membuat memori server melonjak). Zona yang berbeda tetap harus
+ * memakai formatternya sendiri.
+ */
+test("formatWaktuID memakai zona waktu yang diminta, juga setelah zona lain dipakai", () => {
+  const t = new Date("2026-09-13T06:05:00Z");
+  // "13 September 2026 14.05" (versi ICU tertentu menambahkan "pukul").
+  assert.match(formatWaktuID(t, "Asia/Makassar"), /^13 September 2026 .*14\.05$/);
+  assert.match(formatWaktuID(t, "Asia/Jakarta"), /^13 September 2026 .*13\.05$/);
+  assert.match(formatWaktuID(t, "Asia/Makassar"), /14\.05$/);
+  assert.equal(formatWaktuID("bukan tanggal", "Asia/Makassar"), "");
+  assert.equal(groupNum(1000.126), "1.000,13");
 });

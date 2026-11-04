@@ -9,7 +9,8 @@ const { includePertanyaan, bentukFormulir } = require("../bentuk");
 const { hapusBerkas, sapuFotoYatim } = require("../foto");
 const { tutupPengajuan } = require("../hapus");
 const { perbaruiLokasiKk } = require("../lokasiKk");
-const { susunEkspor, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
+const { susunTabel, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
+const { muatEntriEkspor } = require("../muatEkspor");
 const { bacaPayload, susunBerkasBank, bacaBerkasBank } = require("../bankFormulir");
 
 const router = express.Router();
@@ -189,19 +190,16 @@ async function dataEksporFormulir(req) {
   const f = await prisma.formulir.findUnique({ where: { id }, include: includePertanyaan });
   if (!f) throw notFound("Formulir tidak ditemukan.");
 
-  const entri = await prisma.entri.findMany({
-    where: { formulirId: id },
-    include: { jawaban: true, kertasKerja: { include: { petugas: { include: { petugas: true } } } } },
-  });
-  const data = entri
-    .map((e) => ({ kk: e.kertasKerja, e }))
-    .sort((a, b) => a.kk.nomor.localeCompare(b.kk.nomor) || a.e.createdAt - b.e.createdAt || a.e.id - b.e.id);
+  const entri = await muatEntriEkspor({ formulirId: id });
 
-  const baseUrl = baseUrlEkspor(req);
   return {
     nama: `formulir-${namaBerkas(f.judul, "formulir")}`,
     sheet: f.judul,
-    tabel: susunEkspor(data, [f], { baseUrl, timezone: config.timezone }),
+    tabel: susunTabel(
+      entri.map((e) => ({ kk: e.kertasKerja, e })),
+      [f],
+      { perData: true, baseUrl: baseUrlEkspor(req), timezone: config.timezone }
+    ),
   };
 }
 

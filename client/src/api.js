@@ -512,6 +512,13 @@ export const unduhFormulir = (id, jenis = "xlsx") =>
     `formulir.${jenis === "xlsx" ? "xlsx" : "csv"}`
   );
 
+/**
+ * Unduh seluruh data semua formulir dari semua kertas kerja, satu baris per
+ * kertas kerja. jenis: "xlsx" | "csv".
+ */
+export const unduhSemuaData = (jenis = "xlsx") =>
+  unduhBerkas(`/ekspor/semua${jenis === "xlsx" ? "/xlsx" : ""}`, `semua-data.${jenis === "xlsx" ? "xlsx" : "csv"}`);
+
 /** ?kecamatan=&kelurahan=&formulir= - kode SISMIOP; kelurahan & formulir boleh kosong. */
 const queryWilayah = ({ kecamatan, kelurahan, formulir }) => {
   const q = new URLSearchParams({ kecamatan });

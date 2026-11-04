@@ -2,7 +2,8 @@
 
 /**
  * Ekspor data ke CSV dan Excel (.xlsx) - per kertas kerja, per formulir, per
- * wilayah, dan per petugas.
+ * wilayah, per petugas, dan seluruh data. Semuanya lewat susunTabel, jadi
+ * data yang sama tampil sama di ekspor mana pun.
  *
  * Dua susunan: satu formulir saja -> satu baris per data (susunEkspor);
  * "Semua formulir" -> satu baris per kertas kerja, kolom tiap formulir
@@ -13,6 +14,7 @@
  * FORMAT_RIBUAN bila tidak disebut).
  */
 
+const { PassThrough } = require("stream");
 const ExcelJS = require("exceljs");
 const config = require("./config");
 const { csvNilai, buildCsv, formatNpwp, formatWaktuID, groupNum, keteranganLokasi } = require("./format");
@@ -22,7 +24,8 @@ const { rincianWilayah } = require("./wilayah");
 const FORMAT_RIBUAN = "#,##0.##";
 // Koordinat tersimpan sampai 7 desimal; FORMAT_RIBUAN akan memangkasnya jadi 2.
 const FORMAT_KOORDINAT = "0.0######";
-const KOLOM_NO_DATA = 5;
+// "No. data" cukup angka polos, tanpa pemisah ribuan.
+const FORMAT_POLOS = "0";
 
 const teks = (s) => ({ teks: s === null || s === undefined ? "" : String(s) });
 
@@ -111,14 +114,31 @@ function kolomKertasKerja(kk) {
 }
 
 /**
+ * "No. data": urutan data di dalam kertas kerja & formulirnya, dari data yang
+ * SUDAH terurut -> Map(entri -> nomor).
+ */
+function nomoriData(data) {
+  const hitung = new Map();
+  const nomor = new Map();
+  for (const { kk, e } of data) {
+    const kunci = `${kk.id}:${e.formulirId}`;
+    const ke = (hitung.get(kunci) || 0) + 1;
+    hitung.set(kunci, ke);
+    nomor.set(e, ke);
+  }
+  return nomor;
+}
+
+/**
  * Susun tabel ekspor.
  *
  * @param {{ kk: object, e: object }[]} data  entri (+ jawaban) beserta kertas kerjanya
  *        (+ petugas), SUDAH terurut sesuai keinginan pemanggil
  * @param {object[]} formulir  formulir (+ pertanyaan) yang kolomnya ditampilkan, urut
+ * @param {Map} [nomorData]  "No. data" tiap entri (lihat susunTabel); bawaan dihitung dari `data`
  * @returns {{ header: string[], baris: object[][] }}
  */
-function susunEkspor(data, formulir, { baseUrl, timezone }) {
+function susunEkspor(data, formulir, { baseUrl, timezone, nomorData = nomoriData(data) }) {
   const kolom = kolomPertanyaan(formulir, baseUrl);
   const header = [
     "Nomor",
@@ -135,20 +155,16 @@ function susunEkspor(data, formulir, { baseUrl, timezone }) {
   ];
   const judulForm = new Map(formulir.map((f) => [f.id, f.judul]));
 
-  // "No. data" dihitung per kertas kerja per formulir.
-  const nomorKe = new Map();
   const identitasKk = new Map();
   const baris = data.map(({ kk, e }) => {
-    const kunci = `${kk.id}:${e.formulirId}`;
-    const ke = (nomorKe.get(kunci) || 0) + 1;
-    nomorKe.set(kunci, ke);
+    const ke = nomorData.get(e);
     if (!identitasKk.has(kk.id)) identitasKk.set(kk.id, kolomKertasKerja(kk));
 
     const jawaban = petaJawaban(e.jawaban);
     return [
       ...identitasKk.get(kk.id),
       teks(judulForm.get(e.formulirId)),
-      { teks: String(ke), angka: ke },
+      { teks: String(ke), angka: ke, format: FORMAT_POLOS },
       teks(formatWaktuID(e.createdAt, timezone)),
       teks(e.dibuatOleh),
       teks(e.berkasLengkap === false ? "Tidak lengkap" : "Lengkap"),
@@ -219,6 +235,42 @@ function susunEksporPerKk(data, formulir, { baseUrl, timezone }) {
 }
 
 /**
+ * Susun tabel ekspor dari data dengan urutan apa pun - pintu masuk SEMUA
+ * jenis ekspor, supaya urutan, "No. data", dan isi barisnya sama di mana pun
+ * data itu diunduh.
+ *
+ * Urutan: nomor kertas kerja, urutan formulir di bank, waktu input, lalu id.
+ *
+ * @param {{ kk: object, e: object }[]} data  entri (+ jawaban) beserta kertas kerjanya
+ *        (+ petugas); entri dari formulir yang tidak ada di `formulir` diabaikan
+ * @param {object[]} formulir  formulir (+ pertanyaan), urut bank formulir
+ * @param {object} o
+ * @param {boolean} o.perData  true = satu baris per data (ekspor satu formulir);
+ *        false = satu baris per kertas kerja (ekspor "Semua formulir")
+ * @param {(e: object) => boolean} [o.ikut]  saringan data (ekspor wilayah). "No.
+ *        data" dihitung SEBELUM disaring, jadi berikan seluruh data kertas
+ *        kerjanya: data ke-2 sebuah kertas kerja tetap bernomor 2 walau data
+ *        ke-1 berada di kelurahan lain.
+ */
+function susunTabel(data, formulir, { perData, ikut, baseUrl, timezone }) {
+  const urutForm = new Map(formulir.map((f, i) => [f.id, i]));
+  const urut = data
+    .filter(({ e }) => urutForm.has(e.formulirId))
+    .sort(
+      (a, b) =>
+        a.kk.nomor.localeCompare(b.kk.nomor) ||
+        urutForm.get(a.e.formulirId) - urutForm.get(b.e.formulirId) ||
+        a.e.createdAt - b.e.createdAt ||
+        a.e.id - b.e.id
+    );
+  const nomorData = nomoriData(urut);
+  const pakai = ikut ? urut.filter(({ e }) => ikut(e)) : urut;
+  return perData
+    ? susunEkspor(pakai, formulir, { baseUrl, timezone, nomorData })
+    : susunEksporPerKk(pakai, formulir, { baseUrl, timezone });
+}
+
+/**
  * Alamat dasar untuk tautan foto di berkas ekspor.
  *
  * APP_URL dipakai bila diisi; kalau tidak, disusun dari permintaan. Header Host
@@ -248,15 +300,49 @@ function keCsv({ header, baris }) {
   return buildCsv([header, ...baris.map((r) => r.map((c) => c.teks))]);
 }
 
-/** Buffer .xlsx: judul kolom tebal & dibekukan, filter otomatis, lebar kolom menyesuaikan isi. */
+/** Baris Excel yang ditulis sebelum memberi giliran ke proses lain (dan ke pemampat zip). */
+const XLSX_PER_GILIRAN = 500;
+
+/**
+ * Buffer .xlsx: judul kolom tebal & dibekukan, filter otomatis, lebar kolom
+ * menyesuaikan isi.
+ *
+ * Ditulis baris demi baris (WorkbookWriter). Workbook biasa menampung setiap
+ * sel sebagai objek: ekspor seluruh data (ribuan baris x ratusan kolom)
+ * memakan lebih dari 1 GB, melewati batas restart PM2 di server.
+ */
 async function keXlsx({ header, baris }, namaSheet) {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "Sensus Pajak";
-  wb.created = new Date();
+  const keluar = new PassThrough();
+  const potongan = [];
+  keluar.on("data", (b) => potongan.push(b));
+  const habis = new Promise((resolve, reject) => {
+    keluar.on("end", resolve);
+    keluar.on("error", reject);
+  });
+
+  const wb = new ExcelJS.stream.xlsx.WorkbookWriter({
+    stream: keluar,
+    useStyles: true,
+    // Teks lewat tabel bersama, sama dengan workbook biasa; tanpa ini teks
+    // ditulis sebagai hasil rumus (t="str").
+    useSharedStrings: true,
+    creator: "Sensus Pajak",
+    created: new Date(),
+  });
 
   // Nama sheet Excel: maks. 31 karakter, tanpa \ / ? * [ ] :
   const sheet = String(namaSheet || "Data").replace(/[\\/?*[\]:]/g, " ").slice(0, 31).trim() || "Data";
-  const ws = wb.addWorksheet(sheet, { views: [{ state: "frozen", ySplit: 1 }] });
+  const ws = wb.addWorksheet(sheet, {
+    views: [{ state: "frozen", ySplit: 1 }],
+    autoFilter: { from: { row: 1, column: 1 }, to: { row: 1, column: header.length } },
+  });
+
+  // Lebar kolom harus ditetapkan sebelum baris pertama ditulis.
+  ws.columns = header.map((h, i) => {
+    let terpanjang = 0;
+    for (const r of baris) terpanjang = Math.max(terpanjang, (r[i]?.teks || "").length);
+    return { width: Math.min(Math.max(Math.min(h.length, 30), terpanjang, 8) + 2, 60) };
+  });
 
   const kepala = ws.addRow(header);
   kepala.font = { bold: true };
@@ -265,23 +351,23 @@ async function keXlsx({ header, baris }, namaSheet) {
     c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2F1EF" } };
     c.border = { bottom: { style: "thin", color: { argb: "FFB7C4CC" } } };
   });
+  kepala.commit();
 
-  for (const r of baris) {
+  for (let n = 0; n < baris.length; n++) {
+    const r = baris[n];
     const row = ws.addRow(r.map((c) => (c.angka !== undefined ? c.angka : c.teks)));
     r.forEach((c, i) => {
-      // NIK, NPWP, NOP tetap teks sehingga Excel tidak mengubahnya jadi 3,17E+15.
-      if (c.angka !== undefined && i !== KOLOM_NO_DATA) row.getCell(i + 1).numFmt = c.format || FORMAT_RIBUAN;
+      // Hanya sel berangka yang diberi format. NIK, NPWP, NOP tetap teks
+      // sehingga Excel tidak mengubahnya jadi 3,17E+15.
+      if (c.angka !== undefined) row.getCell(i + 1).numFmt = c.format || FORMAT_RIBUAN;
     });
+    row.commit();
+    if ((n + 1) % XLSX_PER_GILIRAN === 0) await new Promise(setImmediate);
   }
 
-  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: header.length } };
-
-  header.forEach((h, i) => {
-    const terpanjang = baris.reduce((m, r) => Math.max(m, (r[i]?.teks || "").length), 0);
-    ws.getColumn(i + 1).width = Math.min(Math.max(Math.min(h.length, 30), terpanjang, 8) + 2, 60);
-  });
-
-  return wb.xlsx.writeBuffer();
+  await wb.commit();
+  await habis;
+  return Buffer.concat(potongan);
 }
 
 /** Kirim tabel sebagai unduhan CSV. */
@@ -300,6 +386,7 @@ async function kirimXlsx(res, { nama, sheet, tabel }) {
 }
 
 module.exports = {
+  susunTabel,
   susunEkspor,
   susunEksporPerKk,
   barisTanpaData,

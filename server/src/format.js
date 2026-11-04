@@ -5,12 +5,21 @@ const MONTHS = [
   "Juli", "Agustus", "September", "Oktober", "November", "Desember",
 ];
 
+/*
+ * Formatter Intl dibuat sekali lalu dipakai ulang. Membuatnya mahal dan
+ * memakan memori di luar heap JS yang baru dilepas belakangan: ekspor seluruh
+ * data memanggilnya puluhan ribu kali dan memori server sempat melonjak ±400 MB.
+ * (toLocaleString dengan opsi juga membuat formatter baru setiap kali.)
+ */
+const FORMAT_RIBU = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 });
+const formatWaktu = new Map(); // zona waktu -> Intl.DateTimeFormat
+
 /** 100000 -> "100.000" (format ribuan Indonesia). */
 function groupNum(v) {
   if (v === "" || v === null || v === undefined) return "";
   const n = Number(v);
   if (!Number.isFinite(n)) return String(v);
-  return n.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+  return FORMAT_RIBU.format(n);
 }
 
 /** "2026-03-07" -> "7 Maret 2026". */
@@ -116,14 +125,19 @@ function formatLuas(v) {
 function formatWaktuID(value, timeZone) {
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("id-ID", {
-    timeZone,
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
+  let f = formatWaktu.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat("id-ID", {
+      timeZone,
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    formatWaktu.set(timeZone, f);
+  }
+  return f.format(d);
 }
 
 /** Asal titik lokasi: "dipilih di peta" / "±12 m" / "" bila akurasinya tidak diketahui. */

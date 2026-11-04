@@ -8,7 +8,8 @@ import LoginAdmin from "../components/LoginAdmin.jsx";
 /**
  * Halaman ekspor: satu tempat untuk mengunduh data sebagai Excel atau CSV.
  *   - Per kertas kerja: semua formulir, atau satu formulir di kertas kerja itu.
- *   - Per formulir: seluruh data formulir itu dari semua kertas kerja.
+ *   - Per formulir: seluruh data formulir itu dari semua kertas kerja, atau
+ *     seluruh data semua formulir (satu baris per kertas kerja).
  *   - Per kecamatan / kelurahan objek pajak: semua formulir atau satu formulir.
  *   - Per petugas: data di kertas kerja yang timnya memuat petugas itu.
  * Unduhannya sama dengan tombol ekspor di halaman kertas kerja & bank formulir.
@@ -16,6 +17,7 @@ import LoginAdmin from "../components/LoginAdmin.jsx";
 
 const SEMUA_FORMULIR = "Semua formulir";
 const SEMUA_KELURAHAN = "Semua kelurahan";
+const SEMUA_DATA = "semua"; // pilihan "Semua formulir" di panel Per formulir
 
 const formatAngka = (n) => Number(n || 0).toLocaleString("id-ID");
 
@@ -29,14 +31,28 @@ const labelKk = (k) => {
 
 const labelJumlah = (judul, jumlah) => `${judul} · ${jumlah} data`;
 
+/**
+ * Tombol Excel & CSV. Selama berkas disiapkan server keduanya terkunci:
+ * ekspor besar butuh beberapa detik, dan klik berulang membuat server
+ * menyusun berkas yang sama berkali-kali sekaligus.
+ */
 function TombolUnduh({ onExcel, onCsv, disabled }) {
+  const [sibuk, setSibuk] = useState(""); // "" | "xlsx" | "csv"
+  const jalankan = (jenis, unduh) => async () => {
+    setSibuk(jenis);
+    try {
+      await unduh();
+    } finally {
+      setSibuk("");
+    }
+  };
   return (
     <div className="fk-ekspor-aksi">
-      <button type="button" className="fk-btn" onClick={onExcel} disabled={disabled}>
-        Unduh Excel
+      <button type="button" className="fk-btn" onClick={jalankan("xlsx", onExcel)} disabled={disabled || !!sibuk}>
+        {sibuk === "xlsx" ? "Menyiapkan..." : "Unduh Excel"}
       </button>
-      <button type="button" className="fk-btn-ghost" onClick={onCsv} disabled={disabled}>
-        Unduh CSV
+      <button type="button" className="fk-btn-ghost" onClick={jalankan("csv", onCsv)} disabled={disabled || !!sibuk}>
+        {sibuk === "csv" ? "Menyiapkan..." : "Unduh CSV"}
       </button>
     </div>
   );
@@ -393,7 +409,7 @@ export default function EksporPage({ admin, onAuthChanged }) {
   const [memuatGrup, setMemuatGrup] = useState(false);
   const [kkFormId, setKkFormId] = useState(null); // null = semua formulir
 
-  // Per formulir
+  // Per formulir: id formulir, SEMUA_DATA, atau null = belum dipilih
   const [formId, setFormId] = useState(null);
 
   const muat = useCallback(async () => {
@@ -448,6 +464,11 @@ export default function EksporPage({ admin, onAuthChanged }) {
   const grupTerpilih = grup.find((g) => g.id === kkFormId) || null;
   const formBerisi = formList.filter((f) => f.jumlahData > 0);
   const formTerpilih = formBerisi.find((f) => f.id === formId) || null;
+  const semuaData = formId === SEMUA_DATA && formBerisi.length > 0;
+  const jumlahSemua = formBerisi.reduce((n, f) => n + f.jumlahData, 0);
+  const labelSemua = labelJumlah(SEMUA_FORMULIR, jumlahSemua);
+  const kkBerdata = kkList.filter((k) => k.jumlahData > 0).length;
+  const kkKosong = kkList.length - kkBerdata;
 
   // Menunya disembunyikan bagi yang belum login, tetapi alamat /ekspor masih
   // bisa diketik langsung - jadi layarnya sendiri ikut dijaga.
@@ -494,25 +515,43 @@ export default function EksporPage({ admin, onAuthChanged }) {
         />
       </Panel>
 
-      <Panel title="Per formulir" sub="Seluruh data satu formulir dari semua kertas kerja, urut nomor kertas kerja.">
+      <Panel
+        title="Per formulir"
+        sub="Seluruh data dari semua kertas kerja, urut nomor kertas kerja: satu formulir, atau semua formulir sekaligus."
+      >
         <div className="fk-ekspor-isian">
           <span className="fk-q-name">Formulir</span>
           <CustomSelect
-            value={formTerpilih ? labelJumlah(formTerpilih.judul, formTerpilih.jumlahData) : ""}
-            options={formBerisi.map((f) => labelJumlah(f.judul, f.jumlahData))}
+            value={semuaData ? labelSemua : formTerpilih ? labelJumlah(formTerpilih.judul, formTerpilih.jumlahData) : ""}
+            options={
+              formBerisi.length
+                ? [labelSemua, ...formBerisi.map((f) => labelJumlah(f.judul, f.jumlahData))]
+                : []
+            }
             placeholder="Pilih formulir"
             title="Pilih formulir"
             emptyText="Belum ada formulir yang berisi data"
             onChange={(label) =>
-              setFormId(formBerisi.find((f) => labelJumlah(f.judul, f.jumlahData) === label)?.id ?? null)
+              setFormId(
+                label === labelSemua
+                  ? SEMUA_DATA
+                  : (formBerisi.find((f) => labelJumlah(f.judul, f.jumlahData) === label)?.id ?? null)
+              )
             }
           />
+          {semuaData && (
+            <span className="fk-hint-kecil">
+              {`${formatAngka(kkBerdata)} kertas kerja · ${formatAngka(jumlahSemua)} data, satu baris per kertas kerja (formulir berdampingan).`}
+              {kkKosong > 0 &&
+                ` ${formatAngka(kkKosong)} kertas kerja belum berisi data, jadi tidak punya baris di berkas.`}
+            </span>
+          )}
         </div>
 
         <TombolUnduh
-          disabled={!formTerpilih}
-          onExcel={() => unduhKe(api.unduhFormulir(formId, "xlsx"))}
-          onCsv={() => unduhKe(api.unduhFormulir(formId, "csv"))}
+          disabled={!formTerpilih && !semuaData}
+          onExcel={() => unduhKe(semuaData ? api.unduhSemuaData("xlsx") : api.unduhFormulir(formId, "xlsx"))}
+          onCsv={() => unduhKe(semuaData ? api.unduhSemuaData("csv") : api.unduhFormulir(formId, "csv"))}
         />
       </Panel>
 

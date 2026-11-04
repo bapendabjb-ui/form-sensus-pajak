@@ -2,8 +2,8 @@
 
 /**
  * Ekspor per kecamatan / kelurahan objek pajak (aturannya di
- * src/eksporWilayah.js) dan per petugas. Susunan kolomnya sama dengan ekspor
- * per kertas kerja dan per formulir (src/ekspor.js). Khusus admin.
+ * src/eksporWilayah.js), per petugas, dan seluruh data. Susunan kolomnya sama
+ * dengan ekspor per kertas kerja dan per formulir (src/ekspor.js). Khusus admin.
  */
 
 const express = require("express");
@@ -12,7 +12,8 @@ const config = require("../config");
 const { requireAdmin } = require("../auth");
 const { wrap, badRequest, notFound, parseId } = require("../http");
 const { includePertanyaan } = require("../bentuk");
-const { susunEkspor, susunEksporPerKk, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
+const { susunTabel, baseUrlEkspor, namaBerkas, kirimCsv, kirimXlsx } = require("../ekspor");
+const { muatEntriEkspor } = require("../muatEkspor");
 const { pertanyaanObjek, bacaPilihanWilayah, saringWilayah } = require("../eksporWilayah");
 
 const router = express.Router();
@@ -75,46 +76,37 @@ router.get(
   })
 );
 
-/** Entri beserta jawaban & kertas kerjanya (+ tim), bahan susunEkspor. */
-const includeEkspor = { jawaban: true, kertasKerja: { include: { petugas: { include: { petugas: true } } } } };
-
 /** `?formulir=<id>`, atau null = semua formulir. */
 const bacaFormulir = (req) => (req.query.formulir ? parseId(req.query.formulir, "formulir") : null);
 
 /**
- * Susun berkas ekspor dari sekumpulan entri (includeEkspor). Dengan `formId`
+ * Susun berkas ekspor dari sekumpulan entri (muatEntriEkspor). Dengan `formId`
  * hanya formulir itu, satu baris per data; tanpa itu semua formulir yang
- * berisi data, satu baris per kertas kerja (lihat susunEksporPerKk).
- * Urut nomor kertas kerja, lalu urutan formulir di bank, lalu waktu input.
+ * berisi data, satu baris per kertas kerja (lihat susunTabel).
  *
  * @param {string[]} namaBagian  potongan nama berkas, mis. ["wilayah", "cempaka"]
  * @param {string}   judul       nama sheet sebelum judul formulir
+ * @param {Function} [ikut]      saringan data; `entri` tetap berisi seluruh data
+ *                               kertas kerjanya supaya "No. data" tidak bergeser
  */
-async function susunBerkas(req, entri, formId, { namaBagian, judul }) {
+async function susunBerkas(req, entri, formId, { namaBagian, judul, ikut }) {
+  const berisi = ikut ? entri.filter(ikut) : entri;
   const formulir = await prisma.formulir.findMany({
-    where: { id: { in: formId ? [formId] : [...new Set(entri.map((e) => e.formulirId))] } },
+    where: { id: { in: formId ? [formId] : [...new Set(berisi.map((e) => e.formulirId))] } },
     orderBy: [{ urutan: "asc" }, { id: "asc" }],
     include: includePertanyaan,
   });
   if (formId && formulir.length === 0) throw notFound("Formulir tidak ditemukan.");
 
-  const urutForm = new Map(formulir.map((f, i) => [f.id, i]));
-  const data = entri
-    .map((e) => ({ kk: e.kertasKerja, e }))
-    .sort(
-      (a, b) =>
-        a.kk.nomor.localeCompare(b.kk.nomor) ||
-        urutForm.get(a.e.formulirId) - urutForm.get(b.e.formulirId) ||
-        a.e.createdAt - b.e.createdAt ||
-        a.e.id - b.e.id
-    );
-
   const satu = formId ? formulir[0] : null;
-  const susun = satu ? susunEkspor : susunEksporPerKk;
   return {
     nama: [...namaBagian, satu && namaBerkas(satu.judul, "formulir")].filter(Boolean).join("-"),
     sheet: satu ? `${judul} ${satu.judul}` : judul,
-    tabel: susun(data, formulir, { baseUrl: baseUrlEkspor(req), timezone: config.timezone }),
+    tabel: susunTabel(
+      entri.map((e) => ({ kk: e.kertasKerja, e })),
+      formulir,
+      { perData: Boolean(satu), ikut, baseUrl: baseUrlEkspor(req), timezone: config.timezone }
+    ),
   };
 }
 
@@ -137,16 +129,14 @@ async function dataEksporWilayah(req) {
   const formId = bacaFormulir(req);
 
   const entri = saring.kkIds.length
-    ? await prisma.entri.findMany({
-        where: { kertasKerjaId: { in: saring.kkIds }, ...(formId ? { formulirId: formId } : {}) },
-        include: includeEkspor,
-      })
+    ? await muatEntriEkspor({ kertasKerjaId: { in: saring.kkIds }, ...(formId ? { formulirId: formId } : {}) })
     : [];
 
   const { kecamatan, kelurahan } = pilihan;
-  return susunBerkas(req, entri.filter(saring.ikut), formId, {
+  return susunBerkas(req, entri, formId, {
     namaBagian: ["wilayah", namaBerkas(kecamatan.nama), kelurahan && namaBerkas(kelurahan.nama)],
     judul: kelurahan ? kelurahan.nama : `Kec. ${kecamatan.nama}`,
+    ikut: saring.ikut,
   });
 }
 
@@ -250,9 +240,9 @@ router.get(
 async function dataEksporPetugas(req) {
   const daftar = await muatPetugas(req);
   const formId = bacaFormulir(req);
-  const entri = await prisma.entri.findMany({
-    where: { ...syaratTim(daftar.map((p) => p.id)), ...(formId ? { formulirId: formId } : {}) },
-    include: includeEkspor,
+  const entri = await muatEntriEkspor({
+    ...syaratTim(daftar.map((p) => p.id)),
+    ...(formId ? { formulirId: formId } : {}),
   });
   return susunBerkas(req, entri, formId, namaPetugas(daftar));
 }
@@ -269,6 +259,32 @@ router.get(
   "/petugas/xlsx",
   requireAdmin,
   wrap(async (req, res) => kirimXlsx(res, await dataEksporPetugas(req)))
+);
+
+/* ---------- seluruh data ---------- */
+
+/**
+ * Seluruh data semua formulir dari semua kertas kerja, satu baris per kertas
+ * kerja - sama dengan menggabungkan ekspor "Semua formulir" tiap kertas kerja.
+ * Kertas kerja yang belum berisi data tidak punya baris.
+ */
+async function dataEksporSemua(req) {
+  const entri = await muatEntriEkspor();
+  return susunBerkas(req, entri, null, { namaBagian: ["semua-data"], judul: "Semua data" });
+}
+
+/** GET /api/ekspor/semua -> CSV (BOM UTF-8). */
+router.get(
+  "/semua",
+  requireAdmin,
+  wrap(async (req, res) => kirimCsv(res, await dataEksporSemua(req)))
+);
+
+/** GET /api/ekspor/semua/xlsx -> Excel, isi sama dengan CSV. */
+router.get(
+  "/semua/xlsx",
+  requireAdmin,
+  wrap(async (req, res) => kirimXlsx(res, await dataEksporSemua(req)))
 );
 
 module.exports = router;

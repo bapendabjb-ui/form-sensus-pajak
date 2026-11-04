@@ -186,6 +186,8 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │   │   ├── wilayahIndonesia.js     pencarian kelurahan/desa se-Indonesia (dimuat ke memori saat dipakai)
 │   │   ├── bentuk.js               bentuk keluaran JSON bersama
 │   │   ├── format.js               format tanggal/uang + penyusun CSV (anti rumus)
+│   │   ├── ekspor.js               susunan tabel ekspor (satu pintu untuk semua jenis ekspor) + penulis CSV & Excel
+│   │   ├── muatEkspor.js           pemuatan data ekspor besar secara bertahap (hemat memori)
 │   │   ├── eksporWilayah.js        aturan ekspor per kecamatan / kelurahan objek pajak
 │   │   ├── cadangan.js             cadangan manual: mysqldump, arsip foto per bulan, tiket unduh
 │   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, pengajuan, foto, dashboard, peta, nop, wilayah, ekspor, cadangan
@@ -396,7 +398,7 @@ Prinsipnya: **pekerjaan lapangan terbuka, pengelolaan dan penghapusan butuh admi
 | Mengisi data, mengubah data, mengunggah & melihat foto                        |        —          |
 | Mengajukan hapus kertas kerja / data, membatalkan pengajuan yang menunggu      |        —          |
 | **Melihat, menyetujui & menolak pengajuan hapus**                             |       ✅          |
-| **Ekspor CSV & Excel (kertas kerja, formulir, daftar petugas)**               |       ✅          |
+| **Ekspor CSV & Excel (kertas kerja, formulir, seluruh data, daftar petugas)** |       ✅          |
 | **Mengubah tim petugas kertas kerja yang sudah dibuat**                       |       ✅          |
 | **Menambah / mengubah / menghapus petugas, impor daftar petugas**             |       ✅          |
 | **Membuat akun login petugas, menyalakan wajib login**                        |       ✅          |
@@ -469,7 +471,7 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `imporPetugas.test.js` | Pembacaan .csv/.xlsx daftar petugas & penomoran barisnya               |
 | `peta.test.js`         | Titik tanpa koordinat tidak pernah masuk peta                          |
 | `kertasKerja.test.js`  | Batas paginasi daftar, serta pencarian & penyaringan yang pindah ke server |
-| `ekspor.test.js`       | Lokasi terekspor sebagai kolom latitude & longitude, utuh di Excel     |
+| `ekspor.test.js`       | Lokasi terekspor sebagai kolom latitude & longitude, utuh di Excel; semua jenis ekspor memberi urutan, *No. data*, dan isi baris yang sama |
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) menjalankan lint, tes,
 build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
@@ -1190,7 +1192,7 @@ Memutuskan pengajuan yang sudah diputuskan dijawab **409**.
 | `POST` | `/cadangan/tiket`    | `{ jenis: "database" }` atau `{ jenis: "foto", bulan: "2026-10" }` → `{ tiket }`, sekali pakai, 2 menit. **400** bulan tidak sah · **404** tidak ada foto bulan itu · **503** mysqldump tidak ada |
 | `GET`  | `/cadangan/unduh`    | `?tiket=` → `.sql.gz` / `.tar`. Tanpa login (tiketnya izinnya). **410** tiket sudah dipakai / kedaluwarsa |
 
-### Ekspor per wilayah & per petugas (khusus admin)
+### Ekspor per wilayah, per petugas & seluruh data (khusus admin)
 
 `kecamatan` dan `kelurahan` berisi kode SISMIOP dari `GET /wilayah`; `kelurahan` kosong = seluruh
 kecamatan. Kode yang tidak dikenal → **400**.
@@ -1203,6 +1205,8 @@ kecamatan. Kode yang tidak dikenal → **400**.
 | `GET`  | `/ekspor/petugas/ringkas`  | `?petugas=<id>[,<id>…]` (maks. 50) → `{ kertasKerja, kertasKerjaBerdata, data, formulir: [{ id, judul, jumlah }] }`; petugas tidak dikenal → **404** |
 | `GET`  | `/ekspor/petugas`          | `?petugas=<id>[,<id>…]&formulir=` → CSV data di kertas kerja yang timnya memuat salah satu petugas itu |
 | `GET`  | `/ekspor/petugas/xlsx`     | Idem, Excel (.xlsx)                                                 |
+| `GET`  | `/ekspor/semua`            | CSV seluruh data semua formulir dari semua kertas kerja, satu baris per kertas kerja |
+| `GET`  | `/ekspor/semua/xlsx`       | Idem, Excel (.xlsx)                                                 |
 
 ### Cek NOP
 
@@ -1219,20 +1223,31 @@ ditemukan · `409` data masih dipakai · `422` validasi gagal.
 
 ### Ekspor CSV & Excel
 
-Keduanya disusun di `server/src/ekspor.js` dengan isi yang sama. Tersedia lima cakupan:
+Keduanya disusun di `server/src/ekspor.js` dengan isi yang sama. Tersedia enam cakupan:
 
 | Cakupan | Tombol | Nama berkas |
 | --- | --- | --- |
 | Satu kertas kerja, semua formulir | **Ekspor Excel / CSV** di halaman kertas kerja (atau daftar kertas kerja) | `kertas-kerja-00012.xlsx` |
 | Satu kertas kerja, satu formulir | **Excel / CSV** di judul grup formulir pada *Data terkumpul* | `kertas-kerja-00012-identitas-wajib-pajak.xlsx` |
 | Satu formulir, semua kertas kerja | **Excel / CSV** di baris formulir pada Bank Formulir (bila sudah ada data) | `formulir-identitas-wajib-pajak.xlsx` |
+| Seluruh data: semua formulir, semua kertas kerja | Halaman **Ekspor** → *Per formulir* → *Semua formulir* | `semua-data.xlsx` |
 | Satu kecamatan / kelurahan objek pajak, semua formulir atau satu formulir | Halaman **Ekspor** saja | `wilayah-cempaka-palam.xlsx`, `wilayah-cempaka-palam-pbb-p2.xlsx` |
 | Satu atau beberapa petugas (kertas kerja yang timnya memuat salah satunya), semua formulir atau satu formulir | Halaman **Ekspor** saja | `petugas-surya-arisandi.xlsx`, `petugas-surya-arisandi-dan-2-lainnya-pbb-p2.xlsx` |
 
 Semua cakupan tersedia di halaman **Ekspor** (`/ekspor`, `EksporPage.jsx`, menu tersendiri
 di sidebar & bilah tab HP): pilih kertas kerja lalu *Semua formulir* atau satu formulir, pilih
-formulir untuk seluruh kertas kerja, pilih kecamatan, kelurahan (*Semua kelurahan* = seluruh
-kecamatan), dan formulir, atau pilih petugas dan formulir, kemudian **Unduh Excel** / **Unduh CSV**.
+formulir untuk seluruh kertas kerja (*Semua formulir* = seluruh data), pilih kecamatan, kelurahan
+(*Semua kelurahan* = seluruh kecamatan), dan formulir, atau pilih petugas dan formulir, kemudian
+**Unduh Excel** / **Unduh CSV**. Selama berkas disiapkan, kedua tombolnya terkunci (*Menyiapkan...*).
+
+**Seluruh data** sama dengan menggabungkan ekspor *Semua formulir* setiap kertas kerja, urut nomor
+kertas kerja. Kertas kerja yang belum berisi data tidak punya baris; layar ekspor menyebut jumlahnya.
+
+**Semua ekspor memberi hasil yang sama untuk data yang sama.** Semuanya lewat satu fungsi,
+`susunTabel` di `server/src/ekspor.js`, yang menetapkan urutan (nomor kertas kerja → urutan formulir
+di bank → waktu input → id) dan *No. data*. *No. data* dihitung dari seluruh data kertas kerja sebelum
+disaring wilayah: data ke-2 sebuah kertas kerja tetap bernomor 2 di ekspor kelurahan mana pun, sama
+dengan di ekspor per kertas kerja dan per formulir.
 
 **Per petugas** memuat semua data di kertas kerja yang timnya memuat petugas itu - patokan yang sama
 dengan angka *data · kertas kerja* di menu Petugas, jadi jumlahnya bisa dicocokkan. Bisa beberapa
@@ -1270,6 +1285,13 @@ kolom); pertanyaan foto berisi tautan lengkap ke fotonya. Bentuk barisnya ada du
 - **Excel (.xlsx)** memakai `exceljs`: baris judul tebal dan dibekukan, filter otomatis, lebar kolom
   menyesuaikan isi. Jawaban angka tersimpan sebagai angka (bisa dijumlah); NIK, NPWP, dan NOP tetap
   teks supaya tidak berubah menjadi `3,17E+15`.
+- **Hemat memori.** Server di-restart PM2 bila memakai lebih dari 512 MB
+  (`deploy/ecosystem.config.js`), sementara ekspor seluruh data berisi ribuan baris × ratusan kolom.
+  Karena itu data ekspor besar dimuat bertahap per 1.000 entri (`server/src/muatEkspor.js`), Excel
+  ditulis baris demi baris (`WorkbookWriter`), dan formatter tanggal/angka dipakai ulang
+  (`server/src/format.js`). Pada data uji seukuran produksi (±10.600 data), puncak memori ekspor
+  seluruh data ke Excel turun dari ±1,2 GB menjadi ±330 MB, dan ekspor PBB-P2 ke Excel dari ±645 MB
+  menjadi ±240 MB.
 - **Sel CSV yang akan dibaca sebagai rumus dilucuti.** Isi data diketik petugas
   lewat endpoint yang terbuka, sementara yang membuka berkas hasil ekspor adalah
   admin — tanpa penjagaan ini, isian seperti `=HYPERLINK("http://…")` akan
