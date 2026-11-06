@@ -486,7 +486,7 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `lapisanPeta.test.js`  | Lapisan GIS: berkas UTM / TM-3 ditolak, koordinat dibulatkan, batas ukuran isi                |
 | `persil.test.js`       | Persil BPN: bidang di luar Banjarbaru / bentuk rusak ditolak, petak & kunci wilayah, titik di bidang berlubang / bertumpuk, pencarian NIB |
 | `shapefile.test.js`    | Pembaca shapefile di browser (`client/src/lib/shapefile.js`): TM-3 / UTM ke derajat, .prj salah / tidak ada, CRS campur, bidang nyasar & rusak, lubang |
-| `persilBpn.test.js`    | Warna persil per kecamatan (`client/src/lib/persilBpn.js`): lima kecamatan Banjarbaru berbeda, warna mengikuti nama bukan urutan, cadangan untuk kecamatan lain; isi ringkas zoom 13–14 bolak-balik server → browser kembali ke tempatnya |
+| `persilBpn.test.js`    | Warna persil per kecamatan (`client/src/lib/persilBpn.js`): lima kecamatan Banjarbaru berbeda, warna mengikuti nama bukan urutan, cadangan untuk kecamatan lain; isi ringkas (zoom 13–16) bolak-balik server → browser kembali ke tempatnya |
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) menjalankan lint, tes,
 build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
