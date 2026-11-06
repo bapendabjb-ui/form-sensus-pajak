@@ -27,7 +27,7 @@ berkali-kali (mis. beberapa objek) — lengkap dengan **foto**, dan mengeksporny
 9. [Foto](#foto)
 10. [Penomoran anti-duplikat](#penomoran-anti-duplikat)
 11. [Lokasi (GPS)](#lokasi-gps)
-12. [NIK, NPWP, NOP PBB, RT & RW](#nik-npwp-nop-pbb-rt--rw)
+12. [NIK, NPWP, NOP PBB, RT & RW](#nik-npwp-nop-pbb-rt--rw) · [Integrasi NIB dan NOP](#integrasi-nib-dan-nop)
 13. [Menyusun urutan formulir & pertanyaan](#menyusun-urutan-formulir--pertanyaan)
 14. [Batas aplikasi](#batas-aplikasi)
 15. [Referensi API](#referensi-api)
@@ -131,7 +131,9 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── admin.js            status login admin untuk komponen dalam
 │       │   ├── konfigurasi.js      batas aplikasi dari server (petugasMaks dll.)
 │       │   ├── lapisanPeta.js      lapisan GIS di Peta Sensus: daftar, nyala/mati per browser, unduh isi
-│       │   ├── persilBpn.js        persil BPN di Peta Sensus: ringkasan, pilihan kecamatan, warna, ubin kanvas
+│       │   ├── persilBpn.js        persil BPN di Peta Sensus: ringkasan, pilihan kecamatan, warna (kecamatan / status sensus), ubin kanvas
+│       │   ├── nib.js              jawaban Bidang Tanah BPN (NIB): bentuk, tampilan, NIB dari sertifikat
+│       │   ├── useLokasiSaya.js    tombol "Lokasi saya" peta pemilih (Lokasi & Bidang)
 │       │   ├── shapefile.js        pembaca shapefile persil BPN di browser + tebakan sistem koordinat
 │       │   ├── useDragUrut.js      seret (drag & drop) untuk menyusun ulang daftar
 │       │   ├── useMobile.js        deteksi tata letak HP
@@ -152,8 +154,10 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── KelolaLapisan.jsx   admin: unggah / atur / hapus lapisan GIS (GeoJSON)
 │       │   ├── KelolaPersil.jsx    admin: impor shapefile persil BPN, ringkasan, hapus
 │       │   ├── PersilDiTitik.jsx   NIB bidang BPN di bawah jawaban Lokasi
+│       │   ├── NibInput.jsx        pertanyaan Bidang Tanah BPN: usulan dari titik, pilih di peta, ketik NIB sertifikat
+│       │   ├── PetaBidang.jsx      peta pemilih bidang BPN (mesin peta/BidangGoogle & BidangLeaflet)
 │       │   ├── peta/               mesin peta Google & Leaflet, bersama.jsx, PilihLapisan.jsx (tombol Lapisan), CariNib.jsx
-│       │   ├── Fields.jsx          semua 16 tipe input pengisian (termasuk NIK, NPWP, NOP, RT & RW)
+│       │   ├── Fields.jsx          semua tipe input pengisian (termasuk NIK, NPWP, NOP, NIB, RT & RW)
 │       │   └── Toast.jsx, Ui.jsx
 │       └── pages/
 │           ├── Dashboard.jsx
@@ -197,10 +201,11 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │   │   ├── eksporPeta.js           tabel ekspor -> titik GeoJSON / KML untuk QGIS, ArcGIS, Google Earth
 │   │   ├── lapisanPeta.js          pembaca & perapi GeoJSON lapisan GIS (tolak CRS selain EPSG:4326)
 │   │   ├── persil.js               persil BPN: periksa kiriman impor, petak peta, bidang di titik, cari NIB
+│   │   ├── integrasi.js            integrasi NIB-NOP: pola hubungan, status bidang di peta, laporan & daftar kerja
 │   │   ├── muatEkspor.js           pemuatan data ekspor besar secara bertahap (hemat memori)
 │   │   ├── eksporWilayah.js        aturan ekspor per kecamatan / kelurahan objek pajak
 │   │   ├── cadangan.js             cadangan manual: mysqldump, arsip foto per bulan, tiket unduh
-│   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, pengajuan, foto, dashboard, peta, lapisan, persil, nop, wilayah, ekspor, cadangan
+│   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, pengajuan, foto, dashboard, peta, lapisan, persil, integrasi, nop, wilayah, ekspor, cadangan
 │   └── test/                       tes node:test - logika murni, tanpa database
 │
 ├── uploads/                        foto (lokal; di Railway pakai volume) — tidak di-commit
@@ -486,7 +491,8 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `lapisanPeta.test.js`  | Lapisan GIS: berkas UTM / TM-3 ditolak, koordinat dibulatkan, batas ukuran isi                |
 | `persil.test.js`       | Persil BPN: bidang di luar Banjarbaru / bentuk rusak ditolak, petak & kunci wilayah, titik di bidang berlubang / bertumpuk, pencarian NIB |
 | `shapefile.test.js`    | Pembaca shapefile di browser (`client/src/lib/shapefile.js`): TM-3 / UTM ke derajat, .prj salah / tidak ada, CRS campur, bidang nyasar & rusak, lubang |
-| `persilBpn.test.js`    | Warna persil per kecamatan (`client/src/lib/persilBpn.js`): lima kecamatan Banjarbaru berbeda, warna mengikuti nama bukan urutan, cadangan untuk kecamatan lain; isi ringkas (zoom 13–16) bolak-balik server → browser kembali ke tempatnya |
+| `persilBpn.test.js`    | Warna persil per kecamatan (`client/src/lib/persilBpn.js`): lima kecamatan Banjarbaru berbeda, warna mengikuti nama bukan urutan, cadangan untuk kecamatan lain; isi ringkas (zoom 13–16) bolak-balik server → browser kembali ke tempatnya, beserta id tiap bidang |
+| `integrasi.test.js`    | Integrasi NIB-NOP: bentuk jawaban Bidang Tanah BPN, NIB sertifikat 13 digit, pola tiap data (1 NIB = 1 NOP, beberapa NIB / NOP, campuran, tanpa NOP / NIB), status bidang di peta, kolom ekspor & daftar kerja Excel |
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) menjalankan lint, tes,
 build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
@@ -500,13 +506,14 @@ build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
 | `admin`                 | `username` unik + `password_hash`                                           |
 | `petugas`               | Nama & NIP — sumber dropdown tim petugas                                    |
 | `formulir`              | Bank formulir + `ikon` (nama ikon kartu, kosong = nomor) + `urutan` (susunan tampil, diatur admin lewat seret) |
-| `pertanyaan`            | `tipe` (19 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `luas`, `nik`, `npwp`, `niknpwp`, `telepon` & `nop`), `label`, `keterangan`, `wajib`, `range_harga`, `isi_epbb`, `kolom` (`""`/`kiri`/`kanan`), `urutan` |
+| `pertanyaan`            | `tipe` (20 enum, termasuk `foto`, `wilayah`, `lokasi`, `rtrw`, `luas`, `nik`, `npwp`, `niknpwp`, `telepon`, `nop` & `nib`), `label`, `keterangan`, `wajib`, `range_harga`, `isi_epbb`, `kolom` (`""`/`kiri`/`kanan`), `urutan` |
 | `pertanyaan_opsi`       | Opsi dropdown/radio/checkbox & daftar "Jenis tarif"                         |
 | `kertas_kerja`          | `nomor` CHAR(5) **UNIQUE**, `status` (kolom `judul`, `titik_*`, `lokasi_status`, dan `lokasi_dicek_*` tidak dipakai lagi) |
 | `kertas_kerja_petugas`  | Tim petugas (1–8), `urutan` 0 = penanggung jawab                            |
 | `entri`                 | Satu data: `kertas_kerja_id` + `formulir_id` (boleh berulang); `berkas_lengkap` + `catatan_berkas` |
 | `jawaban`               | `nilai` JSON, **UNIQUE(entri_id, pertanyaan_id)**                           |
 | `rincian_tarif`         | Bentuk ternormalisasi jawaban "rincian tarif" per entri, untuk pelaporan    |
+| `entri_nib`             | Bentuk ternormalisasi jawaban "Bidang Tanah BPN": satu baris per bidang per data (`kode_wilayah`, `nib`, `sumber`, `luas_peta`) bersama `nop` data itu, ditulis ulang setiap data disimpan - sumber pencocokan NIB-NOP |
 | `foto`                  | Berkas foto: `berkas` (path relatif), `entri_id`, `pertanyaan_id`, `mime`   |
 | `pengajuan_hapus`       | Pengajuan hapus dari petugas: `jenis` (`kertas_kerja`/`entri`), tautan sasaran, salinan `nomor_kk` & `judul`, `alasan`, `pengaju`, `status` (`menunggu`/`disetujui`/`ditolak`), `diputuskan_at`, `diputuskan_oleh` |
 | `nomor_counter`         | Tepat 1 baris (`id = 1`) untuk penomoran                                    |
@@ -516,7 +523,7 @@ build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
 Perilaku relasi:
 
 - Menghapus **kertas kerja** → entri, jawaban, rincian tarif, dan foto ikut terhapus (termasuk berkasnya).
-- Menghapus **entri** → jawaban & fotonya ikut terhapus.
+- Menghapus **entri** → jawaban, fotonya, dan baris `entri_nib`-nya ikut terhapus.
 - Menghapus **formulir** → ditolak **409** bila sudah diisi, kecuali `?force=true` (data ikut terhapus).
 - Menghapus **petugas** yang masih ada di tim kertas kerja → ditolak **409**.
 - Pengajuan hapus **tidak ikut terhapus** bersama sasarannya: tautannya menjadi `NULL` dan
@@ -527,6 +534,10 @@ Perilaku relasi:
   yang sudah tersimpan tidak hilang saat admin menambah atau mengurutkan ulang pertanyaan.
 
 ### Migrasi dari versi sebelumnya
+
+Migrasi `20261107100000_integrasi_nib` menambah nilai enum tipe pertanyaan `nib` (Bidang Tanah
+BPN), tabel `entri_nib`, dan indeks `persil (aktif, kode_wilayah, nib)`; lihat
+[Integrasi NIB dan NOP](#integrasi-nib-dan-nop). Tidak ada data lama yang berubah.
 
 Migrasi `20261106100000_persil_bpn` hanya menambah tabel `persil` (persil BPN, lihat
 [Persil BPN](#persil-bpn)); tidak ada data lama yang berubah.
@@ -582,6 +593,7 @@ Kolom `kertas_kerja.nama_objek` dihapus — nama objek kini diisi lewat pertanya
 | `nik`, `npwp`, `nop`                                      | string digit (`"3172010101010001"`)               |
 | `niknpwp`                                                 | `{ nik, npwp }` — dua string digit, boleh salah satu kosong |
 | `telepon`                                                 | array `{ keterangan, nomor }` — nomor 8–15 digit, boleh diawali `+`, maks. 10 baris |
+| `nib`                                                     | `{ bidang: [{ kode, nib, sumber, diPeta, tipeHak, luas, kelurahan, kecamatan }], status }` — maks. 20 bidang; `status` (`belum_sertifikat` / `belum_diketahui`) hanya bila tanpa bidang. Lihat [Integrasi NIB dan NOP](#integrasi-nib-dan-nop) |
 
 `harga_max` **null** = harga tunggal; **terisi** = rentang (diatur per baris, hanya bila admin
 menyalakan **"Izinkan harga rentang"**). Server selalu menormalkan nilai masuk: string di-`trim`,
@@ -857,7 +869,10 @@ Peta pendaftaran tanah BPN (shapefile persil per kecamatan) bisa dimasukkan ke a
   dengan **warna per kecamatan** (tabel di bawah). Mengetuk bidang menyorotnya dan membuka NIB, tipe hak,
   luas peta, kelurahan, dan atribut lain. **Lapisan → Persil BPN** menyalakan / mematikannya, dan
   centang di bawahnya memilih kecamatan mana yang tampil (tersimpan per browser). Legenda menyebut
-  kecamatan yang tampil; di HP diringkas jadi satu contoh warna.
+  kecamatan yang tampil; di HP diringkas jadi satu contoh warna. **Warna bidang → Status sensus**
+  mewarnai bidang menurut hubungannya dengan NOP hasil sensus (lihat
+  [Integrasi NIB dan NOP](#integrasi-nib-dan-nop)), dan balon bidang menyebut data sensus yang
+  mencatatnya, masing-masing dengan tombol **Buka**.
 - **Cari NIB** di bilah alat peta: NIB 5 digit (kembar di kelurahan lain → pilih kelurahannya) atau
   NIB lengkap 13 digit (kode wilayah + NIB, mis. `17.11.74.02.03612`). Peta menuju bidangnya dan
   menyorotnya.
@@ -1112,6 +1127,73 @@ browser ──GET /api/nop/cari?nama&nik&letak──▶ server ──GET {EPBB_A
 - EPBB yang belum diperbarui (berkas `Nop.php` lama) membalas pencarian dengan halaman login.
   Petugas mendapat pesan *Pencarian NOP belum tersedia di EPBB*, sedangkan cek NOP tetap berjalan.
 
+### Integrasi NIB dan NOP
+
+PBB belum punya peta per bidang, sedangkan BPN punya peta pendaftaran tanah (NIB). Sensus ini
+mencatat hubungan keduanya **apa adanya**: satu NOP boleh menempati beberapa bidang, satu bidang
+boleh berisi beberapa NOP. Penyatuan menjadi 1 NIB = 1 NOP dikerjakan sesudahnya, dari daftar
+kerja yang disusun aplikasi. Kodenya: `server/src/integrasi.js`, `client/src/components/NibInput.jsx`,
+`client/src/pages/IntegrasiPage.jsx`.
+
+**Memasang.** Admin menambah pertanyaan bertipe **Bidang Tanah BPN (NIB)** ke formulir PBB yang juga
+punya pertanyaan **NOP PBB** (Formulir → Tambah pertanyaan). Data lama formulir itu langsung terhitung
+"NOP tanpa NIB" sampai petugas melengkapinya.
+
+**Petugas mengisi** dengan salah satu atau gabungan cara ini:
+
+1. **Usulan dari titik Lokasi** - bila pertanyaan Lokasi sudah terisi, tampil bidang tempat titik itu
+   berada; **Pakai bidang ini** memilihnya.
+2. **Pilih di peta** - peta persil BPN (bawaan satelit) berpusat di titik Lokasi. Ketuk bidang untuk
+   memilih, ketuk lagi untuk membatalkan; bidang terpilih disorot. Boleh beberapa bidang (maks. 20),
+   jumlah luas petanya tampil di bawah daftar.
+3. **Ketik NIB dari sertifikat** - NIB lengkap 13 digit (`17.11.74.02.03612`) atau 5 digit nomor
+   bidangnya, lalu **Cari**. NIB lengkap yang tidak ada di peta BPN tetap bisa dicatat
+   (**Catat NIB ini**), bertanda *tidak ada di peta BPN*.
+
+Tanpa NIB, petugas memilih alasannya: **Tanah belum bersertifikat** atau **Bersertifikat, NIB belum
+diketahui**. Bila pertanyaannya wajib, salah satu harus terisi: bidang atau alasan.
+
+- Tipe hak, luas peta, kelurahan, dan kecamatan setiap bidang disalin server dari tabel `persil` saat
+  data disimpan, bukan dari kiriman browser. NIB yang sudah dicatat tidak hilang walau persil
+  diimpor ulang (bidang yang dipecah BPN mendapat NIB baru).
+- Di bawah bidang yang juga dicatat di data lain tampil **Juga tercatat di data lain: NOP ... (KK ...)**,
+  supaya petugas tahu sebelum menyimpan.
+- Ekspor: setiap pertanyaan Bidang Tanah BPN menjadi kolom *(NIB)*, *(Jumlah bidang)*, *(Luas peta BPN m²)*,
+  *(Tipe hak BPN)*, *(Kelurahan BPN)*, dan *(Keterangan)* (alasan tanpa NIB / NIB yang tidak ada di peta).
+
+**Pola** setiap data disimpulkan aplikasi dari seluruh data, bukan diisi petugas:
+
+| Pola | Artinya | Tindak lanjut yang biasa |
+| --- | --- | --- |
+| 1 NIB = 1 NOP | NOP tepat di satu bidang, bidang itu tidak dicatat untuk NOP lain | Sudah cocok |
+| Beberapa NIB, 1 NOP | Satu NOP menempati beberapa bidang (mis. beberapa sertifikat bersebelahan) | Calon pemecahan NOP |
+| 1 NIB, beberapa NOP | Satu bidang untuk beberapa NOP (dijual sebagian sebelum sertifikat dipecah, rumah susun) | Sering memang benar; tunggu pemecahan di BPN |
+| Campuran | Keduanya sekaligus | Ditinjau satu per satu |
+| NIB tanpa NOP | Bidang tercatat, NOP kosong | Calon objek baru, atau objek yang dikecualikan |
+| NOP tanpa NIB | Belum bersertifikat, NIB belum diketahui, atau belum diisi | Lengkapi bila bersertifikat |
+
+Data yang disensus dua kali dengan NOP dan NIB yang sama tetap dihitung 1 NIB = 1 NOP.
+
+**Halaman Integrasi NIB** (sidebar; di HP dari kartu di Dashboard): jumlah per pola (ketuk untuk
+menyaring), daftar data per pola beserta *NOP lain di bidang yang sama* dan *bidang lain milik NOP ini*,
+luas peta BPN dibanding luas tanah isian, pencarian NOP / NIB / nama, dan **cakupan per kelurahan**
+(berapa bidang BPN yang sudah tercatat di sensus). Admin bisa **Unduh Excel** daftar kerjanya, disaring
+sama dengan layarnya, lengkap dengan selisih luas dan tautan ke tiap data.
+
+**Peta Sensus → Lapisan → Warna bidang → Status sensus** mewarnai setiap bidang BPN:
+
+| Warna (peta jalan / satelit) | Status |
+| --- | --- |
+| biru `#2a78d6` / `#3987e5` | 1 NIB = 1 NOP |
+| oranye `#eb6834` / `#d95926` | Perlu ditinjau: bidangnya berisi beberapa NOP, atau NOP-nya menempati beberapa bidang |
+| toska `#1baf7a` / `#199e70` | NIB tanpa NOP |
+| abu-abu tipis | Belum tercatat di sensus |
+
+Ketiga warnanya adalah tiga slot pertama palet kategori, satu-satunya tiga yang tetap terbedakan
+berpasangan di peta (divalidasi untuk semua pasangan, peta jalan dan satelit). Legenda menyebut jumlah
+bidang per status. Pilihan warnanya tersimpan per browser; datanya dimuat saat mode ini dipilih atau
+halaman dibuka. Untuk menggambarnya, isi ringkas peta (zoom 13–16) membawa id setiap bidang.
+
 ---
 
 ## Menyusun urutan formulir & pertanyaan
@@ -1358,7 +1440,7 @@ Memutuskan pengajuan yang sudah diputuskan dijawab **409**.
 
 | Method | Endpoint           | Keterangan                                                                        |
 | ------ | ------------------ | --------------------------------------------------------------------------------- |
-| `GET`  | `/dashboard/stats` | Kertas kerja, selesai, data, data berkas tidak lengkap (`tidakLengkap`), pengajuan hapus menunggu (`pengajuanHapus`), foto, formulir, petugas + 10 petugas dengan kertas kerja terbanyak (`rekapPetugas`) |
+| `GET`  | `/dashboard/stats` | Kertas kerja, selesai, data, data berkas tidak lengkap (`tidakLengkap`), pengajuan hapus menunggu (`pengajuanHapus`), foto, formulir, petugas + 10 petugas dengan kertas kerja terbanyak (`rekapPetugas`); `integrasiNib` = `{ data }` bila ada formulir berpertanyaan Bidang Tanah BPN, atau `null` |
 | `GET`  | `/health`          | Health check (dipakai Railway)                                                    |
 | `GET`  | `/konfigurasi`     | Batas aplikasi: `petugasMaks`, `fotoMaksPerPertanyaan`, `uploadMaksMb`, `lapisanMaksMb`, `cekNop`, `lokasi` (titik kantor & batas akurasi), `googleMapsKey` |
 | `POST` | `/tautan-peta`     | `{ teks }` → `{ lat, lon }` dari koordinat / tautan Google Maps; tautan `maps.app.goo.gl` diikuti pengalihannya (hanya ke host Google). Dibatasi 60 per 10 menit per IP |
@@ -1419,7 +1501,23 @@ Kedua `GET` dibatasi 600 permintaan per 10 menit per IP.
 | `DELETE` | `/persil/impor/:token` | 🔒 Batalkan impor yang belum selesai |
 | `POST` | `/persil/hapus` | 🔒 `{ kunci: [...] }` atau `{ semua: true }` → `{ dihapus }` |
 
-`/persil`, `/persil/titik`, dan `/persil/cari` dibatasi 1.200 per 10 menit per IP.
+`/persil`, `/persil/titik`, dan `/persil/cari` dibatasi 1.200 per 10 menit per IP. Bidang dari
+`/persil/titik?bentuk=1` dan `/persil/cari` membawa `kunci` (`kode|nib`) dan
+`fitur.properties.sensus`: data yang mencatat bidang itu `[{ entriId, kkId, nomor, nop, judul }]`.
+Isi ringkas membawa `id`: id bidang tiap cincin di `bidang`, sebagai selisih berurutan (browser
+memintanya dengan `&f=2` supaya isi bentuk lama di cache tidak terpakai).
+
+### Integrasi NIB-NOP
+
+| Method | Endpoint | Keterangan |
+| ------ | -------- | ---------- |
+| `GET`  | `/integrasi?pola=&cari=&mulai=` | `{ pola: { kunci: label }, ringkas: { formulir, data, pola, bidang, bidangDiPeta, nop }, cakupan: [{ kunci, kecamatan, kelurahan, bidangBpn, tersensus }], data: { baris, total, mulai, lebih } }` - 50 baris per halaman |
+| `GET`  | `/integrasi/bidang` | Status bidang untuk Peta Sensus: `{ cocok: [id], tinjau: [id], tanpa_nop: [id] }`, id persil sebagai selisih berurutan |
+| `GET`  | `/integrasi/cek?kunci=&kecuali=` | `kunci` = daftar kunci bidang (kode wilayah, garis tegak, NIB) dipisah koma, `kecuali` = id data yang sedang dibuka. Data lain yang mencatat bidang itu: `{ [kunci]: [{ entriId, kkId, nomor, nop, judul }] }` (peringatan di layar isi data) |
+| `GET`  | `/integrasi/unduh?pola=&cari=` | 🔒 Daftar kerja (.xlsx) |
+
+Laporan dan status bidang disusun dari seluruh data lalu disimpan di memori sampai ada data yang
+berubah (paling lama 60 detik); dibatasi 1.200 per 10 menit per IP.
 
 ### Cek NOP
 

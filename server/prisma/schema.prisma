@@ -145,6 +145,8 @@ model Persil {
   @@index([aktif, besar, selLat, selLon], map: "persil_petak_idx")
   @@index([aktif, kunciWilayah], map: "persil_wilayah_idx")
   @@index([nib], map: "persil_nib_idx")
+  /// Mencocokkan NIB yang dicatat sensus (entri_nib) dengan bidangnya.
+  @@index([aktif, kodeWilayah, nib], map: "persil_kode_nib_idx")
   @@index([impor], map: "persil_impor_idx")
   @@map("persil")
 }
@@ -193,6 +195,7 @@ enum TipePertanyaan {
   niknpwp
   telepon
   luas
+  nib
 }
 
 /// Satu pertanyaan di dalam sebuah formulir.
@@ -217,6 +220,7 @@ model Pertanyaan {
   jawaban      Jawaban[]
   rincianTarif RincianTarif[]
   foto         Foto[]
+  entriNib     EntriNib[]
 
   @@index([formulirId], map: "pertanyaan_formulir_id_idx")
   @@map("pertanyaan")
@@ -330,6 +334,7 @@ model Entri {
   rincianTarif   RincianTarif[]
   foto           Foto[]
   pengajuanHapus PengajuanHapus[]
+  entriNib       EntriNib[]
 
   @@index([kertasKerjaId], map: "entri_kertas_kerja_id_idx")
   @@index([formulirId], map: "entri_formulir_id_idx")
@@ -352,6 +357,7 @@ model Entri {
 ///   niknpwp                                   : { nik, npwp }  (minimal salah satu bila wajib)
 ///   telepon                                   : array { keterangan, nomor }  (nomor 8-15 digit)
 ///   luas                                      : { tanah, bangunan }  (m², number|null)
+///   nib                                       : { bidang: [{ kode, nib, sumber, diPeta, tipeHak, luas, kelurahan, kecamatan }], status }
 model Jawaban {
   id           Int  @id @default(autoincrement())
   entriId      Int  @map("entri_id")
@@ -386,6 +392,37 @@ model RincianTarif {
   @@index([entriId], map: "rincian_tarif_entri_id_idx")
   @@index([pertanyaanId], map: "rincian_tarif_pertanyaan_id_idx")
   @@map("rincian_tarif")
+}
+
+/// Bentuk ternormalisasi dari jawaban "nib" (Bidang Tanah BPN): satu baris per
+/// bidang yang dicatat petugas, bersama NOP data itu. Dipakai untuk mencocokkan
+/// NIB dengan NOP di seluruh data (src/integrasi.js): bidang mana yang sudah
+/// punya NOP, NOP mana yang menempati beberapa bidang, dan sebaliknya.
+/// Ditulis ulang setiap kali entri disimpan, seperti rincian_tarif.
+model EntriNib {
+  id           Int    @id @default(autoincrement())
+  entriId      Int    @map("entri_id")
+  pertanyaanId Int    @map("pertanyaan_id")
+  /// Kode wilayah BPN 8 digit, mis. "17117402" - kosong bila tidak diketahui.
+  kodeWilayah  String @default("") @map("kode_wilayah") @db.VarChar(20)
+  /// NIB 5 digit, mis. "03612".
+  nib          String @db.VarChar(30)
+  /// NOP data ini (18 digit) saat disimpan; kosong = data tanpa NOP.
+  nop          String @default("") @db.VarChar(18)
+  /// "peta" = dipilih di peta, "sertifikat" = diketik dari sertifikat.
+  sumber       String @default("") @db.VarChar(12)
+  /// Luas peta BPN saat dicatat (m²).
+  luasPeta     Float? @map("luas_peta")
+  urutan       Int    @default(0)
+
+  entri      Entri      @relation(fields: [entriId], references: [id], onDelete: Cascade)
+  pertanyaan Pertanyaan @relation(fields: [pertanyaanId], references: [id], onDelete: Cascade)
+
+  @@index([kodeWilayah, nib], map: "entri_nib_kunci_idx")
+  @@index([nop], map: "entri_nib_nop_idx")
+  @@index([entriId], map: "entri_nib_entri_id_idx")
+  @@index([pertanyaanId], map: "entri_nib_pertanyaan_id_idx")
+  @@map("entri_nib")
 }
 
 /// Berkas foto yang diunggah. entri_id masih NULL selama foto baru diunggah

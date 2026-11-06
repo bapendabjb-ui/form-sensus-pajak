@@ -27,6 +27,7 @@ export const TYPES = [
   { key: "niknpwp", label: "NIK / NPWP" },
   { key: "telepon", label: "Nomor telepon" },
   { key: "nop", label: "NOP PBB" },
+  { key: "nib", label: "Bidang Tanah BPN (NIB)" },
 ];
 
 export const TYPE_LABEL = Object.fromEntries(TYPES.map((t) => [t.key, t.label]));

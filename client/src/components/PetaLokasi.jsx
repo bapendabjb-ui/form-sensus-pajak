@@ -1,8 +1,7 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { useMesinPeta, PilihJenis, PetaMemuat, CatatanCadangan, PenahanPeta } from "./peta/bersama.jsx";
-import { useToast } from "./Toast.jsx";
 import { IkonLokasiSaya } from "./Icons.jsx";
-import { pantauPosisi } from "../lib/rekamPosisi.js";
+import { useLokasiSaya } from "../lib/useLokasiSaya.js";
 
 // Hanya mesin yang dipakai yang diunduh: Leaflet tidak ikut termuat selama
 // peta Google berjalan, dan sebaliknya.
@@ -23,51 +22,9 @@ const LokasiLeaflet = lazy(() => import("./peta/LokasiLeaflet.jsx"));
  * onPilih : (lat, lon) => void
  */
 export default function PetaLokasi({ titik, onPilih }) {
-  const toast = useToast();
   const [jenis, setJenis] = useState("peta");
   const mesin = useMesinPeta();
-  const [saya, setSaya] = useState({ status: "mati", posisi: null });
-  // Naik setiap kali peta perlu dipusatkan ke lokasi saya.
-  const [pusatkan, setPusatkan] = useState(0);
-  const henti = useRef(null);
-  // Tombol sudah ditekan, tetapi posisinya belum didapat.
-  const tunggu = useRef(false);
-
-  // GPS dipantau terus selama peta terbuka supaya titik birunya makin tepat.
-  useEffect(() => () => henti.current && henti.current(), []);
-
-  const keLokasiSaya = () => {
-    if (saya.posisi) {
-      setPusatkan((n) => n + 1);
-      return;
-    }
-    tunggu.current = true;
-    if (henti.current) return; // masih mencari; peta dipusatkan begitu posisi didapat
-
-    const berhenti = (pesan) => {
-      if (henti.current) henti.current();
-      henti.current = null;
-      tunggu.current = false;
-      setSaya({ status: "mati", posisi: null });
-      toast(pesan, true);
-    };
-    // pantauPosisi bisa melapor gagal sebelum penghentinya dikembalikan.
-    let galatAwal = "";
-    const stop = pantauPosisi(({ status, posisi, galat }) => {
-      if (status === "gagal" && !posisi) {
-        if (henti.current) berhenti(galat);
-        else galatAwal = galat;
-        return;
-      }
-      setSaya({ status, posisi });
-      if (posisi && tunggu.current) {
-        tunggu.current = false;
-        setPusatkan((n) => n + 1);
-      }
-    });
-    henti.current = stop;
-    if (galatAwal) berhenti(galatAwal);
-  };
+  const { saya, pusatkan, keLokasiSaya } = useLokasiSaya();
 
   const props = { titik, onPilih, jenis, posisiSaya: saya.posisi, pusatkan };
   let kanvas = (

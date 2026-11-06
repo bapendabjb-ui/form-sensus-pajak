@@ -10,6 +10,8 @@ const { requireAdmin } = require("../auth");
 const { wrap, badRequest } = require("../http");
 const { pembatas } = require("../laju");
 const persil = require("../persil");
+const { sensusBidang } = require("../integrasi");
+const { kunciBidang } = require("../answers");
 
 const router = express.Router();
 
@@ -41,6 +43,22 @@ function bacaBulat(nilai, label) {
   const n = Number(nilai);
   if (!Number.isInteger(n) || Math.abs(n) > 100000) throw badRequest(`Parameter ${label} tidak valid.`);
   return n;
+}
+
+/**
+ * Tambahkan data sensus yang mencatat bidang-bidang ini ke balon petanya
+ * (fitur.properties.sensus): NOP, nomor kertas kerja, dan judul datanya.
+ */
+async function denganSensus(daftar) {
+  const bentuk = daftar.filter((b) => b && b.fitur);
+  if (!bentuk.length) return daftar;
+  const sensus = await sensusBidang(bentuk.map((b) => kunciBidang(b.kodeWilayah, b.nib)));
+  for (const b of bentuk) {
+    const k = kunciBidang(b.kodeWilayah, b.nib);
+    b.kunci = k;
+    b.fitur.properties.sensus = sensus[k] || [];
+  }
+  return daftar;
 }
 
 /** Koordinat dari query string ?lat=&lon=. */
@@ -96,7 +114,7 @@ router.get(
 
 /**
  * GET /api/persil/titik?lat=&lon=[&bentuk=1] -> { ada: ada persil tersimpan, persil: bidang di titik itu | null }.
- * `bentuk=1`: bidangnya beserta kotak dan Feature-nya - bidang yang diketuk di peta.
+ * `bentuk=1`: bidangnya beserta kotak, Feature-nya, dan data sensus yang mencatatnya - bidang yang diketuk di peta.
  */
 router.get(
   "/titik",
@@ -105,6 +123,7 @@ router.get(
     const { lat, lon } = bacaTitik(req.query);
     const bentuk = req.query.bentuk === "1";
     const [ada, hasil] = await Promise.all([persil.adaPersil(), persil.cariDiTitik(lat, lon, { bentuk })]);
+    if (hasil && bentuk) await denganSensus([hasil]);
     res.json({ ada, persil: hasil });
   })
 );
@@ -114,7 +133,7 @@ router.get(
   "/cari",
   batasiCari,
   wrap(async (req, res) => {
-    res.json(await persil.cariNib(req.query.q));
+    res.json(await denganSensus(await persil.cariNib(req.query.q)));
   })
 );
 

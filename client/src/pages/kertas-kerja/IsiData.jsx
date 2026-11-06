@@ -429,6 +429,11 @@ export function IsiData({ kkId, formulirId, entriId }) {
     );
   };
 
+  // Pertanyaan Bidang Tanah BPN: data yang sedang dibuka (tidak ikut disebut di
+  // peringatan bidang ganda) dan titik Lokasi objeknya (usulan bidang, pusat peta).
+  const titikNib = titikDariFormulir(formulir.pertanyaan, answers);
+  const konteksNib = { entriId: entriId || null, titik: titikNib ? { lat: titikNib.lat, lon: titikNib.lon } : null };
+
   const kolomIsian = (q) => (
     <div className="fk-field" key={q.id} data-qid={q.id}>
       <label className="fk-q-name">
@@ -450,6 +455,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
           invalid={Boolean(errors[q.id])}
           onChange={(v) => setAnswer(q.id, v)}
           isiEpbb={q.tipe === "nop" ? isiEpbb : null}
+          konteks={q.tipe === "nib" ? konteksNib : undefined}
         />
       )}
       {errors[q.id] && <span className="fk-err">{errors[q.id]}</span>}

@@ -45,7 +45,8 @@ export default function PetaPage() {
   const sorotBidang = (b) => {
     persil.ubahNyala(true);
     if (persil.kecamatan.some((k) => k.nama === b.kecamatan && !k.tampil)) persil.ubahKecamatan(b.kecamatan, true);
-    setSorot({ fitur: b.fitur, batas: b.batas });
+    // `id` = warna sorotnya mengikuti status sensus bidang itu (mode warna "Status sensus").
+    setSorot({ id: b.id, kecamatan: b.kecamatan, fitur: b.fitur, batas: b.batas });
   };
 
   const muat = useCallback(async () => {

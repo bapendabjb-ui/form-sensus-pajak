@@ -21,6 +21,7 @@ const crypto = require("crypto");
 const prisma = require("./prisma");
 const { badRequest } = require("./http");
 const { WILAYAH } = require("./batas");
+const { nibLengkap } = require("./format");
 
 /** Sisi petak, derajat (±550 m). Petak terpadat di Banjarbaru berisi ±1.400 bidang. */
 const UKURAN_PETAK = 0.005;
@@ -253,16 +254,7 @@ function bacaToken(nilai) {
 
 /* ---------- NIB ---------- */
 
-/**
- * NIB lengkap untuk ditampilkan: kode wilayah 8 digit + NIB 5 digit ->
- * "17.11.74.02.03612". Selain bentuk itu: digabung titik, atau NIB-nya saja.
- */
-function nibLengkap(kodeWilayah, nib) {
-  if (/^\d{8}$/.test(kodeWilayah) && /^\d{5}$/.test(nib)) {
-    return `${kodeWilayah.replace(/(\d{2})(?=\d)/g, "$1.")}.${nib}`;
-  }
-  return kodeWilayah && nib ? `${kodeWilayah}.${nib}` : nib;
-}
+// nibLengkap (NIB untuk ditampilkan) ada di src/format.js, dipakai juga ekspor.
 
 /**
  * Ketikan pencarian NIB -> syarat pencarian, atau null bila kosong.
@@ -421,7 +413,10 @@ function sederhanakanCincin(c, toleransi) {
  *             bidang kecil; titik pertama relatif ke titik pertama cincin sebelumnya
  *             (cincin pertama: ke `asal`), titik berikutnya relatif ke titik sebelumnya,
  *     besar:  [[id, indeks kecamatan, [x, y, dx, dy, ...], ...]] - bidang `besar`, per
- *             cincin luar, relatif ke `asal` }
+ *             cincin luar, relatif ke `asal`,
+ *     id:     [id] - id bidang tiap cincin di `bidang`, berurutan, ditulis sebagai
+ *             selisih dari id cincin sebelumnya (cincin pertama: apa adanya). Dipakai
+ *             mode warna "Status sensus" (src/integrasi.js statusBidangPeta) }
  * Satuan 1e-5 derajat. Bidang kecil hanya masuk sel tempat sudut barat dayanya
  * (tidak pernah ganda); bidang besar bisa menjangkau beberapa sel, jadi masuk
  * setiap sel yang disentuhnya dan dibedakan dengan id.
@@ -431,9 +426,11 @@ function teksRingkas(daftar, i, j) {
   const y0 = Math.round(j * UKURAN_RINGKAS * SATUAN_RINGKAS);
   const indeks = new Map();
   const bidang = [];
+  const idKecil = [];
   const besar = [];
   let px = 0;
   let py = 0;
+  let idSebelum = 0;
   for (const p of daftar) {
     if (!p.besar && (Math.floor(p.selLat / PETAK_PER_RINGKAS) !== j || Math.floor(p.selLon / PETAK_PER_RINGKAS) !== i)) {
       continue;
@@ -462,13 +459,15 @@ function teksRingkas(daftar, i, j) {
         bidang.push(ki, c.length, c[0][0] - px, c[0][1] - py);
         for (let k = 1; k < c.length; k++) bidang.push(c[k][0] - c[k - 1][0], c[k][1] - c[k - 1][1]);
         [px, py] = c[0];
+        idKecil.push(p.id - idSebelum);
+        idSebelum = p.id;
       }
     }
     if (cincinBesar.length) besar.push(`[${p.id},${ki},${cincinBesar.join(",")}]`);
   }
   return (
     `{"kecamatan":${JSON.stringify([...indeks.keys()])},"asal":[${x0},${y0}],` +
-    `"bidang":[${bidang.join(",")}],"besar":[${besar.join(",")}]}`
+    `"bidang":[${bidang.join(",")}],"besar":[${besar.join(",")}],"id":[${idKecil.join(",")}]}`
   );
 }
 

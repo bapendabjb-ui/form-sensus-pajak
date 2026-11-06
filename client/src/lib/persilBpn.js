@@ -90,6 +90,51 @@ export function warnaKecamatan(nama = []) {
 export const warnaDi = (warna, kecamatan, jenis) =>
   (warna?.[kecamatan] || ABU)[jenis === "satelit" ? "satelit" : "peta"];
 
+/* ---------- warna status sensus (integrasi NIB-NOP) ---------- */
+
+/*
+ * Mode warna "Status sensus": bidang diwarnai menurut hubungannya dengan NOP
+ * hasil sensus (server/src/integrasi.js statusBidangPeta), bukan kecamatannya.
+ * Tiga slot pertama palet kategori - satu-satunya tiga yang tetap terbedakan
+ * berpasangan di peta (divalidasi --pairs all, terang dan gelap/satelit).
+ * Bidang yang belum tercatat abu-abu tipis supaya yang sudah tercatat menonjol.
+ */
+export const STATUS_BIDANG = [
+  { kunci: "cocok", label: "1 NIB = 1 NOP", warna: BIRU },
+  { kunci: "tinjau", label: "Perlu ditinjau: beberapa NIB / NOP", warna: { peta: "#eb6834", satelit: "#d95926" } },
+  { kunci: "tanpa_nop", label: "NIB tanpa NOP", warna: { peta: "#1baf7a", satelit: "#199e70" } },
+];
+const BELUM = { kunci: "belum", label: "Belum tercatat di sensus", warna: ABU };
+
+/** Warna sebuah status bidang ("belum" untuk yang tidak tercatat). */
+export const warnaStatusBidang = (status, jenis) =>
+  ((STATUS_BIDANG.find((s) => s.kunci === status) || BELUM).warna)[jenis === "satelit" ? "satelit" : "peta"];
+
+export const LABEL_BELUM = BELUM.label;
+
+/** Warna satu bidang menurut mode warna peta: status sensus (cfg.status) atau kecamatan. */
+const warnaBidang = (cfg, id, kec, jenis) =>
+  cfg.status ? warnaStatusBidang(cfg.status.get(id), jenis) : warnaDi(cfg.warna, kec, jenis);
+
+/** Warna sorot bidang yang diketuk / hasil cari NIB, mengikuti mode warna peta. */
+export const warnaSorotBidang = (cfg, b, jenis) =>
+  cfg?.status
+    ? warnaStatusBidang(cfg.status.get(b.id), jenis)
+    : warnaDi(cfg?.warna, b.fitur?.properties?.kecamatan ?? b.kecamatan, jenis);
+
+/** Kiriman /api/integrasi/bidang (id sebagai selisih berurutan) -> Map(id persil -> status). */
+export function petaStatusBidang(isi) {
+  const peta = new Map();
+  for (const { kunci } of STATUS_BIDANG) {
+    let id = 0;
+    for (const d of Array.isArray(isi?.[kunci]) ? isi[kunci] : []) {
+      id += d;
+      peta.set(id, kunci);
+    }
+  }
+  return peta;
+}
+
 /** 1234.5 -> "1.234,5 m²". */
 export const formatLuas = (n) =>
   Number.isFinite(n) ? `${n.toLocaleString("id-ID", { maximumFractionDigits: 2 })} m²` : "";
@@ -98,6 +143,7 @@ export const formatLuas = (n) =>
 
 const KUNCI_NYALA = "sensus.persilNyala";
 const KUNCI_TERSEMBUNYI = "sensus.persilKecamatanMati";
+const KUNCI_MODE = "sensus.persilWarna";
 
 function baca(kunci, cadangan) {
   try {
@@ -125,17 +171,32 @@ function simpan(kunci, nilai) {
  *   kecamatan: { nama, jumlah, warna: { peta, satelit }, tampil }[],  urut abjad
  *   ubahKecamatan: (nama: string, tampil: boolean) => void,
  *   muatUlang: () => Promise<void>,
- *   peta: { versi, ukuranPetak, ukuranRingkas, sel, warna, kecamatan: string[], tersembunyi: string[], kunci } | null
+ *   mode: "kecamatan" | "status",   mode warna bidang (per browser)
+ *   ubahMode: (mode) => void,
+ *   statusGalat: string,            status sensus gagal dimuat
+ *   peta: { versi, ukuranPetak, ukuranRingkas, sel, warna, kecamatan: string[], tersembunyi: string[],
+ *           status: Map | null, kunci } | null
  *          untuk mesin peta; null = jangan digambar. `kunci` berganti setiap gambarnya harus diulang.
+ *          `status` (mode "status"): Map(id persil -> status sensus), lihat STATUS_BIDANG.
  * }}
+ *
+ * `paksa` = pemilih bidang di formulir: persil selalu tampil, semua kecamatan,
+ * warna kecamatan - pilihan Peta Sensus pemakai tidak berlaku di sana.
  */
-export function usePersilBpn() {
+export function usePersilBpn({ paksa = false } = {}) {
   const [ringkasan, setRingkasan] = useState(null);
-  const [nyala, setNyala] = useState(() => baca(KUNCI_NYALA, 1) !== 0);
-  const [tersembunyi, setTersembunyi] = useState(() => {
+  const [nyalaPilihan, setNyala] = useState(() => baca(KUNCI_NYALA, 1) !== 0);
+  const [tersembunyiPilihan, setTersembunyi] = useState(() => {
     const t = baca(KUNCI_TERSEMBUNYI, []);
     return Array.isArray(t) ? t.filter((x) => typeof x === "string") : [];
   });
+  const [modePilihan, setMode] = useState(() => (baca(KUNCI_MODE, "kecamatan") === "status" ? "status" : "kecamatan"));
+  const nyala = paksa || nyalaPilihan;
+  const tersembunyi = paksa ? TANPA_SEMBUNYI : tersembunyiPilihan;
+  const mode = paksa ? "kecamatan" : modePilihan;
+  // Status sensus tiap bidang: { peta: Map, ke: nomor muatan } - dimuat saat mode "status" dipilih.
+  const [status, setStatus] = useState(null);
+  const [statusGalat, setStatusGalat] = useState("");
   const [ukuran, setUkuran] = useState({ petak: UKURAN_PETAK_BAWAAN, ringkas: UKURAN_RINGKAS_BAWAAN });
 
   const muatUlang = useCallback(
@@ -173,8 +234,29 @@ export function usePersilBpn() {
     });
   }, []);
 
+  const ubahMode = useCallback((m) => {
+    const baru = m === "status" ? "status" : "kecamatan";
+    setMode(baru);
+    simpan(KUNCI_MODE, baru);
+  }, []);
+
   const ada = Boolean(ringkasan && ringkasan.jumlah > 0);
   const versi = ringkasan?.versi;
+
+  // Status sensus dimuat sekali tiap mode "status" dinyalakan / halaman dibuka:
+  // isinya berubah setiap petugas menyimpan data, jadi tidak disimpan lama.
+  useEffect(() => {
+    if (mode !== "status" || !ada) return undefined;
+    let batal = false;
+    setStatusGalat("");
+    api
+      .statusBidangSensus()
+      .then((isi) => !batal && setStatus((s) => ({ peta: petaStatusBidang(isi), ke: (s?.ke || 0) + 1 })))
+      .catch((e) => !batal && setStatusGalat(e.message || "Status sensus bidang gagal dimuat."));
+    return () => {
+      batal = true;
+    };
+  }, [mode, ada, versi]);
 
   const kecamatan = useMemo(() => {
     const jumlah = new Map();
@@ -192,6 +274,8 @@ export function usePersilBpn() {
   const peta = useMemo(() => {
     if (!ada || !nyala) return null;
     const sembunyi = kecamatan.filter((k) => !k.tampil).map((k) => k.nama);
+    // Mode status yang datanya belum tiba digambar dengan warna kecamatan dulu.
+    const pakaiStatus = mode === "status" && status ? status : null;
     return {
       versi,
       ukuranPetak: ukuran.petak,
@@ -201,12 +285,15 @@ export function usePersilBpn() {
       warna: Object.fromEntries(kecamatan.map((k) => [k.nama, k.warna])),
       kecamatan: kecamatan.map((k) => k.nama),
       tersembunyi: sembunyi,
-      kunci: `${versi}|${ukuran.petak}|${ukuran.ringkas}|${sembunyi.join(",")}`,
+      status: pakaiStatus ? pakaiStatus.peta : null,
+      kunci: `${versi}|${ukuran.petak}|${ukuran.ringkas}|${sembunyi.join(",")}|${pakaiStatus ? `s${pakaiStatus.ke}` : "k"}`,
     };
-  }, [ada, nyala, versi, ukuran, kecamatan, ringkasan]);
+  }, [ada, nyala, versi, ukuran, kecamatan, ringkasan, mode, status]);
 
-  return { ringkasan, ada, nyala, ubahNyala, kecamatan, ubahKecamatan, muatUlang, peta };
+  return { ringkasan, ada, nyala, ubahNyala, kecamatan, ubahKecamatan, muatUlang, mode, ubahMode, statusGalat, peta };
 }
+
+const TANPA_SEMBUNYI = [];
 
 /* ---------- petak data ---------- */
 
@@ -282,11 +369,14 @@ const simpananRingkas = new Map(); // "versi|i,j" -> Promise<sel>
  *     xy: Int32Array titik (satuan 1e-5 derajat, relatif ke asal),
  *     awal: Int32Array indeks titik pertama tiap cincin (+ penutup),
  *     ki: Uint8Array indeks kecamatan, id: Int32Array id bidang besar (0 = bidang kecil),
+ *     pid: Int32Array id bidang tiap cincin, kecil maupun besar (0 = tidak diketahui:
+ *          isi dari server lama) - untuk mode warna status sensus,
  *     kotak: Int32Array [x min, y min, x maks, y maks] tiap cincin }
  */
 export function uraiRingkas(isi) {
   const d = isi.bidang || [];
   const besar = isi.besar || [];
+  const idKecil = isi.id || [];
   let nC = 0;
   let nT = 0;
   for (let k = 0; k < d.length; k += 4 + 2 * (d[k + 1] - 1)) {
@@ -303,6 +393,7 @@ export function uraiRingkas(isi) {
   const awal = new Int32Array(nC + 1);
   const ki = new Uint8Array(nC);
   const id = new Int32Array(nC);
+  const pid = new Int32Array(nC);
   const kotak = new Int32Array(4 * nC);
   let c = 0;
   let t = 0;
@@ -328,7 +419,13 @@ export function uraiRingkas(isi) {
 
   let px = 0;
   let py = 0;
+  let idJalan = 0;
+  let ke = 0;
   for (let k = 0; k < d.length; ) {
+    if (ke < idKecil.length) {
+      idJalan += idKecil[ke++];
+      pid[c] = idJalan;
+    }
     ki[c] = d[k++];
     const n = d[k++];
     let x = px + d[k++];
@@ -348,6 +445,7 @@ export function uraiRingkas(isi) {
       const a = b[r];
       ki[c] = b[1];
       id[c] = b[0];
+      pid[c] = b[0];
       let x = a[0];
       let y = a[1];
       tambah(x, y);
@@ -359,7 +457,7 @@ export function uraiRingkas(isi) {
       tutup();
     }
   }
-  return { nama: isi.kecamatan || [], asal: isi.asal || [0, 0], n: nC, xy, awal, ki, id, kotak };
+  return { nama: isi.kecamatan || [], asal: isi.asal || [0, 0], n: nC, xy, awal, ki, id, pid, kotak };
 }
 
 /** Kunci simpanan yang isinya sudah tiba (bukan sekadar sedang diunduh). */
@@ -493,7 +591,7 @@ export async function gambarUbinPersil(ubin, { x, y, z }, cfg, jenis, batal = ()
 
   if (z < PERSIL_ZOOM_RINCI) {
     const jalur = await jalurRingkas(batas, posisi, cfg, jenis);
-    if (!batal()) gambarJalur(ubin, jalur, z);
+    if (!batal()) gambarJalur(ubin, jalur, z, cfg);
     return;
   }
 
@@ -504,16 +602,16 @@ export async function gambarUbinPersil(ubin, { x, y, z }, cfg, jenis, batal = ()
   if (!lengkap) {
     const kasar = await jalurRingkas(batas, posisi, cfg, jenis);
     if (batal()) return;
-    gambarJalur(ubin, kasar, z);
+    gambarJalur(ubin, kasar, z, cfg);
     jalurRinci(batas, posisi, cfg, jenis, { diam: true })
-      .then((jalur) => !batal() && gambarJalur(ubin, jalur, z))
+      .then((jalur) => !batal() && gambarJalur(ubin, jalur, z, cfg))
       .catch(() => {
         // Tetap gambar ringkas; dicoba lagi saat ubinnya diminta lagi.
       });
     return;
   }
   const jalur = await jalurRinci(batas, posisi, cfg, jenis);
-  if (!batal()) gambarJalur(ubin, jalur, z);
+  if (!batal()) gambarJalur(ubin, jalur, z, cfg);
 }
 
 /*
@@ -523,6 +621,16 @@ export async function gambarUbinPersil(ubin, { x, y, z }, cfg, jenis, batal = ()
  * ±17 detik di closePath saja (diukur 2026-11-06), dengan lineTo ±20 ms.
  * Isian tetap benar karena fill() menutup setiap subjalur sendiri.
  */
+
+/**
+ * Wadah jalur per warna satu ubin. Mode status: jalur bidang yang belum tercatat
+ * dibuat lebih dulu supaya tergambar paling bawah, di bawah bidang yang tercatat.
+ */
+function jalurBaru(cfg, jenis) {
+  const jalur = new Map();
+  if (cfg.status) jalur.set(warnaStatusBidang("belum", jenis), new Path2D());
+  return jalur;
+}
 
 /** Path2D untuk satu warna (dibuat saat pertama dibutuhkan). */
 function jalurUntuk(jalur, warna) {
@@ -539,7 +647,7 @@ async function jalurRinci(batas, { x, y, n }, cfg, jenis, opsi) {
   // Satu jalur per warna: digambar sekaligus, dan bidang yang menyentuh
   // beberapa petak data cukup sekali.
   const tersembunyi = new Set(cfg.tersembunyi);
-  const jalur = new Map();
+  const jalur = jalurBaru(cfg, jenis);
   const sudah = new Set();
   for (const isi of petak) {
     for (const b of isi) {
@@ -547,7 +655,7 @@ async function jalurRinci(batas, { x, y, n }, cfg, jenis, opsi) {
       const [w, s, e, u] = b.kotak;
       if (e < barat || w > timur || u < selatan || s > utara) continue;
       sudah.add(b.id);
-      const p = jalurUntuk(jalur, warnaDi(cfg.warna, b.kec, jenis));
+      const p = jalurUntuk(jalur, warnaBidang(cfg, b.id, b.kec, jenis));
       for (const poligon of b.poligon) {
         for (const cincin of poligon) {
           // Cincin GeoJSON sudah tertutup (titik akhir = titik awal): tanpa closePath (lihat TUTUP_CINCIN).
@@ -578,7 +686,7 @@ async function jalurRingkas({ barat, timur, utara, selatan }, { x, y, n }, cfg, 
   const daftarSel = await Promise.all(tunggu);
 
   const tersembunyi = new Set(cfg.tersembunyi);
-  const jalur = new Map();
+  const jalur = jalurBaru(cfg, jenis);
   // Bidang besar yang sudah digambar dari sel lain. Satu sel selalu memuat
   // semua cincin bidang besarnya, jadi id ditandai setelah selnya selesai.
   const sudah = new Set();
@@ -592,7 +700,9 @@ async function jalurRingkas({ barat, timur, utara, selatan }, { x, y, n }, cfg, 
     const warnaSel = sel.nama.map((k) => (tersembunyi.has(k) ? null : warnaDi(cfg.warna, k, jenis)));
     const dariSelIni = new Set();
     for (let c = 0; c < sel.n; c++) {
-      const warna = warnaSel[sel.ki[c]];
+      const warna = cfg.status
+        ? warnaSel[sel.ki[c]] && warnaStatusBidang(cfg.status.get(sel.pid[c]), jenis)
+        : warnaSel[sel.ki[c]];
       if (!warna) continue;
       const id = sel.id[c];
       if (id && sudah.has(id)) continue;
@@ -621,7 +731,7 @@ async function jalurRingkas({ barat, timur, utara, selatan }, { x, y, n }, cfg, 
 }
 
 /** Gambar jalur-jalur per warna ke ubin. */
-function gambarJalur(ubin, jalur, z) {
+function gambarJalur(ubin, jalur, z, cfg) {
   const gaya = gayaZoom(z);
   const ctx = ubin.getContext("2d");
   const dpr = ubin.width / UKURAN_UBIN;
@@ -629,12 +739,18 @@ function gambarJalur(ubin, jalur, z) {
   ctx.clearRect(0, 0, UKURAN_UBIN, UKURAN_UBIN);
   ctx.lineWidth = gaya.garis;
   ctx.lineJoin = "round";
+  // Mode status: bidang yang belum tercatat (jalur pertama, lihat jalurBaru)
+  // dibuat samar; yang tercatat diisi lebih pekat supaya sebarannya terbaca.
+  let ke = 0;
   for (const [warna, p] of jalur) {
+    const samar = cfg?.status && ke === 0;
+    const pekat = cfg?.status && ke > 0;
+    ke++;
     ctx.fillStyle = warna;
     ctx.strokeStyle = warna;
-    ctx.globalAlpha = gaya.tembusIsi;
+    ctx.globalAlpha = samar ? gaya.tembusIsi * 0.5 : pekat ? Math.min(0.55, gaya.tembusIsi * 4) : gaya.tembusIsi;
     ctx.fill(p, "evenodd");
-    ctx.globalAlpha = gaya.tembusGaris;
+    ctx.globalAlpha = samar ? gaya.tembusGaris * 0.45 : gaya.tembusGaris;
     ctx.stroke(p);
   }
   ctx.globalAlpha = 1;

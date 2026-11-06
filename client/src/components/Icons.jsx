@@ -43,6 +43,7 @@ import {
   IdCard,
   Images,
   Landmark,
+  LandPlot,
   Layers,
   LayoutGrid,
   LocateFixed,
@@ -84,6 +85,7 @@ export const IconList = () => <ClipboardList size={18} strokeWidth={GARIS} aria-
 export const IconUnduh = () => <Download size={18} strokeWidth={GARIS} aria-hidden="true" />;
 export const IconPeta = () => <MapPin size={18} strokeWidth={GARIS} aria-hidden="true" />;
 export const IconPengajuan = () => <FileX2 size={18} strokeWidth={GARIS} aria-hidden="true" />;
+export const IconIntegrasi = () => <LandPlot size={18} strokeWidth={GARIS} aria-hidden="true" />;
 
 /** Tombol kembali di bilah atas (HP). */
 export const IconKembali = () => <ChevronLeft size={24} strokeWidth={2.2} aria-hidden="true" />;

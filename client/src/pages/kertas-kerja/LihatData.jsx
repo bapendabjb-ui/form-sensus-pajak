@@ -13,6 +13,8 @@ import PersilDiTitik from "../../components/PersilDiTitik.jsx";
 import { formatNilai } from "../../lib/ringkas.js";
 import { formatWaktu, formatLokasi, formatNomorTelepon, formatHargaBaris, urlPeta } from "../../lib/format.js";
 import { kembali } from "../../lib/router.js";
+import { nibDari, nibLengkap, STATUS_TANAH } from "../../lib/nib.js";
+import { formatLuas as formatLuasPeta } from "../../lib/persilBpn.js";
 import { urlKk, susunTataLetak } from "./bersama.js";
 
 const kosong = <span className="fk-nilai-kosong">Tidak diisi</span>;
@@ -87,6 +89,29 @@ function Nilai({ q, nilai, dicek }) {
             </span>
           )}
         </div>
+      );
+    }
+
+    case "nib": {
+      const { bidang, status } = nibDari(nilai);
+      if (!bidang.length) return STATUS_TANAH[status] ? <p className="fk-nilai">{STATUS_TANAH[status]}</p> : kosong;
+      return (
+        <ul className="fk-nilai-daftar">
+          {bidang.map((b) => (
+            <li key={`${b.kode}|${b.nib}`}>
+              <span>
+                NIB {nibLengkap(b.kode, b.nib)}
+                <span className="fk-nilai-ket">
+                  {[b.tipeHak, b.kelurahan && `Kel. ${b.kelurahan}`, b.diPeta === false && "tidak ada di peta BPN"]
+                    .filter(Boolean)
+                    .map((x) => ` · ${x}`)
+                    .join("")}
+                </span>
+              </span>
+              <span className="fk-nilai-harga">{Number.isFinite(b.luas) ? formatLuasPeta(b.luas) : "—"}</span>
+            </li>
+          ))}
+        </ul>
       );
     }
 

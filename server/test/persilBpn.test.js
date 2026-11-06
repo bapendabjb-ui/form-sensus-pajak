@@ -105,6 +105,8 @@ test("teksRingkas -> uraiRingkas: bidang kembali ke tempatnya; bidang kecil hany
   assert.deepEqual(sel.nama, ["Cempaka", "Landasan Ulin"]);
   assert.equal(sel.n, 3);
   assert.deepEqual([...sel.id], [0, 0, 4]);
+  // Id tiap cincin, kecil maupun besar - untuk mode warna status sensus.
+  assert.deepEqual([...sel.pid], [1, 2, 4]);
   assert.deepEqual([...sel.ki], [0, 1, 0]);
   const titik = (c) => {
     const hasil = [];

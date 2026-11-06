@@ -213,6 +213,17 @@ function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove, ada
           </p>
         )}
 
+        {q.tipe === "nib" && (
+          <p className="fk-hint">
+            Bidang tanah BPN yang ditempati objek pajak, untuk mengintegrasikan NIB dengan NOP. Petugas
+            memilih satu atau beberapa bidang di peta persil BPN, memakai usulan dari titik Lokasi, atau
+            mengetik NIB dari sertifikat (yang tidak ada di peta tetap bisa dicatat). Tanpa NIB, petugas
+            memilih alasannya: tanah belum bersertifikat, atau NIB belum diketahui. Pasang bersama
+            pertanyaan <b>NOP PBB</b> di formulir yang sama; pola hubungan NIB–NOP seluruh data tampil di
+            halaman <b>Integrasi NIB</b>.
+          </p>
+        )}
+
         {q.tipe === "lokasi" && (
           <p className="fk-hint">
             Petugas menekan <b>Ambil lokasi</b>; GPS diamati beberapa detik dan hanya pembacaan paling

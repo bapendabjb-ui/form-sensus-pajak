@@ -6,6 +6,7 @@ import FotoInput from "./FotoInput.jsx";
 import WilayahInput from "./WilayahInput.jsx";
 import LokasiInput from "./LokasiInput.jsx";
 import ModalCekNop from "./CekNop.jsx";
+import NibInput from "./NibInput.jsx";
 import { CheckIcon } from "./Icons.jsx";
 import { getKonfigurasi } from "../api.js";
 import {
@@ -546,8 +547,9 @@ function LineTariff({ value, jenisOptions = [], rangePrice, onChange, invalid })
 /**
  * isiEpbb (opsional, khusus tipe nop): { target, terapkan } untuk mengisi pertanyaan lain
  * dari hasil cek NOP. Lihat KertasKerjaPage.
+ * konteks (opsional, khusus tipe nib): { entriId, titik } - lihat NibInput.
  */
-export default function FieldInput({ q, value, invalid, onChange, isiEpbb }) {
+export default function FieldInput({ q, value, invalid, onChange, isiEpbb, konteks }) {
   switch (q.tipe) {
     case "text":
       return (
@@ -634,6 +636,9 @@ export default function FieldInput({ q, value, invalid, onChange, isiEpbb }) {
 
     case "lokasi":
       return <LokasiInput value={value} onChange={onChange} invalid={invalid} />;
+
+    case "nib":
+      return <NibInput value={value} onChange={onChange} invalid={invalid} konteks={konteks} />;
 
     default:
       return null;

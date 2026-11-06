@@ -14,19 +14,18 @@ import {
   svgKlaster,
   KLASTER_ZOOM_MAKS,
   isiBalonLapisan,
-  isiBalonPersil,
   gayaLapisan,
   TITIK_LAPISAN_RADIUS,
 } from "./bersama.jsx";
 import * as api from "../../api.js";
 import {
   PERSIL_ZOOM_MIN,
-  gambarUbinPersil,
-  siapkanUbin,
   dengarPetak,
   statusPersil,
-  warnaDi,
+  warnaSorotBidang,
 } from "../../lib/persilBpn.js";
+import { LapisanUbinPersil, aturUbinPersil } from "./ubinPersilLeaflet.js";
+import { elemenBalonPersil } from "./balonPersil.js";
 
 /**
  * Mesin cadangan Peta Sensus (Leaflet + OpenStreetMap / Esri): banyak titik
@@ -91,25 +90,6 @@ const kunciLapisan = (l) => `${l.versi}|${l.warna}|${l.nama}`;
 /** Bidang yang disorot (hasil cari NIB / diketuk): garis tebal berwarna kecamatannya. */
 const gayaSorot = (warna) => ({ color: warna, weight: 4, opacity: 1, fillColor: warna, fillOpacity: 0.22 });
 
-/**
- * Persil BPN sebagai ubin kanvas (lib/persilBpn.js gambarUbinPersil). `cfg`
- * dan `jenis` dibaca saat ubin dibuat; berganti -> redraw().
- */
-const LapisanUbinPersil = L.GridLayer.extend({
-  createTile(koordinat, selesai) {
-    const ubin = siapkanUbin(L.DomUtil.create("canvas", "fk-persil-ubin"));
-    if (!this.cfg) {
-      Promise.resolve().then(() => selesai(null, ubin));
-      return ubin;
-    }
-    gambarUbinPersil(ubin, koordinat, this.cfg, this.jenis, () => !this._map).then(
-      () => selesai(null, ubin),
-      (e) => selesai(e, ubin)
-    );
-    return ubin;
-  },
-});
-
 export default function SebaranLeaflet({
   titik = [],
   onBuka,
@@ -163,7 +143,7 @@ export default function SebaranLeaflet({
     const lp = lapisanPersil.current;
     if (!m || !lp) return;
     hapusSorot();
-    const warna = warnaDi(persilRef.current?.warna, b.fitur.properties.kecamatan, jenisRef.current);
+    const warna = warnaSorotBidang(persilRef.current, b, jenisRef.current);
     // Tidak menangkap ketukan: ketukan pada bidangnya sampai ke peta dan menyorotnya lagi.
     const layer = L.geoJSON(b.fitur, { renderer: kanvas.current, style: gayaSorot(warna), interactive: false }).addTo(m);
     lp.sorot = layer;
@@ -177,7 +157,7 @@ export default function SebaranLeaflet({
         { padding: [60, 60], maxZoom: 19 }
       );
     }
-    const isi = isiBalonPersil(b.fitur.properties);
+    const isi = elemenBalonPersil(b.fitur.properties, () => m.closePopup());
     const pusat = posisi || [(selatan + utara) / 2, (barat + timur) / 2];
     const balon = L.popup({ maxWidth: 320 }).setLatLng(pusat).setContent(isi).openOn(m);
     // Balonnya ditutup = sorotnya hilang.
@@ -276,15 +256,7 @@ export default function SebaranLeaflet({
     const m = peta.current;
     const lp = lapisanPersil.current;
     if (!m || !lp) return;
-    const kunciBaru = persil ? `${persil.kunci}|${jenis}` : "";
-    if (kunciBaru !== lp.kunci) {
-      lp.kunci = kunciBaru;
-      lp.ubin.cfg = persil;
-      lp.ubin.jenis = jenis;
-      if (!persil) lp.ubin.remove();
-      else if (!m.hasLayer(lp.ubin)) lp.ubin.addTo(m);
-      else lp.ubin.redraw();
-    }
+    aturUbinPersil(m, lp, persil, jenis);
     if (!persil) panggilan.current.hapusSorot();
     panggilan.current.laporPersil();
   }, [persil, jenis]);

@@ -23,6 +23,7 @@ import {
   PANJANG_TELEPON_MAKS,
   nomorTelepon,
 } from "./format.js";
+import { nibDari, nibKosong } from "./nib.js";
 
 const asString = (v) => (v === null || v === undefined ? "" : String(v));
 
@@ -57,6 +58,8 @@ export function emptyValue(tipe) {
       return { nik: "", npwp: "" };
     case "lokasi":
       return { lat: null, lon: null, akurasi: null, ketinggian: null, waktu: "", sumber: "" };
+    case "nib":
+      return nibKosong();
     default:
       return "";
   }
@@ -168,6 +171,9 @@ export function fromApi(tipe, nilai) {
     case "lokasi":
       return lokasiDari(nilai);
 
+    case "nib":
+      return nibDari(nilai);
+
     case "range": {
       const o = typeof nilai === "object" ? nilai : {};
       return { min: numToInput(o.min), max: numToInput(o.max) };
@@ -226,6 +232,9 @@ export function toApi(tipe, v) {
     case "lokasi":
       return lokasiDari(v);
 
+    case "nib":
+      return nibDari(v);
+
     case "number": {
       const n = toNumberOrNull(v);
       return n === null ? "" : String(n);
@@ -282,6 +291,11 @@ export function isFilled(tipe, v) {
       const o = nikNpwpDari(v);
       return o.nik !== "" || o.npwp !== "";
     }
+    case "nib": {
+      // Minimal satu bidang, atau alasan tidak ada NIB (mis. tanah belum bersertifikat).
+      const o = nibDari(v);
+      return o.bidang.length > 0 || o.status !== "";
+    }
     case "range":
       return !!v && asString(v.min).trim() !== "" && asString(v.max).trim() !== "";
     case "telepon":
@@ -334,6 +348,16 @@ export function pesanFormat(tipe, v) {
     case "niknpwp": {
       const o = nikNpwpDari(v);
       return [pesanFormat("nik", o.nik), pesanFormat("npwp", o.npwp)].filter(Boolean).join(" ");
+    }
+
+    case "nib": {
+      // NIB dari sertifikat harus lengkap 13 digit - disamakan dengan server.
+      for (const b of nibDari(v).bidang) {
+        if (b.sumber === "sertifikat" && (!/^\d{8}$/.test(b.kode) || !/^\d{5}$/.test(b.nib))) {
+          return `NIB ${b.kode}${b.nib} harus 13 digit: kode wilayah 8 digit dan nomor bidang 5 digit.`;
+        }
+      }
+      return "";
     }
 
     case "telepon": {

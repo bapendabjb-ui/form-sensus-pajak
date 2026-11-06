@@ -205,6 +205,10 @@ export function cocokkanRute(pathname) {
   }
   if (b.length === 1 && b[0] === "akun") return { nama: "akun", tab: null, judul: "Akun Admin", kembali: "/" };
   if (b.length === 1 && b[0] === "peta") return { nama: "peta", tab: "peta", judul: "Peta Sensus" };
+  // Tidak ada di bilah tab HP (dibuka dari Dashboard), jadi bilah atas butuh tombol kembali.
+  if (b.length === 1 && b[0] === "integrasi") {
+    return { nama: "integrasi", tab: "integrasi", judul: "Integrasi NIB–NOP", kembali: "/" };
+  }
   if (b.length === 1 && b[0] === "petugas") return { nama: "petugas", tab: "petugas", judul: "Petugas" };
   if (b.length === 1 && b[0] === "formulir") return { nama: "formulir", tab: "formulir", judul: "Formulir" };
   if (b.length === 1 && b[0] === "ekspor") return { nama: "ekspor", tab: "ekspor", judul: "Ekspor Data" };

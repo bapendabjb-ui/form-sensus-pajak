@@ -187,6 +187,8 @@ function csvNilai(tipe, nilai, opsi = {}) {
       return formatNpwp(nilai);
     case "nop":
       return formatNop(nilai);
+    case "nib":
+      return formatNib(nilai);
     case "date":
       return formatDateID(nilai);
     case "range":
@@ -238,6 +240,35 @@ function lindungiSelCsv(str) {
   return "'" + str;
 }
 
+/**
+ * NIB lengkap untuk ditampilkan: kode wilayah 8 digit + NIB 5 digit ->
+ * "17.11.74.02.03612". Selain bentuk itu: digabung titik, atau NIB-nya saja.
+ * Samakan dengan nibLengkap() di client/src/lib/nib.js.
+ */
+function nibLengkap(kodeWilayah, nib) {
+  if (/^\d{8}$/.test(kodeWilayah) && /^\d{5}$/.test(nib)) {
+    return `${kodeWilayah.replace(/(\d{2})(?=\d)/g, "$1.")}.${nib}`;
+  }
+  return kodeWilayah && nib ? `${kodeWilayah}.${nib}` : nib;
+}
+
+/** Alasan tanpa NIB - sama dengan STATUS_TANAH di src/answers.js. */
+const LABEL_STATUS_TANAH = {
+  belum_sertifikat: "Tanah belum bersertifikat",
+  belum_diketahui: "Bersertifikat, NIB belum diketahui",
+};
+
+/** Bidang jawaban NIB yang terisi. */
+const bidangNib = (nilai) =>
+  nilai && typeof nilai === "object" && Array.isArray(nilai.bidang) ? nilai.bidang.filter((b) => b && b.nib) : [];
+
+/** Jawaban NIB -> "17.11.74.02.03612; 17.11.74.02.03613", atau alasan tanpa NIB. */
+function formatNib(nilai) {
+  const bidang = bidangNib(nilai);
+  if (bidang.length) return bidang.map((b) => nibLengkap(b.kode, b.nib)).join("; ");
+  return (nilai && LABEL_STATUS_TANAH[nilai.status]) || "";
+}
+
 /** Susun CSV dengan BOM UTF-8 agar rapi saat dibuka di Excel. */
 function buildCsv(rows) {
   const esc = (s) => {
@@ -257,6 +288,10 @@ module.exports = {
   formatHargaBaris,
   formatNpwp,
   formatNop,
+  nibLengkap,
+  bidangNib,
+  formatNib,
+  LABEL_STATUS_TANAH,
   formatRtRw,
   formatLuas,
   formatNomorTelepon,

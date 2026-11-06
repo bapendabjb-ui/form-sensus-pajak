@@ -13,6 +13,7 @@ import {
   formatNikNpwp,
   formatTelepon,
 } from "./format.js";
+import { formatNib } from "./nib.js";
 
 const TIPE_JUDUL = ["text", "dropdown", "radio", "paragraph"];
 
@@ -54,6 +55,8 @@ export function formatNilai(q, nilai) {
       return formatTelepon(nilai, { ringkas: true });
     case "nop":
       return formatNop(nilai);
+    case "nib":
+      return formatNib(nilai);
     default:
       return typeof nilai === "string" ? nilai.trim() : "";
   }

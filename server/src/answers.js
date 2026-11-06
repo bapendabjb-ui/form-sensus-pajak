@@ -14,6 +14,7 @@
  *   niknpwp                                   : { nik, npwp } - wajib = minimal salah satu
  *   telepon                                   : array { keterangan, nomor } - nomor 8-15 digit
  *   luas                                      : { tanah, bangunan } - m², number|null (0 boleh)
+ *   nib                                       : { bidang: [...], status } - lihat normalNib
  */
 
 const { normalWilayah } = require("./wilayah");
@@ -38,6 +39,7 @@ const TIPE = [
   "niknpwp",
   "telepon",
   "luas",
+  "nib",
 ];
 
 /** Tipe yang menyimpan daftar opsi di tabel pertanyaan_opsi. */
@@ -116,6 +118,74 @@ const bulat = (n, desimal) => {
 
 const LOKASI_KOSONG = { lat: null, lon: null, akurasi: null, ketinggian: null, waktu: "", sumber: "" };
 
+/* ---------- bidang tanah BPN (NIB) ---------- */
+
+/** Bidang paling banyak per pertanyaan NIB: satu objek pajak yang menempati beberapa sertifikat. */
+const NIB_MAKS_BIDANG = 20;
+
+/**
+ * Alasan bila objek tidak punya NIB. Disamakan dengan client/src/lib/nib.js.
+ *   belum_sertifikat : tanah belum bersertifikat (segel, SKT, girik)
+ *   belum_diketahui  : bersertifikat, tetapi NIB-nya belum diketahui petugas
+ */
+const STATUS_TANAH = {
+  belum_sertifikat: "Tanah belum bersertifikat",
+  belum_diketahui: "Bersertifikat, NIB belum diketahui",
+};
+
+/** Kunci sebuah bidang di seluruh aplikasi: kode wilayah BPN + NIB, mis. "17117402|03612". */
+const kunciBidang = (kode, nib) => `${kode || ""}|${nib || ""}`;
+
+const NIB_KOSONG = () => ({ bidang: [], status: "" });
+
+/**
+ * Jawaban NIB yang rapi:
+ *   { bidang: [{ kode, nib, sumber, diPeta, tipeHak, luas, kelurahan, kecamatan }], status }
+ *
+ * - kode / nib : kode wilayah BPN 8 digit dan nomor bidang 5 digit (NIB lengkap 13 digit).
+ *   Bidang dari peta memakai isi data BPN apa adanya; bidang dari sertifikat hanya angka,
+ *   NIB-nya dilengkapi nol di depan.
+ * - sumber : "peta" (diketuk di peta) | "sertifikat" (diketik dari sertifikat).
+ * - diPeta, tipeHak, luas, kelurahan, kecamatan : salinan data BPN saat disimpan; diisi
+ *   ulang server dari tabel persil (src/integrasi.js lengkapiBidang), bukan dipercaya dari klien.
+ * - status : alasan tanpa NIB (STATUS_TANAH); selalu kosong bila ada bidang.
+ * Bidang kembar (kunci sama) cukup sekali; paling banyak NIB_MAKS_BIDANG.
+ */
+function normalNib(raw) {
+  const obj = raw && typeof raw === "object" ? raw : {};
+  const dilihat = new Set();
+  const bidang = [];
+  for (const item of Array.isArray(obj.bidang) ? obj.bidang : []) {
+    const b = item && typeof item === "object" ? item : {};
+    const sumber = b.sumber === "sertifikat" ? "sertifikat" : "peta";
+    let kode = toTrimmedString(b.kode).slice(0, 20);
+    let nib = toTrimmedString(b.nib).slice(0, 30);
+    if (sumber === "sertifikat") {
+      kode = kode.replace(/\D/g, "");
+      nib = nib.replace(/\D/g, "");
+      if (nib) nib = nib.padStart(5, "0");
+    }
+    if (!nib) continue;
+    const kunci = kunciBidang(kode, nib);
+    if (dilihat.has(kunci)) continue;
+    dilihat.add(kunci);
+    const luas = toDesimal(b.luas);
+    bidang.push({
+      kode,
+      nib,
+      sumber,
+      diPeta: b.diPeta === true,
+      tipeHak: toTrimmedString(b.tipeHak).slice(0, 60),
+      luas: luas === null || luas < 0 ? null : bulat(luas, 2),
+      kelurahan: toTrimmedString(b.kelurahan).slice(0, 100),
+      kecamatan: toTrimmedString(b.kecamatan).slice(0, 100),
+    });
+    if (bidang.length >= NIB_MAKS_BIDANG) break;
+  }
+  const status = bidang.length === 0 && STATUS_TANAH[obj.status] ? obj.status : "";
+  return { bidang, status };
+}
+
 /** Bentuk nilai kosong per tipe, dipakai sebagai fallback. */
 function nilaiKosong(tipe) {
   if (tipe === "checkbox" || tipe === "linetariff" || tipe === "foto" || tipe === "telepon") return [];
@@ -125,6 +195,7 @@ function nilaiKosong(tipe) {
   if (tipe === "rtrw") return { rt: "", rw: "" };
   if (tipe === "niknpwp") return { nik: "", npwp: "" };
   if (tipe === "luas") return { tanah: null, bangunan: null };
+  if (tipe === "nib") return NIB_KOSONG();
   return "";
 }
 
@@ -224,6 +295,9 @@ function normalizeNilai(tipe, raw) {
     case "nop":
       return hanyaDigit(raw, PANJANG_SIMPAN_MAKS);
 
+    case "nib":
+      return normalNib(raw);
+
     case "telepon": {
       if (!Array.isArray(raw)) return [];
       return raw
@@ -294,6 +368,9 @@ function nilaiTerisi(tipe, nilai) {
     case "niknpwp":
       // Badan usaha tidak punya NIK, perorangan belum tentu punya NPWP: cukup salah satu.
       return !!nilai && typeof nilai === "object" && (!!nilai.nik || !!nilai.npwp);
+    case "nib":
+      // Minimal satu bidang, atau alasan tidak ada NIB (mis. tanah belum bersertifikat).
+      return !!nilai && typeof nilai === "object" && ((Array.isArray(nilai.bidang) && nilai.bidang.length > 0) || !!nilai.status);
     default:
       return toTrimmedString(nilai) !== "";
   }
@@ -330,6 +407,18 @@ function pesanFormat(tipe, nilai) {
     case "niknpwp": {
       const o = nilai && typeof nilai === "object" ? nilai : {};
       return [pesanFormat("nik", o.nik), pesanFormat("npwp", o.npwp)].filter(Boolean).join(" ");
+    }
+
+    case "nib": {
+      // NIB dari sertifikat harus lengkap: kode wilayah 8 digit + nomor bidang 5 digit.
+      // Bidang dari peta memakai data BPN apa adanya.
+      const o = nilai && typeof nilai === "object" ? nilai : {};
+      for (const b of Array.isArray(o.bidang) ? o.bidang : []) {
+        if (b.sumber === "sertifikat" && (!/^\d{8}$/.test(b.kode) || !/^\d{5}$/.test(b.nib))) {
+          return `NIB ${b.kode}${b.nib} harus 13 digit: kode wilayah 8 digit dan nomor bidang 5 digit.`;
+        }
+      }
+      return "";
     }
 
     case "telepon": {
@@ -392,4 +481,8 @@ module.exports = {
   PANJANG_NPWP_MAKS,
   PANJANG_NOP,
   PANJANG_RTRW,
+  NIB_MAKS_BIDANG,
+  STATUS_TANAH,
+  kunciBidang,
+  normalNib,
 };

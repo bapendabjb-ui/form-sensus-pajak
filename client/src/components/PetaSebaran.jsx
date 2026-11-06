@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import {
   useMesinPeta,
   PilihJenis,
@@ -11,7 +11,7 @@ import {
   ContohPersil,
 } from "./peta/bersama.jsx";
 import { IkonLayarPenuh, IkonTutupPenuh } from "./Icons.jsx";
-import { PERSIL_ZOOM_MIN, warnaDi } from "../lib/persilBpn.js";
+import { PERSIL_ZOOM_MIN, warnaDi, STATUS_BIDANG, LABEL_BELUM, warnaStatusBidang } from "../lib/persilBpn.js";
 
 const SebaranGoogle = lazy(() => import("./peta/SebaranGoogle.jsx"));
 const SebaranLeaflet = lazy(() => import("./peta/SebaranLeaflet.jsx"));
@@ -114,6 +114,13 @@ export default function PetaSebaran({
   // Legenda persil: kecamatan yang tampil, warnanya mengikuti jenis peta (jalan / satelit).
   const kecTampil = persil ? persil.kecamatan.filter((k) => !persil.tersembunyi.includes(k)) : [];
   const warnaKec = (k) => warnaDi(persil.warna, k, jenis);
+  // Mode status sensus: jumlah bidang per status di legenda.
+  const petaStatus = persil?.status || null;
+  const jumlahStatus = useMemo(() => {
+    const n = {};
+    if (petaStatus) for (const s of petaStatus.values()) n[s] = (n[s] || 0) + 1;
+    return n;
+  }, [petaStatus]);
 
   return (
     <div className={"fk-peta-wadah is-sebaran" + (penuh ? " is-penuh" : "")}>
@@ -147,7 +154,22 @@ export default function PetaSebaran({
               <IkonTitik warna={WARNA_STATUS.selesai} dicek /> Sudah dicek
             </span>
           )}
-          {kecTampil.length > 0 && (
+          {persil?.status && (
+            <span className="fk-legenda-persil">
+              <span className="fk-legenda">
+                Persil BPN, status sensus<span className="fk-legenda-persil-titik">:</span>
+              </span>
+              {[...STATUS_BIDANG, { kunci: "belum", label: LABEL_BELUM }].map((s) => (
+                <span className="fk-legenda fk-legenda-status" key={s.kunci}>
+                  <ContohLapisan warna={warnaStatusBidang(s.kunci, jenis)} /> {s.label}
+                  {s.kunci !== "belum" && (
+                    <span className="fk-legenda-jumlah">{(jumlahStatus[s.kunci] || 0).toLocaleString("id-ID")}</span>
+                  )}
+                </span>
+              ))}
+            </span>
+          )}
+          {!persil?.status && kecTampil.length > 0 && (
             <span className="fk-legenda-persil">
               <span className="fk-legenda">
                 <ContohPersil warna={kecTampil.map(warnaKec)} /> Persil BPN

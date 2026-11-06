@@ -10,19 +10,13 @@ import {
   svgKlaster,
   KLASTER_ZOOM_MAKS,
   isiBalonLapisan,
-  isiBalonPersil,
   gayaLapisan,
   TITIK_LAPISAN_RADIUS,
 } from "./bersama.jsx";
 import * as api from "../../api.js";
-import {
-  PERSIL_ZOOM_MIN,
-  gambarUbinPersil,
-  siapkanUbin,
-  dengarPetak,
-  statusPersil,
-  warnaDi,
-} from "../../lib/persilBpn.js";
+import { PERSIL_ZOOM_MIN, dengarPetak, statusPersil, warnaSorotBidang } from "../../lib/persilBpn.js";
+import { pasangUbinPersil } from "./ubinPersilGoogle.js";
+import { elemenBalonPersil } from "./balonPersil.js";
 
 /**
  * Mesin Google untuk Peta Sensus: seluruh titik hasil sensus, hanya untuk
@@ -95,39 +89,11 @@ function propertiFitur(f) {
   return p;
 }
 
-/** Balon keterangan bidang persil di sebuah posisi. */
+/** Balon keterangan bidang persil di sebuah posisi (dengan data sensus yang mencatatnya). */
 function bukaBalonPersil(balon, peta, posisi, properti) {
-  const isi = document.createElement("div");
-  isi.innerHTML = isiBalonPersil(properti); // semua teks sudah di-escape
-  balon.setContent(isi);
+  balon.setContent(elemenBalonPersil(properti, () => balon.close()));
   balon.setPosition(posisi);
   balon.open({ map: peta });
-}
-
-/**
- * Persil BPN sebagai lapisan ubin di atas peta dasar (google.maps.OverlayMapType):
- * Google meminta ubin yang terlihat, tiap ubin digambar ke kanvas
- * (lib/persilBpn.js). Berganti pilihan / jenis peta = lapisan baru.
- */
-function lapisanUbinPersil(lib, cfg, jenis) {
-  return {
-    tileSize: new lib.Size(256, 256),
-    minZoom: PERSIL_ZOOM_MIN,
-    maxZoom: 22,
-    name: "Persil BPN",
-    getTile(koordinat, zoom, dokumen) {
-      const ubin = siapkanUbin(dokumen.createElement("canvas"));
-      if (zoom >= PERSIL_ZOOM_MIN) {
-        gambarUbinPersil(ubin, { x: koordinat.x, y: koordinat.y, z: zoom }, cfg, jenis, () => ubin.dilepas).catch(() => {
-          // Petak gagal dimuat: ubinnya kosong, keterangan galat tampil di atas peta.
-        });
-      }
-      return ubin;
-    },
-    releaseTile(ubin) {
-      ubin.dilepas = true;
-    },
-  };
 }
 
 /** Ikon Google dari gambar SVG bersama (lihat svgTitik / svgKlaster). */
@@ -218,7 +184,7 @@ export default function SebaranGoogle({
     const lp = lapisanPersil.current;
     if (!m || !lib || !lp) return;
     hapusSorot();
-    const warna = warnaDi(persilRef.current?.warna, b.fitur.properties.kecamatan, jenisRef.current);
+    const warna = warnaSorotBidang(persilRef.current, b, jenisRef.current);
     lp.sorot.setStyle({ strokeColor: warna, strokeOpacity: 1, strokeWeight: 4, fillColor: warna, fillOpacity: 0.22, zIndex: 1 });
     lp.sorot.addGeoJson(b.fitur);
     const [barat, selatan, timur, utara] = b.batas;
@@ -342,15 +308,7 @@ export default function SebaranGoogle({
     const lib = g.current;
     const lp = lapisanPersil.current;
     if (!m || !lib || !lp) return;
-    const kunciBaru = persil ? `${persil.kunci}|${jenis}` : "";
-    if (kunciBaru !== lp.kunci) {
-      const daftar = m.overlayMapTypes;
-      const i = lp.ubin ? daftar.getArray().indexOf(lp.ubin) : -1;
-      if (i >= 0) daftar.removeAt(i);
-      lp.ubin = persil ? lapisanUbinPersil(lib, persil, jenis) : null;
-      if (lp.ubin) daftar.push(lp.ubin);
-      lp.kunci = kunciBaru;
-    }
+    pasangUbinPersil(lib, m, lp, persil, jenis);
     if (!persil) panggilan.current.hapusSorot();
     panggilan.current.laporPersil();
   }, [persil, jenis, siap]);

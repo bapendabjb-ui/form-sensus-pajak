@@ -75,6 +75,7 @@ app.use("/api/dashboard", require("./src/routes/dashboard"));
 app.use("/api/peta", require("./src/routes/peta"));
 app.use("/api/lapisan", require("./src/routes/lapisan"));
 app.use("/api/persil", require("./src/routes/persil"));
+app.use("/api/integrasi", require("./src/routes/integrasi"));
 app.use("/api/nop", require("./src/routes/nop"));
 app.use("/api/tautan-peta", require("./src/routes/tautanPeta"));
 app.use("/api/wilayah", require("./src/routes/wilayah"));

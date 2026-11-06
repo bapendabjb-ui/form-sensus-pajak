@@ -3,7 +3,19 @@ import * as api from "./api.js";
 import { ToastProvider } from "./components/Toast.jsx";
 import { DialogProvider } from "./components/Dialog.jsx";
 import { Empty, Loading } from "./components/Ui.jsx";
-import { Lambang, IconKembali, IconGrid, IconDoc, IconUser, IconList, IconLock, IconUnduh, IconPeta, IconPengajuan } from "./components/Icons.jsx";
+import {
+  Lambang,
+  IconKembali,
+  IconGrid,
+  IconDoc,
+  IconUser,
+  IconList,
+  IconLock,
+  IconUnduh,
+  IconPeta,
+  IconPengajuan,
+  IconIntegrasi,
+} from "./components/Icons.jsx";
 import LoginAdmin from "./components/LoginAdmin.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import { DaftarKertasKerja, BuatKertasKerja, DetailKertasKerja, IsiData, LihatData } from "./pages/kertas-kerja/index.js";
@@ -12,6 +24,7 @@ import FormulirPage from "./pages/FormulirPage.jsx";
 import AkunPage from "./pages/AkunPage.jsx";
 import EksporPage from "./pages/EksporPage.jsx";
 import PetaPage from "./pages/PetaPage.jsx";
+import IntegrasiPage from "./pages/IntegrasiPage.jsx";
 import PengajuanPage from "./pages/PengajuanPage.jsx";
 import { AdminContext, SesiContext } from "./lib/admin.js";
 import { bersihkanDrafLama, useKonfigurasi } from "./lib/konfigurasi.js";
@@ -21,6 +34,7 @@ const NAV = [
   { tab: "dashboard", path: "/", label: "Dashboard", pendek: "Dashboard", Icon: IconGrid },
   { tab: "kk", path: "/kertas-kerja", label: "Kertas Kerja", pendek: "Kertas Kerja", Icon: IconDoc },
   { tab: "peta", path: "/peta", label: "Peta Sensus", pendek: "Peta", Icon: IconPeta },
+  { tab: "integrasi", path: "/integrasi", label: "Integrasi NIB", pendek: "Integrasi", Icon: IconIntegrasi, tabbar: false },
   { tab: "petugas", path: "/petugas", label: "Petugas", pendek: "Petugas", Icon: IconUser },
   { tab: "ekspor", path: "/ekspor", label: "Ekspor", pendek: "Ekspor", Icon: IconUnduh, admin: true },
   { tab: "formulir", path: "/formulir", label: "Formulir", pendek: "Formulir", Icon: IconList, admin: true },
@@ -169,6 +183,9 @@ function Shell() {
       break;
     case "peta":
       halaman = <PetaPage />;
+      break;
+    case "integrasi":
+      halaman = <IntegrasiPage />;
       break;
     case "petugas":
       halaman = <PetugasPage />;

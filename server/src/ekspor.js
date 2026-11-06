@@ -20,7 +20,17 @@ const ExcelJS = require("exceljs");
 const config = require("./config");
 const { wrap } = require("./http");
 const { kirimPeta } = require("./eksporPeta");
-const { csvNilai, buildCsv, formatNpwp, formatWaktuID, groupNum, keteranganLokasi } = require("./format");
+const {
+  csvNilai,
+  buildCsv,
+  formatNpwp,
+  formatWaktuID,
+  groupNum,
+  keteranganLokasi,
+  nibLengkap,
+  bidangNib,
+  LABEL_STATUS_TANAH,
+} = require("./format");
 const { bentukTim, petaJawaban } = require("./bentuk");
 const { rincianWilayah } = require("./wilayah");
 
@@ -91,6 +101,45 @@ function kolomPertanyaan(formulir, baseUrl, persilDi = null) {
           );
         }
         return kolom;
+      }
+
+      if (q.tipe === "nib") {
+        // Satu NOP bisa menempati beberapa bidang: NIB-nya digabung "; ", luasnya dijumlah.
+        const bidang = (j) => bidangNib(j[q.id]);
+        const gabung = (k) => (j) => teks([...new Set(bidang(j).map((b) => b[k]).filter(Boolean))].join("; "));
+        return [
+          { f, judul: `${judul} (NIB)`, sel: (j) => teks(bidang(j).map((b) => nibLengkap(b.kode, b.nib)).join("; ")) },
+          {
+            f,
+            judul: `${judul} (Jumlah bidang)`,
+            sel: (j) => {
+              const n = bidang(j).length;
+              return n ? { teks: String(n), angka: n, format: FORMAT_POLOS } : teks("");
+            },
+          },
+          {
+            f,
+            judul: `${judul} (Luas peta BPN m²)`,
+            sel: (j) => {
+              const luas = bidang(j).filter((b) => Number.isFinite(b.luas));
+              if (!luas.length) return teks("");
+              const n = Math.round(luas.reduce((s, b) => s + b.luas, 0) * 100) / 100;
+              return { ...teks(groupNum(n)), angka: n };
+            },
+          },
+          { f, judul: `${judul} (Tipe hak BPN)`, sel: gabung("tipeHak") },
+          { f, judul: `${judul} (Kelurahan BPN)`, sel: gabung("kelurahan") },
+          {
+            f,
+            judul: `${judul} (Keterangan)`,
+            sel: (j) => {
+              const b = bidang(j);
+              if (!b.length) return teks(LABEL_STATUS_TANAH[j[q.id]?.status] || "");
+              const luar = b.filter((x) => x.diPeta === false).map((x) => nibLengkap(x.kode, x.nib));
+              return teks(luar.length ? `Tidak ada di peta BPN: ${luar.join("; ")}` : "");
+            },
+          },
+        ];
       }
 
       if (q.tipe === "wilayah") {

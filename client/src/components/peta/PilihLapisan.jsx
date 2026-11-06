@@ -70,6 +70,34 @@ export default function PilihLapisan({ lapisan, persil, admin = false }) {
           </span>
         </button>
       )}
+      {persil.ada && persil.nyala && (
+        <div className="fk-persil-mode" role="radiogroup" aria-label="Warna persil">
+          <span className="fk-hint-kecil">Warna bidang</span>
+          <div className="fk-peta-jenis">
+            {[
+              ["kecamatan", "Kecamatan"],
+              ["status", "Status sensus"],
+            ].map(([k, label]) => (
+              <button
+                type="button"
+                key={k}
+                role="radio"
+                aria-checked={persil.mode === k}
+                className={persil.mode === k ? "is-on" : ""}
+                onClick={() => persil.ubahMode(k)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {persil.mode === "status" && (
+            <span className="fk-hint-kecil">
+              Bidang yang sudah dicatat petugas di pertanyaan Bidang Tanah BPN, menurut hubungannya dengan NOP.
+            </span>
+          )}
+          {persil.statusGalat && <span className="fk-err">{persil.statusGalat}</span>}
+        </div>
+      )}
       {persil.ada && persil.nyala && persil.kecamatan.length > 1 && (
         <div className="fk-persil-kec-daftar" role="group" aria-label="Kecamatan persil yang tampil">
           {persil.kecamatan.map((k) => (

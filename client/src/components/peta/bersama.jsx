@@ -10,6 +10,7 @@ import { Component, useEffect, useState } from "react";
 import * as api from "../../api.js";
 import { LAPISAN } from "../../lib/ubinPeta";
 import { googleGagal, onGoogleGagal } from "../../lib/googleMaps.js";
+import { formatNop } from "../../lib/format.js";
 
 /** Pusat Kota Banjarbaru - titik awal bila belum ada koordinat. */
 export const PUSAT_AWAL = { lat: -3.4572, lon: 114.8105 };
@@ -262,8 +263,44 @@ export function isiBalonPersil(p = {}) {
     .slice(0, ATRIBUT_BALON_MAKS)
     .map(([k, v]) => `<tr><th>${aman(k)}</th><td>${aman(v)}</td></tr>`)
     .join("");
-  return `<div class="fk-balon fk-balon-lapisan"><strong>Persil BPN</strong><table class="fk-balon-tabel">${baris}</table></div>`;
+  return (
+    `<div class="fk-balon fk-balon-lapisan"><strong>Persil BPN</strong><table class="fk-balon-tabel">${baris}</table>` +
+    isiSensusBidang(p.sensus) +
+    "</div>"
+  );
 }
+
+/**
+ * Bagian balon persil: data sensus yang mencatat bidang ini (server/src/integrasi.js
+ * sensusBidang), masing-masing dengan tombol ke datanya (data-url, lihat
+ * peta/balonPersil.js). Tidak tampil bila keterangannya tidak dikirim.
+ */
+function isiSensusBidang(sensus) {
+  if (!Array.isArray(sensus)) return "";
+  if (!sensus.length) return `<span class="fk-balon-sub fk-balon-sensus-kosong">Belum tercatat di sensus.</span>`;
+  const nop = new Set(sensus.map((s) => s.nop).filter(Boolean));
+  const ringkas =
+    nop.size > 1
+      ? `<span class="fk-balon-kurang">${nop.size} NOP berbeda di bidang ini</span>`
+      : nop.size === 0
+        ? `<span class="fk-balon-kurang">Tercatat tanpa NOP</span>`
+        : "";
+  const daftar = sensus
+    .map(
+      (s) =>
+        `<li><span><b>${aman(s.nop ? formatNop(s.nop) : "Tanpa NOP")}</b>` +
+        `<span class="fk-balon-sub">${aman(s.nomor)}${s.judul ? ` · ${aman(s.judul)}` : ""}</span></span>` +
+        `<button type="button" class="fk-balon-buka" data-url="/kertas-kerja/${Number(s.kkId)}/data/${Number(s.entriId)}">Buka</button></li>`
+    )
+    .join("");
+  return `<div class="fk-balon-sensus"><span class="fk-balon-rekam">Tercatat di sensus</span>${ringkas}<ul>${daftar}</ul></div>`;
+}
+
+/** Sorot bidang terpilih di pemilih bidang: gelap di peta jalan, putih di satelit - beda dari warna kecamatan mana pun. */
+export const gayaTerpilih = (jenis) =>
+  jenis === "satelit"
+    ? { garis: "#ffffff", isi: "#ffffff", isiTembus: 0.3 }
+    : { garis: "#111827", isi: "#111827", isiTembus: 0.22 };
 
 /** Gaya bidang & garis lapisan: garis tegas, isian tipis supaya peta di bawahnya tetap terbaca. */
 export const gayaLapisan = (warna) => ({ garis: warna, tebal: 2, isi: warna, isiTembus: 0.12 });

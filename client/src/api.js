@@ -661,8 +661,12 @@ export const ringkasanPersil = () => request("/persil");
  */
 export const petakPersil = (i, j, versi) => request(`/persil/petak/${i}/${j}?v=${encodeURIComponent(versi)}`);
 
-/** Isi ringkas satu sel ±2,2 km untuk peta yang diperkecil (server/src/persil.js teksRingkas). */
-export const ringkasPersil = (i, j, versi) => request(`/persil/ringkas/${i}/${j}?v=${encodeURIComponent(versi)}`);
+/**
+ * Isi ringkas satu sel ±2,2 km untuk peta yang diperkecil (server/src/persil.js teksRingkas).
+ * `f=2`: bentuk yang membawa id bidang kecil (mode warna status sensus) - alamat baru
+ * supaya isi bentuk lama yang tersimpan di cache browser tidak terpakai.
+ */
+export const ringkasPersil = (i, j, versi) => request(`/persil/ringkas/${i}/${j}?v=${encodeURIComponent(versi)}&f=2`);
 
 /** Bidang ber-NIB itu (maks. 20): [{ id, nib, nibLengkap, kecamatan, kelurahan, tipeHak, luasPeta, batas, fitur }]. */
 export const cariPersil = (q) => request(`/persil/cari?q=${encodeURIComponent(q)}`);
@@ -705,6 +709,38 @@ export const batalkanImporPersil = (token) => request(`/persil/impor/${token}`, 
 
 /** Hapus persil: { kunci: [kunci wilayah] } atau { semua: true } -> { dihapus }. */
 export const hapusPersil = (isi) => request("/persil/hapus", { method: "POST", body: isi });
+
+/* ---------- integrasi NIB-NOP (server/src/integrasi.js) ---------- */
+
+/** Status sensus tiap bidang persil: { cocok: [id], tinjau: [id], tanpa_nop: [id] }, id sebagai selisih berurutan. */
+export const statusBidangSensus = () => request("/integrasi/bidang");
+
+/**
+ * Data lain yang sudah mencatat bidang-bidang ini (kunci "kode|nib"):
+ * { [kunci]: [{ entriId, kkId, nomor, nop, judul }] }. `kecuali` = id data yang sedang dibuka.
+ */
+export function cekBidangSensus(kunci, kecuali = null) {
+  const q = new URLSearchParams({ kunci: kunci.join(",") });
+  if (kecuali) q.set("kecuali", String(kecuali));
+  return request(`/integrasi/cek?${q}`);
+}
+
+/** Laporan integrasi: { pola, ringkas, cakupan, data: { baris, total, mulai, lebih } }. */
+export function laporanIntegrasi({ pola = "", cari = "", mulai = 0 } = {}) {
+  const q = new URLSearchParams();
+  if (pola) q.set("pola", pola);
+  if (cari) q.set("cari", cari);
+  if (mulai) q.set("mulai", String(mulai));
+  return request(`/integrasi${q.toString() ? `?${q}` : ""}`);
+}
+
+/** Unduh daftar kerja integrasi (.xlsx), disaring seperti layarnya. Khusus admin. */
+export function unduhIntegrasi({ pola = "", cari = "" } = {}) {
+  const q = new URLSearchParams();
+  if (pola) q.set("pola", pola);
+  if (cari) q.set("cari", cari);
+  return unduhBerkas(`/integrasi/unduh${q.toString() ? `?${q}` : ""}`, "integrasi-nib-nop.xlsx");
+}
 
 /* ---------- cek NOP ke EPBB ---------- */
 

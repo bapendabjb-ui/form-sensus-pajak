@@ -14,6 +14,7 @@ const { includePengajuanTerakhir, bentukPengajuanTerakhir } = require("./pengaju
 const { notFound } = require("./http");
 const { SUMBER_EPBB } = require("./epbb");
 const { jawabanLokasiPertama, ringkasLokasiEntri } = require("./cekLokasi");
+const { lengkapiBidang, barisEntriNib } = require("./integrasi");
 
 /** Tipe pertanyaan yang bisa diisi dari EPBB - hanya ini yang boleh bertanda "dari EPBB". */
 const TIPE_EPBB = new Set(Object.values(SUMBER_EPBB).flat());
@@ -33,18 +34,24 @@ const TIPE_EPBB = new Set(Object.values(SUMBER_EPBB).flat());
  * @param {number|null} entriId  entri yang sedang diubah, null untuk entri baru
  * @param {number[]} [dariEpbb]  id pertanyaan yang isinya masih asli dari EPBB
  * @param {{ berkasKurang?: boolean }} [opsi]  data ditandai berkas tidak lengkap
- * @returns {Promise<{baris: object[], tarif: object[], foto: object[], errors: object}>}
+ * @returns {Promise<{baris: object[], tarif: object[], foto: object[], nib: object[], errors: object}>}
  */
 async function siapkanJawaban(formulir, masuk, entriId, dariEpbb = [], { berkasKurang = false } = {}) {
   const longgar = Boolean(formulir.simpanBerkasKurang) && berkasKurang;
   const kiriman = masuk && typeof masuk === "object" ? masuk : {};
   const idEpbb = new Set((Array.isArray(dariEpbb) ? dariEpbb : []).map(Number));
-  const siap = { baris: [], tarif: [], foto: [], errors: {} };
+  const siap = { baris: [], tarif: [], foto: [], nib: [], errors: {} };
 
   const normal = formulir.pertanyaan.map((q) => ({
     q,
     nilai: normalizeNilai(q.tipe, kiriman[String(q.id)]),
   }));
+
+  // Bidang BPN: tipe hak, luas peta, dan wilayahnya disalin dari tabel persil,
+  // bukan dari kiriman klien.
+  for (const n of normal) {
+    if (n.q.tipe === "nib") n.nilai = await lengkapiBidang(n.nilai);
+  }
 
   // Foto hanya sah bila baru diunggah (belum tertaut ke entri mana pun)
   // atau memang sudah milik entri yang sedang diubah.
@@ -90,6 +97,7 @@ async function siapkanJawaban(formulir, masuk, entriId, dariEpbb = [], { berkasK
     }
   }
 
+  siap.nib = barisEntriNib(normal);
   return siap;
 }
 
@@ -160,6 +168,12 @@ async function tulisJawaban(tx, entriId, siap) {
   await tx.rincianTarif.deleteMany({ where: { entriId } });
   if (siap.tarif.length) {
     await tx.rincianTarif.createMany({ data: siap.tarif.map((t) => ({ entriId, ...t })) });
+  }
+
+  // Bidang BPN + NOP data ini, untuk pencocokan NIB-NOP (src/integrasi.js).
+  await tx.entriNib.deleteMany({ where: { entriId } });
+  if (siap.nib?.length) {
+    await tx.entriNib.createMany({ data: siap.nib.map((b) => ({ entriId, ...b })) });
   }
 
   const dipakai = [];
