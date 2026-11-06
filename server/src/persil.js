@@ -25,6 +25,18 @@ const { WILAYAH } = require("./batas");
 /** Sisi petak, derajat (±550 m). Petak terpadat di Banjarbaru berisi ±1.400 bidang. */
 const UKURAN_PETAK = 0.005;
 
+/*
+ * Peta yang diperkecil (zoom 13-14) memakai isi ringkas per sel 4 × 4 petak
+ * (±2,2 km): koordinat dibulatkan ke 1e-5 derajat (±1,1 m), garis
+ * disederhanakan ±3 m, dan ditulis sebagai selisih antartitik. Di zoom itu
+ * satu piksel ±10-20 m, jadi bedanya tidak terlihat, sedangkan isinya jauh
+ * lebih kecil - seluruh kota terlihat sekaligus di zoom 13.
+ */
+const PETAK_PER_RINGKAS = 4;
+const UKURAN_RINGKAS = UKURAN_PETAK * PETAK_PER_RINGKAS;
+const SATUAN_RINGKAS = 1e5;
+const TOLERANSI_RINGKAS = 3;
+
 /** Bidang paling banyak per kiriman impor. Browser mengirim ±1 MB sekali kirim (batas JSON server 2 MB). */
 const KIRIM_MAKS = 3000;
 
@@ -335,6 +347,131 @@ function teksPetak(daftar) {
   return `{"kecamatan":${JSON.stringify([...indeks.keys()])},"bidang":[${bidang.join(",")}]}`;
 }
 
+/* ---------- isi ringkas (peta diperkecil) ---------- */
+
+/** Kuadrat jarak titik p ke ruas a-b. */
+function jarak2Ruas([x, y], [x1, y1], [x2, y2]) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const l2 = dx * dx + dy * dy;
+  const t = l2 ? Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / l2)) : 0;
+  const ex = x1 + t * dx - x;
+  const ey = y1 + t * dy - y;
+  return ex * ex + ey * ey;
+}
+
+/** Douglas-Peucker untuk garis terbuka: titik yang menyimpang > `toleransi` dipertahankan. */
+function sederhanakanGaris(titik, toleransi) {
+  const n = titik.length;
+  if (n <= 2) return titik.slice();
+  const tol2 = toleransi * toleransi;
+  const simpan = new Uint8Array(n);
+  simpan[0] = simpan[n - 1] = 1;
+  const tumpuk = [[0, n - 1]];
+  while (tumpuk.length) {
+    const [a, b] = tumpuk.pop();
+    let maks = -1;
+    let k = -1;
+    for (let i = a + 1; i < b; i++) {
+      const d = jarak2Ruas(titik[i], titik[a], titik[b]);
+      if (d > maks) {
+        maks = d;
+        k = i;
+      }
+    }
+    if (maks > tol2) {
+      simpan[k] = 1;
+      tumpuk.push([a, k], [k, b]);
+    }
+  }
+  return titik.filter((_, i) => simpan[i]);
+}
+
+/**
+ * Cincin bilangan bulat -> cincin yang disederhanakan, tanpa titik penutup.
+ * Cincin dipotong di titik terjauh dari titik awalnya supaya Douglas-Peucker
+ * punya dua ujung yang berbeda.
+ */
+function sederhanakanCincin(c, toleransi) {
+  const r = [];
+  for (const p of c) {
+    const a = r[r.length - 1];
+    if (!a || a[0] !== p[0] || a[1] !== p[1]) r.push(p);
+  }
+  if (r.length > 1 && r[0][0] === r[r.length - 1][0] && r[0][1] === r[r.length - 1][1]) r.pop();
+  if (r.length <= 4) return r;
+  let jauh = 1;
+  let maks = -1;
+  for (let i = 1; i < r.length; i++) {
+    const d = (r[i][0] - r[0][0]) ** 2 + (r[i][1] - r[0][1]) ** 2;
+    if (d > maks) {
+      maks = d;
+      jauh = i;
+    }
+  }
+  const a = sederhanakanGaris(r.slice(0, jauh + 1), toleransi);
+  const b = sederhanakanGaris([...r.slice(jauh), r[0]], toleransi);
+  return [...a, ...b.slice(1, -1)];
+}
+
+/**
+ * Isi ringkas satu sel (i, j berukuran UKURAN_RINGKAS):
+ *   { kecamatan: [nama], asal: [x0, y0],
+ *     bidang: [indeks kecamatan, n, dx, dy, dx, dy, ...] berurutan - satu cincin luar per
+ *             bidang kecil; titik pertama relatif ke titik pertama cincin sebelumnya
+ *             (cincin pertama: ke `asal`), titik berikutnya relatif ke titik sebelumnya,
+ *     besar:  [[id, indeks kecamatan, [x, y, dx, dy, ...], ...]] - bidang `besar`, per
+ *             cincin luar, relatif ke `asal` }
+ * Satuan 1e-5 derajat. Bidang kecil hanya masuk sel tempat sudut barat dayanya
+ * (tidak pernah ganda); bidang besar bisa menjangkau beberapa sel, jadi masuk
+ * setiap sel yang disentuhnya dan dibedakan dengan id.
+ */
+function teksRingkas(daftar, i, j) {
+  const x0 = Math.round(i * UKURAN_RINGKAS * SATUAN_RINGKAS);
+  const y0 = Math.round(j * UKURAN_RINGKAS * SATUAN_RINGKAS);
+  const indeks = new Map();
+  const bidang = [];
+  const besar = [];
+  let px = 0;
+  let py = 0;
+  for (const p of daftar) {
+    if (!p.besar && (Math.floor(p.selLat / PETAK_PER_RINGKAS) !== j || Math.floor(p.selLon / PETAK_PER_RINGKAS) !== i)) {
+      continue;
+    }
+    if (!indeks.has(p.kecamatan)) indeks.set(p.kecamatan, indeks.size);
+    const ki = indeks.get(p.kecamatan);
+    let g;
+    try {
+      g = JSON.parse(p.geometri);
+    } catch {
+      continue;
+    }
+    const cincinBesar = [];
+    for (const poligon of poligonDari(g)) {
+      const bulat = (poligon[0] || []).map(([lon, lat]) => [
+        Math.round(lon * SATUAN_RINGKAS) - x0,
+        Math.round(lat * SATUAN_RINGKAS) - y0,
+      ]);
+      const c = sederhanakanCincin(bulat, TOLERANSI_RINGKAS);
+      if (c.length < 3) continue;
+      if (p.besar) {
+        const kode = [c[0][0], c[0][1]];
+        for (let k = 1; k < c.length; k++) kode.push(c[k][0] - c[k - 1][0], c[k][1] - c[k - 1][1]);
+        cincinBesar.push(`[${kode.join(",")}]`);
+      } else {
+        bidang.push(ki, c.length, c[0][0] - px, c[0][1] - py);
+        for (let k = 1; k < c.length; k++) bidang.push(c[k][0] - c[k - 1][0], c[k][1] - c[k - 1][1]);
+        [px, py] = c[0];
+      }
+    }
+    if (cincinBesar.length) besar.push(`[${p.id},${ki},${cincinBesar.join(",")}]`);
+  }
+  return (
+    `{"kecamatan":${JSON.stringify([...indeks.keys()])},"asal":[${x0},${y0}],` +
+    `"bidang":[${bidang.join(",")}],"besar":[${besar.join(",")}]}`
+  );
+}
+
 /** Bidang untuk disorot di peta: keterangan + kotak + Feature GeoJSON. */
 const bentukSorot = (p) => ({
   ...bentukInfo(p),
@@ -401,6 +538,35 @@ const bidangDiPetak = (i, j, pilih = PILIH_PETA) => bidangDiKotak(batasPetak(i, 
 
 /** Isi petak peta siap kirim (teksPetak). */
 const petakPeta = async (i, j) => teksPetak(await bidangDiPetak(i, j, PILIH_PETAK));
+
+/*
+ * Isi ringkas sel disimpan di memori: seluruh Banjarbaru ±130 sel, beberapa
+ * MB, dan menyusunnya membaca geometri ribuan bidang. Dikosongkan setiap
+ * persil berubah (impor selesai, hapus) - aplikasi berjalan satu proses.
+ */
+const simpananRingkas = new Map(); // "i,j" -> Promise<string>
+const SIMPANAN_RINGKAS_MAKS = 400;
+
+/** Isi ringkas satu sel peta siap kirim (teksRingkas). */
+function ringkasPeta(i, j) {
+  const kunci = `${i},${j}`;
+  let janji = simpananRingkas.get(kunci);
+  if (!janji) {
+    const kotak = {
+      s: j * UKURAN_RINGKAS,
+      n: (j + 1) * UKURAN_RINGKAS,
+      w: i * UKURAN_RINGKAS,
+      e: (i + 1) * UKURAN_RINGKAS,
+    };
+    janji = bidangDiKotak(kotak, { id: true, kecamatan: true, geometri: true, selLat: true, selLon: true, besar: true }).then(
+      (daftar) => teksRingkas(daftar, i, j)
+    );
+    simpananRingkas.set(kunci, janji);
+    janji.catch(() => simpananRingkas.get(kunci) === janji && simpananRingkas.delete(kunci));
+    while (simpananRingkas.size > SIMPANAN_RINGKAS_MAKS) simpananRingkas.delete(simpananRingkas.keys().next().value);
+  }
+  return janji;
+}
 
 /**
  * Dari bidang-bidang calon, yang memuat titik ini. Bila bertumpuk (data BPN
@@ -580,6 +746,7 @@ async function selesaikanImpor(token) {
     prisma.persil.deleteMany({ where: { aktif: true, kunciWilayah: { in: kunci } } }),
     prisma.persil.updateMany({ where: { impor: token }, data: { aktif: true } }),
   ]);
+  simpananRingkas.clear();
   return { jumlah: baru.count, diganti: lama.count, wilayah: kunci.length };
 }
 
@@ -590,14 +757,18 @@ async function batalkanImpor(token) {
 
 /** Hapus persil sejumlah wilayah (kunci dari ringkasan), atau semuanya. */
 async function hapusPersil({ kunci, semua = false }) {
-  if (semua) return (await prisma.persil.deleteMany({})).count;
   const daftar = Array.isArray(kunci) ? kunci.map((k) => String(k)).filter(Boolean) : [];
-  if (daftar.length === 0) throw badRequest("Pilih wilayah yang persilnya dihapus.");
-  return (await prisma.persil.deleteMany({ where: { aktif: true, kunciWilayah: { in: daftar } } })).count;
+  if (!semua && daftar.length === 0) throw badRequest("Pilih wilayah yang persilnya dihapus.");
+  const hasil = semua
+    ? await prisma.persil.deleteMany({})
+    : await prisma.persil.deleteMany({ where: { aktif: true, kunciWilayah: { in: daftar } } });
+  simpananRingkas.clear();
+  return hasil.count;
 }
 
 module.exports = {
   UKURAN_PETAK,
+  UKURAN_RINGKAS,
   KIRIM_MAKS,
   // murni - diuji di server/test/persil.test.js
   jarakKm,
@@ -615,9 +786,12 @@ module.exports = {
   petakTitik,
   batasPetak,
   teksPetak,
+  sederhanakanCincin,
+  teksRingkas,
   // database
   bidangDiPetak,
   petakPeta,
+  ringkasPeta,
   cariDiTitik,
   adaPersil,
   pencariPersilEkspor,

@@ -75,6 +75,20 @@ router.get(
 );
 
 /**
+ * GET /api/persil/ringkas/:i/:j?v=<versi> -> isi ringkas satu sel ±2,2 km untuk
+ * peta yang diperkecil (persil.teksRingkas). Boleh disimpan browser, seperti petak.
+ */
+router.get(
+  "/ringkas/:i/:j",
+  batasiPetak,
+  wrap(async (req, res) => {
+    const isi = await persil.ringkasPeta(bacaBulat(req.params.i, "sel"), bacaBulat(req.params.j, "sel"));
+    res.setHeader("Cache-Control", req.query.v ? "private, max-age=86400" : "no-cache");
+    res.type("json").send(isi);
+  })
+);
+
+/**
  * GET /api/persil/titik?lat=&lon=[&bentuk=1] -> { ada: ada persil tersimpan, persil: bidang di titik itu | null }.
  * `bentuk=1`: bidangnya beserta kotak dan Feature-nya - bidang yang diketuk di peta.
  */

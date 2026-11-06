@@ -108,6 +108,7 @@ app.get("/api/konfigurasi", async (_req, res, next) => {
       persil: {
         wilayah: batas.WILAYAH,
         ukuranPetak: require("./src/persil").UKURAN_PETAK,
+        ukuranRingkas: require("./src/persil").UKURAN_RINGKAS,
       },
       periodeData: counter?.periode ?? 0,
       // true = klien langsung menampilkan layar login bagi yang belum masuk.

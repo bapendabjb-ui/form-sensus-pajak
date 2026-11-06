@@ -661,6 +661,9 @@ export const ringkasanPersil = () => request("/persil");
  */
 export const petakPersil = (i, j, versi) => request(`/persil/petak/${i}/${j}?v=${encodeURIComponent(versi)}`);
 
+/** Isi ringkas satu sel ±2,2 km untuk peta yang diperkecil (server/src/persil.js teksRingkas). */
+export const ringkasPersil = (i, j, versi) => request(`/persil/ringkas/${i}/${j}?v=${encodeURIComponent(versi)}`);
+
 /** Bidang ber-NIB itu (maks. 20): [{ id, nib, nibLengkap, kecamatan, kelurahan, tipeHak, luasPeta, batas, fitur }]. */
 export const cariPersil = (q) => request(`/persil/cari?q=${encodeURIComponent(q)}`);
 
