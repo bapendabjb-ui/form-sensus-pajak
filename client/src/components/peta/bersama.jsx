@@ -11,6 +11,9 @@ import * as api from "../../api.js";
 import { LAPISAN } from "../../lib/ubinPeta";
 import { googleGagal, onGoogleGagal } from "../../lib/googleMaps.js";
 import { formatNop } from "../../lib/format.js";
+import { navigate } from "../../lib/router.js";
+import { geserDariPanel } from "../../lib/persilBpn.js";
+import { IkonTutup } from "../Icons.jsx";
 
 /** Pusat Kota Banjarbaru - titik awal bila belum ada koordinat. */
 export const PUSAT_AWAL = { lat: -3.4572, lon: 114.8105 };
@@ -271,9 +274,9 @@ export function isiBalonPersil(p = {}) {
 }
 
 /**
- * Bagian balon persil: data sensus yang mencatat bidang ini (server/src/integrasi.js
+ * Bagian keterangan persil: data sensus yang mencatat bidang ini (server/src/integrasi.js
  * sensusBidang), masing-masing dengan tombol ke datanya (data-url, lihat
- * peta/balonPersil.js). Tidak tampil bila keterangannya tidak dikirim.
+ * PanelBidang). Tidak tampil bila keterangannya tidak dikirim.
  */
 function isiSensusBidang(sensus) {
   if (!Array.isArray(sensus)) return "";
@@ -294,6 +297,47 @@ function isiSensusBidang(sensus) {
     )
     .join("");
   return `<div class="fk-balon-sensus"><span class="fk-balon-rekam">Tercatat di sensus</span>${ringkas}<ul>${daftar}</ul></div>`;
+}
+
+/**
+ * Keterangan bidang persil yang diketuk di Peta Sensus: panel tetap di kiri
+ * atas peta, tidak ikut bergeser dan tidak menutupi bidangnya seperti balon.
+ * Tombol "Buka" di daftar sensus membuka datanya. Digambar PetaSebaran di atas
+ * kedua mesin peta; mesinnya menyorot bidang dan menjaga bidang tetap terlihat
+ * (geserPanel).
+ *
+ * properti : properties Feature bidang (server/src/persil.js propertiPeta + sensus)
+ * panelRef : ref elemen panel, dibaca mesin peta untuk mengukurnya
+ */
+export function PanelBidang({ properti, onTutup, panelRef }) {
+  const klik = (e) => {
+    const tombol = e.target.closest("[data-url]");
+    if (tombol) navigate(tombol.dataset.url);
+  };
+  return (
+    <div className="fk-peta-panel" ref={panelRef} role="region" aria-label="Keterangan bidang terpilih">
+      <button type="button" className="fk-peta-panel-tutup" onClick={onTutup} aria-label="Tutup keterangan bidang" title="Tutup">
+        <IkonTutup />
+      </button>
+      {/* Tombol di dalamnya tombol sungguhan; klik (juga dari keyboard) ditangkap di sini. */}
+      <div onClick={klik} dangerouslySetInnerHTML={{ __html: isiBalonPersil(properti) }} />
+    </div>
+  );
+}
+
+/**
+ * Geseran peta supaya titik `p` (piksel dari sudut kiri atas `wadah` peta)
+ * tidak tertutup panel bidang; null bila tidak perlu (lib/persilBpn.js geserDariPanel).
+ */
+export function geserPanel(p, panel, wadah) {
+  if (!p || !panel || !wadah) return null;
+  const pk = panel.getBoundingClientRect();
+  const wk = wadah.getBoundingClientRect();
+  return geserDariPanel(
+    p,
+    { kanan: pk.right - wk.left, bawah: pk.bottom - wk.top },
+    { lebar: wk.width, tinggi: wk.height }
+  );
 }
 
 /** Sorot bidang terpilih di pemilih bidang: gelap di peta jalan, putih di satelit - beda dari warna kecamatan mana pun. */

@@ -71,6 +71,7 @@ import {
   Users,
   UtensilsCrossed,
   Wallet,
+  X,
   Zap,
 } from "lucide-react";
 
@@ -115,6 +116,8 @@ export const IkonTutupPenuh = () => <Minimize2 size={15} strokeWidth={GARIS} ari
 export const IkonLapisan = () => <Layers size={15} strokeWidth={GARIS} aria-hidden="true" />;
 /** Cari NIB persil BPN di Peta Sensus. */
 export const IkonCari = () => <Search size={15} strokeWidth={GARIS} aria-hidden="true" />;
+/** Menutup panel keterangan bidang di Peta Sensus. */
+export const IkonTutup = () => <X size={18} strokeWidth={GARIS} aria-hidden="true" />;
 
 /** Panah dropdown; CSS memutarnya lewat kelas is-open. */
 export const Chevron = ({ open }) => (

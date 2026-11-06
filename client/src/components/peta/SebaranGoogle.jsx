@@ -12,11 +12,11 @@ import {
   isiBalonLapisan,
   gayaLapisan,
   TITIK_LAPISAN_RADIUS,
+  geserPanel,
 } from "./bersama.jsx";
 import * as api from "../../api.js";
 import { PERSIL_ZOOM_MIN, dengarPetak, statusPersil, warnaSorotBidang } from "../../lib/persilBpn.js";
 import { pasangUbinPersil } from "./ubinPersilGoogle.js";
-import { elemenBalonPersil } from "./balonPersil.js";
 
 /**
  * Mesin Google untuk Peta Sensus: seluruh titik hasil sensus, hanya untuk
@@ -33,9 +33,13 @@ import { elemenBalonPersil } from "./balonPersil.js";
  *           digambar di bawah titik sensus
  * persil : persil BPN yang menyala (lib/persilBpn.js usePersilBpn().peta) | null; digambar
  *          sebagai ubin kanvas mulai PERSIL_ZOOM_MIN, warna per kecamatan. Mengetuk bidang
- *          menyorotnya dan membuka keterangannya dari server.
+ *          menyorotnya dan mengirim keterangannya dari server ke onBidang.
  * sorot  : { fitur, batas: [barat, selatan, timur, utara] } | null - bidang hasil cari NIB:
- *          disorot, peta dirapatkan ke sana, dan balonnya dibuka
+ *          disorot, peta dirapatkan ke sana, dan keterangannya dikirim ke onBidang
+ * bidang : bidang yang keterangannya sedang tampil di panel (PanelBidang), atau null -
+ *          null = panelnya ditutup, sorotnya dilepas
+ * onBidang : (bidang | null) => void - bidang diketuk / dicari, atau ketukan di luar bidang
+ * panelRef : ref elemen panel; bidang yang diketuk di bawah panel digeser keluar
  * onStatusPersil : (status) => void - "", "perbesar", "memuat", "galat" (lib/persilBpn.js statusPersil)
  */
 
@@ -80,20 +84,17 @@ function buatLapisanGis(lib, peta, balon, l) {
 }
 const ZOOM_MAKS_RAPAT = 17;
 
-/** Atribut sebuah fitur google.maps.Data sebagai objek biasa. */
-function propertiFitur(f) {
-  const p = {};
-  f.forEachProperty((v, k) => {
-    p[k] = v;
-  });
-  return p;
-}
-
-/** Balon keterangan bidang persil di sebuah posisi (dengan data sensus yang mencatatnya). */
-function bukaBalonPersil(balon, peta, posisi, properti) {
-  balon.setContent(elemenBalonPersil(properti, () => balon.close()));
-  balon.setPosition(posisi);
-  balon.open({ map: peta });
+/** Posisi piksel sebuah koordinat dari sudut kiri atas peta (Google tidak menyediakannya langsung). */
+function pikselDi(lib, peta, posisi) {
+  const proyeksi = peta.getProjection();
+  const batas = peta.getBounds();
+  if (!proyeksi || !batas) return null;
+  const skala = 2 ** peta.getZoom();
+  const kiriAtas = proyeksi.fromLatLngToPoint(
+    new lib.LatLng(batas.getNorthEast().lat(), batas.getSouthWest().lng())
+  );
+  const t = proyeksi.fromLatLngToPoint(posisi instanceof lib.LatLng ? posisi : new lib.LatLng(posisi.lat, posisi.lng));
+  return { x: (t.x - kiriAtas.x) * skala, y: (t.y - kiriAtas.y) * skala };
 }
 
 /** Ikon Google dari gambar SVG bersama (lihat svgTitik / svgKlaster). */
@@ -140,6 +141,9 @@ export default function SebaranGoogle({
   lapisan = [],
   persil = null,
   sorot = null,
+  bidang = null,
+  onBidang,
+  panelRef = null,
   onStatusPersil,
 }) {
   const wadah = useRef(null);
@@ -166,26 +170,38 @@ export default function SebaranGoogle({
   jenisRef.current = jenis;
   const statusRef = useRef(onStatusPersil);
   statusRef.current = onStatusPersil;
+  const bidangRef = useRef(onBidang);
+  bidangRef.current = onBidang;
   const ketukKe = useRef(0);
+  // Titik yang dijaga tetap terlihat di samping panel, dan apakah peta sedang dirapatkan ke bidangnya.
+  const jagaRef = useRef({ posisi: null, rapatkan: false });
 
   const laporPersil = () => {
     if (peta.current) statusRef.current?.(statusPersil({ aktif: Boolean(persilRef.current), zoom: peta.current.getZoom() }));
   };
 
-  const hapusSorot = () => {
+  /** Lepas sorot bidang dari peta (panelnya sudah ditutup). */
+  const lepasSorot = () => {
     const lp = lapisanPersil.current;
     if (lp) lp.sorot.forEach((f) => lp.sorot.remove(f));
   };
 
-  /** Sorot satu bidang (hasil cari NIB / diketuk) dan buka balonnya; `rapatkan` = peta menuju bidangnya. */
+  /** Lepas sorot dan tutup panelnya. */
+  const tutupBidang = () => {
+    lepasSorot();
+    bidangRef.current?.(null);
+  };
+
+  /** Sorot satu bidang (hasil cari NIB / diketuk) dan tampilkan keterangannya; `rapatkan` = peta menuju bidangnya. */
   const tampilkanSorot = (b, { posisi = null, rapatkan = false } = {}) => {
     const m = peta.current;
     const lib = g.current;
     const lp = lapisanPersil.current;
     if (!m || !lib || !lp) return;
-    hapusSorot();
+    lepasSorot();
     const warna = warnaSorotBidang(persilRef.current, b, jenisRef.current);
-    lp.sorot.setStyle({ strokeColor: warna, strokeOpacity: 1, strokeWeight: 4, fillColor: warna, fillOpacity: 0.22, zIndex: 1 });
+    // Tidak menangkap ketukan: ketukan pada bidangnya sampai ke peta dan memperbarui keterangannya.
+    lp.sorot.setStyle({ strokeColor: warna, strokeOpacity: 1, strokeWeight: 4, fillColor: warna, fillOpacity: 0.22, zIndex: 1, clickable: false });
     lp.sorot.addGeoJson(b.fitur);
     const [barat, selatan, timur, utara] = b.batas;
     if (rapatkan) {
@@ -194,7 +210,18 @@ export default function SebaranGoogle({
         if (m.getZoom() > 19) m.setZoom(19);
       });
     }
-    bukaBalonPersil(balon.current, m, posisi || { lat: (selatan + utara) / 2, lng: (barat + timur) / 2 }, b.fitur.properties);
+    jagaRef.current = { posisi: posisi || { lat: (selatan + utara) / 2, lng: (barat + timur) / 2 }, rapatkan };
+    bidangRef.current?.(b);
+  };
+
+  /** Geser peta bila titik bidang yang ditampilkan tertutup panelnya. */
+  const jagaTerlihat = () => {
+    const m = peta.current;
+    const lib = g.current;
+    const { posisi } = jagaRef.current;
+    if (!m || !lib || !posisi) return;
+    const geser = geserPanel(pikselDi(lib, m, posisi), panelRef?.current, wadah.current);
+    if (geser) m.panBy(-geser.x, -geser.y);
   };
 
   /** Ketukan di peta: bidang persil di titik itu (bila persil menyala dan sudah tergambar). */
@@ -206,15 +233,17 @@ export default function SebaranGoogle({
     try {
       const { persil: b } = await api.bidangDiTitik(e.latLng.lat(), e.latLng.lng());
       const kini = persilRef.current;
-      if (ke !== ketukKe.current || !b || !kini || kini.tersembunyi.includes(b.kecamatan)) return;
-      tampilkanSorot(b, { posisi: e.latLng });
+      if (ke !== ketukKe.current || !kini) return;
+      // Ketukan di luar bidang (atau di bidang kecamatan yang disembunyikan) menutup panelnya.
+      if (!b || kini.tersembunyi.includes(b.kecamatan)) tutupBidang();
+      else tampilkanSorot(b, { posisi: e.latLng });
     } catch {
       // Tanpa sinyal: ketukan di peta tidak berbuat apa-apa.
     }
   };
 
   const panggilan = useRef({});
-  panggilan.current = { laporPersil, hapusSorot, tampilkanSorot, ketukPeta };
+  panggilan.current = { laporPersil, lepasSorot, tutupBidang, tampilkanSorot, jagaTerlihat, ketukPeta };
 
   // Buat peta sekali.
   useEffect(() => {
@@ -239,13 +268,9 @@ export default function SebaranGoogle({
           balon.current = new lib.InfoWindow();
           kelompok.current = buatPengelompok(lib, peta.current);
           const sorotData = new lib.Data({ map: peta.current });
-          sorotData.addListener("click", (e) =>
-            bukaBalonPersil(balon.current, peta.current, e.latLng, propertiFitur(e.feature))
-          );
           lapisanPersil.current = { ubin: null, kunci: "", sorot: sorotData };
           peta.current.addListener("zoom_changed", () => panggilan.current.laporPersil());
           peta.current.addListener("click", (e) => panggilan.current.ketukPeta(e));
-          balon.current.addListener("closeclick", () => panggilan.current.hapusSorot());
           setSiap(true);
         } catch (e) {
           tandaiGoogleGagal(`peta tidak dapat dibuat: ${e.message}`);
@@ -309,17 +334,32 @@ export default function SebaranGoogle({
     const lp = lapisanPersil.current;
     if (!m || !lib || !lp) return;
     pasangUbinPersil(lib, m, lp, persil, jenis);
-    if (!persil) panggilan.current.hapusSorot();
+    if (!persil) panggilan.current.tutupBidang();
     panggilan.current.laporPersil();
   }, [persil, jenis, siap]);
 
   // Petak data mulai / selesai dimuat: perbarui keterangan di atas peta.
   useEffect(() => dengarPetak(() => panggilan.current.laporPersil()), []);
 
-  // Bidang hasil cari NIB: sorot, rapatkan pandangan ke sana, buka balonnya.
+  // Bidang hasil cari NIB: sorot, rapatkan pandangan ke sana, tampilkan keterangannya.
   useEffect(() => {
     if (sorot) panggilan.current.tampilkanSorot(sorot, { rapatkan: true });
   }, [sorot, siap]);
+
+  // Panel bidang: ditutup = sorot dilepas; tampil = bidangnya dijaga tidak tertutup panel
+  // (setelah peta selesai dirapatkan ke bidang hasil cari NIB).
+  useEffect(() => {
+    if (!bidang) {
+      panggilan.current.lepasSorot();
+      return undefined;
+    }
+    if (!jagaRef.current.rapatkan) {
+      panggilan.current.jagaTerlihat();
+      return undefined;
+    }
+    const t = setTimeout(() => panggilan.current.jagaTerlihat(), 450);
+    return () => clearTimeout(t);
+  }, [bidang]);
 
   // Gambar ulang titik setiap daftarnya berubah (mis. saringan diganti).
   useEffect(() => {

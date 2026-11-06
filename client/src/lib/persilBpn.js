@@ -767,3 +767,29 @@ export function statusPersil({ aktif, zoom }) {
   if (memuat > 0) return "memuat";
   return galat ? "galat" : "";
 }
+
+/**
+ * Geseran peta supaya titik bidang yang diketuk tidak tertutup panel
+ * keterangan di kiri atas peta (PanelBidang di components/peta/bersama.jsx).
+ *
+ * p     : { x, y } titik bidang, piksel dari sudut kiri atas peta
+ * panel : { kanan, bawah } tepi panel, piksel dari sudut yang sama
+ * peta  : { lebar, tinggi } ukuran peta
+ *
+ * Hasilnya { x, y }: titik dipindah sejauh itu ke kanan atau ke bawah (yang
+ * lebih pendek, asal titiknya tetap di dalam peta), atau null bila titiknya
+ * sudah terlihat atau tidak bisa dibebaskan.
+ */
+export function geserDariPanel(p, panel, peta, ruang = 16) {
+  if (!p || !panel || !peta) return null;
+  const x = panel.kanan + ruang - p.x;
+  const y = panel.bawah + ruang - p.y;
+  if (x <= 0 || y <= 0) return null;
+  const pilihan = [
+    { x, y: 0, muat: p.x + x <= peta.lebar - ruang },
+    { x: 0, y, muat: p.y + y <= peta.tinggi - ruang },
+  ].filter((g) => g.muat);
+  if (!pilihan.length) return null;
+  const g = pilihan.reduce((a, b) => (a.x + a.y <= b.x + b.y ? a : b));
+  return { x: g.x, y: g.y };
+}

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import {
   useMesinPeta,
   PilihJenis,
@@ -9,6 +9,7 @@ import {
   WARNA_STATUS,
   ContohLapisan,
   ContohPersil,
+  PanelBidang,
 } from "./peta/bersama.jsx";
 import { IkonLayarPenuh, IkonTutupPenuh } from "./Icons.jsx";
 import { PERSIL_ZOOM_MIN, warnaDi, STATUS_BIDANG, LABEL_BELUM, warnaStatusBidang } from "../lib/persilBpn.js";
@@ -41,6 +42,9 @@ const PESAN_PERSIL = {
  * lapisan : lapisan GIS yang menyala dan sudah termuat (lib/lapisanPeta.js useLapisanPeta().aktif)
  * persil : persil BPN yang menyala (lib/persilBpn.js usePersilBpn().peta), atau null
  * sorot  : bidang hasil cari NIB yang disorot (lihat peta/SebaranGoogle.jsx), atau null
+ *
+ * Keterangan bidang persil yang diketuk / dicari tampil di panel tetap di kiri atas
+ * peta (PanelBidang), bukan balon: tidak ikut bergeser saat peta digeser.
  */
 export default function PetaSebaran({
   titik = [],
@@ -57,6 +61,9 @@ export default function PetaSebaran({
   const [jenis, setJenis] = useState("peta");
   const [penuh, setPenuh] = useState(false);
   const [statusPersil, setStatusPersil] = useState("");
+  // Bidang persil yang keterangannya tampil di panel kiri atas (dari mesin peta), atau null.
+  const [bidang, setBidang] = useState(null);
+  const panelRef = useRef(null);
   const mesin = useMesinPeta();
 
   // Layar penuh: Escape menutupnya, dan halaman di belakangnya tidak ikut bergulir.
@@ -90,6 +97,9 @@ export default function PetaSebaran({
         lapisan={lapisan}
         persil={persil}
         sorot={sorot}
+        bidang={bidang}
+        onBidang={setBidang}
+        panelRef={panelRef}
         onStatusPersil={setStatusPersil}
       />
     );
@@ -104,6 +114,9 @@ export default function PetaSebaran({
         lapisan={lapisan}
         persil={persil}
         sorot={sorot}
+        bidang={bidang}
+        onBidang={setBidang}
+        panelRef={panelRef}
         onStatusPersil={setStatusPersil}
       />
     );
@@ -202,7 +215,10 @@ export default function PetaSebaran({
             {kanvas}
           </Suspense>
         </PenahanPeta>
-        {kosong && (
+        {bidang && (
+          <PanelBidang properti={bidang.fitur.properties} onTutup={() => setBidang(null)} panelRef={panelRef} />
+        )}
+        {kosong && !bidang && (
           <div className="fk-peta-kosong" role="status">
             {kosong}
           </div>

@@ -839,6 +839,14 @@ html.fk-ketik .fk-fab{display:none;}
 }
 .fk-peta-persil{position:absolute; bottom:28px; left:50%; transform:translateX(-50%); z-index:1; width:max-content; max-width:calc(100% - 24px); padding:7px 12px; background:var(--surface); border:1px solid var(--line); border-radius:999px; box-shadow:0 4px 14px rgba(16,24,32,.14); font-size:12.5px; color:var(--muted); text-align:center; pointer-events:none;}
 .fk-peta-persil.is-galat{color:var(--danger);}
+/* Keterangan bidang persil yang diketuk (PanelBidang): tetap di kiri atas, tidak ikut bergeser bersama peta. */
+.fk-peta-panel{position:absolute; top:10px; left:10px; z-index:2; width:min(300px, calc(100% - 20px)); max-height:calc(100% - 20px); overflow:auto; overscroll-behavior:contain; padding:11px 14px 12px; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 6px 18px rgba(16,24,32,.16);}
+.fk-peta-panel .fk-balon > strong{padding-right:30px;}
+.fk-peta-panel-tutup{position:absolute; top:5px; right:5px; display:grid; place-items:center; width:34px; height:34px; border:0; border-radius:8px; background:transparent; color:var(--muted); cursor:pointer;}
+.fk-peta-panel-tutup:hover{background:var(--line-soft); color:var(--ink);}
+.fk-peta-panel-tutup:focus-visible{outline:2px solid var(--brand); outline-offset:1px;}
+/* HP: sisakan ruang di kanan dan bawah untuk menggeser peta. */
+@media (max-width:560px){ .fk-peta-panel{width:min(270px, calc(100% - 64px)); max-height:calc(100% - 80px);} }
 .fk-cari-nib-panel{width:320px;}
 .fk-cari-nib{display:flex; flex-direction:column; gap:8px; padding:6px;}
 .fk-cari-nib-form{display:flex; gap:8px;}

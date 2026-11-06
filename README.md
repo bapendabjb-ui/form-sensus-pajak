@@ -491,7 +491,7 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `lapisanPeta.test.js`  | Lapisan GIS: berkas UTM / TM-3 ditolak, koordinat dibulatkan, batas ukuran isi                |
 | `persil.test.js`       | Persil BPN: bidang di luar Banjarbaru / bentuk rusak ditolak, petak & kunci wilayah, titik di bidang berlubang / bertumpuk, pencarian NIB |
 | `shapefile.test.js`    | Pembaca shapefile di browser (`client/src/lib/shapefile.js`): TM-3 / UTM ke derajat, .prj salah / tidak ada, CRS campur, bidang nyasar & rusak, lubang |
-| `persilBpn.test.js`    | Warna persil per kecamatan (`client/src/lib/persilBpn.js`): lima kecamatan Banjarbaru berbeda, warna mengikuti nama bukan urutan, cadangan untuk kecamatan lain; isi ringkas (zoom 13–16) bolak-balik server → browser kembali ke tempatnya, beserta id tiap bidang |
+| `persilBpn.test.js`    | Warna persil per kecamatan (`client/src/lib/persilBpn.js`): lima kecamatan Banjarbaru berbeda, warna mengikuti nama bukan urutan, cadangan untuk kecamatan lain; isi ringkas (zoom 13–16) bolak-balik server → browser kembali ke tempatnya, beserta id tiap bidang; bidang yang diketuk di bawah panel keterangan digeser ke arah terpendek |
 | `integrasi.test.js`    | Integrasi NIB-NOP: bentuk jawaban Bidang Tanah BPN, NIB sertifikat 13 digit, pola tiap data (1 NIB = 1 NOP, beberapa NIB / NOP, campuran, tanpa NOP / NIB), status bidang di peta, kolom ekspor & daftar kerja Excel |
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) menjalankan lint, tes,
@@ -866,12 +866,15 @@ Peta pendaftaran tanah BPN (shapefile persil per kecamatan) bisa dimasukkan ke a
 
 - **Peta Sensus:** bidang tergambar mulai **zoom 13** (seluruh Banjarbaru dalam satu layar, tampil
   sebagai sebaran berwarna; dari zoom 17 batas tiap bidang lengkap), di peta Google maupun cadangan,
-  dengan **warna per kecamatan** (tabel di bawah). Mengetuk bidang menyorotnya dan membuka NIB, tipe hak,
-  luas peta, kelurahan, dan atribut lain. **Lapisan → Persil BPN** menyalakan / mematikannya, dan
+  dengan **warna per kecamatan** (tabel di bawah). Mengetuk bidang menyorotnya dan menampilkan NIB, tipe
+  hak, luas peta, kelurahan, dan atribut lain di **panel tetap di kiri atas peta**: tidak ikut bergeser
+  saat peta digeser, dan bidang yang diketuk di bawah panel otomatis digeser ke sampingnya. Panelnya
+  ditutup dengan tombol ×, atau dengan mengetuk di luar bidang. Di peta cadangan, tombol zoom ada di
+  kanan bawah (sama dengan peta Google). **Lapisan → Persil BPN** menyalakan / mematikannya, dan
   centang di bawahnya memilih kecamatan mana yang tampil (tersimpan per browser). Legenda menyebut
   kecamatan yang tampil; di HP diringkas jadi satu contoh warna. **Warna bidang → Status sensus**
   mewarnai bidang menurut hubungannya dengan NOP hasil sensus (lihat
-  [Integrasi NIB dan NOP](#integrasi-nib-dan-nop)), dan balon bidang menyebut data sensus yang
+  [Integrasi NIB dan NOP](#integrasi-nib-dan-nop)), dan panel bidang menyebut data sensus yang
   mencatatnya, masing-masing dengan tombol **Buka**.
 - **Cari NIB** di bilah alat peta: NIB 5 digit (kembar di kelurahan lain → pilih kelurahannya) atau
   NIB lengkap 13 digit (kode wilayah + NIB, mis. `17.11.74.02.03612`). Peta menuju bidangnya dan

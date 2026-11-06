@@ -123,3 +123,21 @@ test("teksRingkas -> uraiRingkas: bidang kembali ke tempatnya; bidang kecil hany
   const o = sel.asal;
   assert.deepEqual([...sel.kotak.slice(0, 2)], [Math.round(lon0 * 1e5) - o[0], Math.round(lat0 * 1e5) - o[1]]);
 });
+
+test("geserDariPanel: bidang yang diketuk di bawah panel kiri atas digeser keluar", async () => {
+  const { geserDariPanel } = await muat();
+  const panel = { kanan: 310, bawah: 200 };
+  const peta = { lebar: 1000, tinggi: 600 };
+  // Di kanan atau di bawah panel: sudah terlihat.
+  assert.equal(geserDariPanel({ x: 400, y: 50 }, panel, peta), null);
+  assert.equal(geserDariPanel({ x: 100, y: 300 }, panel, peta), null);
+  // Tertutup: arah yang lebih pendek (ke bawah 36 px, bukan ke kanan 226 px).
+  assert.deepEqual(geserDariPanel({ x: 100, y: 180 }, panel, peta), { x: 0, y: 36 });
+  assert.deepEqual(geserDariPanel({ x: 300, y: 20 }, panel, peta), { x: 26, y: 0 });
+  // HP sempit: panel hampir selebar peta, jadi hanya bisa ke bawah.
+  const hp = { lebar: 300, tinggi: 500 };
+  assert.deepEqual(geserDariPanel({ x: 200, y: 40 }, { kanan: 280, bawah: 230 }, hp), { x: 0, y: 206 });
+  // Tidak ada ruang di mana pun, atau panel belum ada.
+  assert.equal(geserDariPanel({ x: 100, y: 100 }, { kanan: 350, bawah: 490 }, hp), null);
+  assert.equal(geserDariPanel({ x: 100, y: 100 }, null, peta), null);
+});
