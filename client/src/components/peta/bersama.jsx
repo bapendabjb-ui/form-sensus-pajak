@@ -10,6 +10,7 @@ import { Component, useEffect, useState } from "react";
 import * as api from "../../api.js";
 import { LAPISAN } from "../../lib/ubinPeta";
 import { googleGagal, onGoogleGagal } from "../../lib/googleMaps.js";
+import { posisiLayak, pesanTerlaluKasar } from "../../lib/rekamPosisi.js";
 import { geserDariPanel } from "../../lib/persilBpn.js";
 import { IkonLokasiSaya } from "../Icons.jsx";
 
@@ -25,8 +26,12 @@ export const warnaTitik = (t) => WARNA_STATUS[t.status === "selesai" ? "selesai"
 /** Titik biru "Lokasi saya" - biru Google, supaya tidak tertukar dengan penanda titik sensus. */
 export const WARNA_SAYA = "#1A73E8";
 
-/** Zoom saat peta dipusatkan ke lokasi saya: makin kasar GPS-nya, makin jauh, supaya lingkarannya muat. */
-export const zoomAkurasi = (m) => (m == null || m <= 50 ? 18 : m <= 150 ? 17 : m <= 400 ? 16 : 15);
+/**
+ * Zoom saat peta dipusatkan ke lokasi saya: makin kasar GPS-nya, makin jauh, supaya lingkarannya muat.
+ * Di atas 2 km peta tidak dipusatkan sama sekali (lib/rekamPosisi.js AKURASI_LAYAK_M).
+ */
+export const zoomAkurasi = (m) =>
+  m == null || m <= 50 ? 18 : m <= 150 ? 17 : m <= 400 ? 16 : m <= 900 ? 15 : 14;
 
 /**
  * Gambar titik peta (SVG), dipakai peta Google, peta cadangan, dan legenda
@@ -253,6 +258,15 @@ export function teksAkurasi(m) {
 /** Ketelitian di atas ini ditandai kasar: titik birunya bisa meleset dari posisi sebenarnya. */
 const AKURASI_KASAR_M = 30;
 
+/** Catatan di bawah peta pemilih selama lokasi perangkat bukan GPS (lib/useLokasiSaya.js terlaluKasar). */
+export function CatatanGpsKasar({ akurasi }) {
+  return (
+    <p className="fk-gps-kasar" role="status">
+      {pesanTerlaluKasar(teksAkurasi(akurasi))}
+    </p>
+  );
+}
+
 /**
  * Tombol "Lokasi saya" di sudut kanan bawah peta pemilih (lib/useLokasiSaya.js),
  * dengan ketelitian GPS di sampingnya - supaya petugas tahu titik birunya
@@ -261,14 +275,23 @@ const AKURASI_KASAR_M = 30;
 export function TombolLokasiSaya({ saya, onClick }) {
   const akurasi = saya.posisi?.akurasi;
   const kasar = Number.isFinite(akurasi) && akurasi > AKURASI_KASAR_M;
+  // Bukan GPS (perkiraan dari jaringan / alamat internet): titik birunya tidak digambar.
+  const buruk = Boolean(saya.posisi) && !posisiLayak(saya.posisi);
   return (
     <>
       {saya.posisi && Number.isFinite(akurasi) && (
         <span
-          className={"fk-saya-akurasi" + (kasar ? " is-kasar" : "")}
-          title={kasar ? "GPS belum teliti: titik biru bisa meleset. Tunggu sebentar di tempat terbuka." : "Ketelitian GPS"}
+          className={"fk-saya-akurasi" + (buruk ? " is-buruk" : kasar ? " is-kasar" : "")}
+          title={
+            buruk
+              ? "Bukan GPS: perkiraan dari jaringan, bisa meleset jauh. Titik biru tidak digambar. Aktifkan GPS / lokasi akurat."
+              : kasar
+                ? "GPS belum teliti: titik biru bisa meleset. Tunggu sebentar di tempat terbuka."
+                : "Ketelitian GPS"
+          }
         >
           GPS {teksAkurasi(akurasi)}
+          {buruk && " · tidak akurat"}
         </span>
       )}
       <button

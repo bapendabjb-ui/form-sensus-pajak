@@ -1,5 +1,5 @@
 import { Suspense, lazy, useState } from "react";
-import { useMesinPeta, PilihJenis, PetaMemuat, CatatanCadangan, PenahanPeta, TombolLokasiSaya } from "./peta/bersama.jsx";
+import { useMesinPeta, PilihJenis, PetaMemuat, CatatanCadangan, PenahanPeta, TombolLokasiSaya, CatatanGpsKasar } from "./peta/bersama.jsx";
 import { useLokasiSaya } from "../lib/useLokasiSaya.js";
 
 // Hanya mesin yang dipakai yang diunduh: Leaflet tidak ikut termuat selama
@@ -23,9 +23,9 @@ const LokasiLeaflet = lazy(() => import("./peta/LokasiLeaflet.jsx"));
 export default function PetaLokasi({ titik, onPilih }) {
   const [jenis, setJenis] = useState("peta");
   const mesin = useMesinPeta();
-  const { saya, pusatkan, keLokasiSaya, berhentiIkuti } = useLokasiSaya();
+  const { saya, posisiPeta, terlaluKasar, pusatkan, keLokasiSaya, berhentiIkuti } = useLokasiSaya();
 
-  const props = { titik, onPilih, jenis, posisiSaya: saya.posisi, pusatkan, onGeser: berhentiIkuti };
+  const props = { titik, onPilih, jenis, posisiSaya: posisiPeta, pusatkan, onGeser: berhentiIkuti };
   let kanvas = (
     <div className="fk-peta">
       <PetaMemuat />
@@ -54,6 +54,7 @@ export default function PetaLokasi({ titik, onPilih }) {
         </PenahanPeta>
         <TombolLokasiSaya saya={saya} onClick={keLokasiSaya} />
       </div>
+      {terlaluKasar && <CatatanGpsKasar akurasi={saya.posisi.akurasi} />}
       {mesin.cadangan && <CatatanCadangan />}
     </div>
   );

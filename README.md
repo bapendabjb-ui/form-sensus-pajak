@@ -1688,7 +1688,7 @@ agar data wajib pajak tersimpan di Indonesia. Berkas pendukungnya ada di [`deplo
 | [`deploy/ecosystem.config.js`](deploy/ecosystem.config.js) | Cara PM2 menjalankan proses aplikasi                      |
 | [`deploy/mulai.js`](deploy/mulai.js)                       | Titik masuk PM2: kembalikan kode ke versi Git, lalu jalankan server |
 | [`deploy/jaga-kode.js`](deploy/jaga-kode.js)               | Simpan suntingan langsung di server sebagai patch, lalu kembalikan kode ke versi Git |
-| [`deploy/perbarui.sh`](deploy/perbarui.sh)               | Pembaruan: pull → install → build → migrasi → reload      |
+| [`deploy/perbarui.sh`](deploy/perbarui.sh)               | Pembaruan: pull → install → migrasi → build → reload      |
 | [`server/scripts/tarik-foto.js`](server/scripts/tarik-foto.js) | Menyalin foto dari server lama lewat `/api/foto/:id`   |
 
 Panduan langkah demi langkah, termasuk pemindahan data dan hari pindah:

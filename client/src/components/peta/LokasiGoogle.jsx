@@ -128,7 +128,16 @@ export default function LokasiGoogle({ kunci, titik, onPilih, jenis, posisiSaya,
   // ketukan di atasnya tetap menaruh titik sensus.
   useEffect(() => {
     const m = peta.current;
-    if (!m || !posisiSaya) return;
+    if (!m) return;
+    if (!posisiSaya) {
+      // Posisi terlalu kasar / hilang: titik biru dilepas (lib/useLokasiSaya.js posisiPeta).
+      if (saya.current) {
+        saya.current.titik.setMap(null);
+        saya.current.lingkar.setMap(null);
+        saya.current = null;
+      }
+      return;
+    }
     const posisi = { lat: posisiSaya.lat, lng: posisiSaya.lon };
     const radius = posisiSaya.akurasi ?? 0;
     if (saya.current) {

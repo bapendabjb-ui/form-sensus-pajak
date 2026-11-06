@@ -81,3 +81,13 @@ test("pantauPosisi ikuti: cache browser ditolak dan pembacaan terbaru yang dilap
     else delete globalThis.navigator;
   }
 });
+
+test("posisiLayak: perkiraan dari jaringan / alamat internet (± puluhan km) tidak dipakai untuk titik biru", async () => {
+  const { posisiLayak, AKURASI_LAYAK_M, pesanTerlaluKasar } = await muat();
+  assert.equal(posisiLayak({ lat: -3.44, lon: 114.83, akurasi: 8 }), true);
+  assert.equal(posisiLayak({ lat: -3.44, lon: 114.83, akurasi: AKURASI_LAYAK_M }), true);
+  assert.equal(posisiLayak({ lat: -2.93, lon: 115.13, akurasi: 50000 }), false);
+  assert.equal(posisiLayak({ lat: -3.44, lon: 114.83, akurasi: null }), true, "tanpa angka ketelitian: tetap dipakai");
+  assert.equal(posisiLayak(null), false);
+  assert.match(pesanTerlaluKasar("± 50 km"), /± 50 km.*tidak dipindah/);
+});

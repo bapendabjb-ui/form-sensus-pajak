@@ -1,5 +1,5 @@
 import { Suspense, lazy, useState } from "react";
-import { useMesinPeta, PilihJenis, PetaMemuat, CatatanCadangan, PenahanPeta, TombolLokasiSaya } from "./peta/bersama.jsx";
+import { useMesinPeta, PilihJenis, PetaMemuat, CatatanCadangan, PenahanPeta, TombolLokasiSaya, CatatanGpsKasar } from "./peta/bersama.jsx";
 import { useLokasiSaya } from "../lib/useLokasiSaya.js";
 import { PERSIL_ZOOM_MIN } from "../lib/persilBpn.js";
 
@@ -30,7 +30,7 @@ export default function PetaBidang({ persil, titik, terpilih, fokus, onKetuk, me
   const [jenis, setJenis] = useState("satelit");
   const [status, setStatus] = useState("");
   const mesin = useMesinPeta();
-  const { saya, pusatkan, keLokasiSaya, berhentiIkuti } = useLokasiSaya();
+  const { saya, posisiPeta, terlaluKasar, pusatkan, keLokasiSaya, berhentiIkuti } = useLokasiSaya();
 
   const props = {
     persil,
@@ -39,7 +39,7 @@ export default function PetaBidang({ persil, titik, terpilih, fokus, onKetuk, me
     terpilih,
     fokus,
     onKetuk,
-    posisiSaya: saya.posisi,
+    posisiSaya: posisiPeta,
     pusatkan,
     onGeser: berhentiIkuti,
     onStatusPersil: setStatus,
@@ -77,6 +77,7 @@ export default function PetaBidang({ persil, titik, terpilih, fokus, onKetuk, me
         )}
         <TombolLokasiSaya saya={saya} onClick={keLokasiSaya} />
       </div>
+      {terlaluKasar && <CatatanGpsKasar akurasi={saya.posisi.akurasi} />}
       {mesin.cadangan && <CatatanCadangan />}
     </div>
   );

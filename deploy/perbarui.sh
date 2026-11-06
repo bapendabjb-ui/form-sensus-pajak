@@ -4,8 +4,10 @@
 #
 #   cd /www/wwwroot/sensus-pajak && bash deploy/perbarui.sh
 #
-# Urutannya sama dengan yang dulu dikerjakan Railway saat deploy:
-# ambil kode -> install -> build frontend -> migrasi database -> restart.
+# Urutannya: ambil kode -> install -> migrasi database -> build frontend -> restart.
+# Migrasi lebih dulu dari build: tampilan (client/dist) langsung dipakai server
+# yang sedang berjalan begitu dibangun, jadi bila migrasi gagal, skrip harus
+# berhenti sebelum browser mendapat tampilan baru yang memanggil API baru.
 # Sebelumnya, kode yang disunting langsung di server dikembalikan ke versi Git
 # (lihat deploy/jaga-kode.js). Berhenti di langkah pertama yang gagal; aplikasi lama tetap berjalan sampai
 # langkah restart.
@@ -30,11 +32,11 @@ git pull --ff-only
 echo "==> Install dependensi"
 npm ci --include=dev
 
-echo "==> Build frontend"
-npm run build
-
 echo "==> Migrasi database"
 npx prisma migrate deploy
+
+echo "==> Build frontend"
+npm run build
 
 echo "==> Restart aplikasi"
 # reload tidak mengganti skrip yang dijalankan PM2: proses lama yang masih

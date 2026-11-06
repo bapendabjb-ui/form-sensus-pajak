@@ -453,7 +453,7 @@ cd /www/wwwroot/sensus-pajak
 bash deploy/perbarui.sh
 ```
 
-Skrip ini mengambil kode terbaru, memasang dependensi, build, menjalankan migrasi database,
+Skrip ini mengambil kode terbaru, memasang dependensi, menjalankan migrasi database, build,
 lalu me-*reload* aplikasi. Bila satu langkah gagal, skrip berhenti dan aplikasi lama tetap
 berjalan.
 

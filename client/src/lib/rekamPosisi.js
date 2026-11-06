@@ -49,6 +49,23 @@ export function pakaiPembacaan(lama, baru, { ikuti = false } = {}) {
   return a <= Math.max(b * 2, b + 25) || baru.waktu - lama.waktu > SEGAR_MS;
 }
 
+/**
+ * Ketelitian lebih kasar dari ini bukan GPS, melainkan perkiraan dari jaringan /
+ * alamat internet (laptop tanpa GPS, HP dengan GPS / "lokasi akurat" mati):
+ * bisa meleset puluhan kilometer. Titik birunya tidak digambar dan peta tidak
+ * dipindah ke sana - petugas bisa salah menunjuk titik objek di dekatnya.
+ */
+export const AKURASI_LAYAK_M = 2000;
+
+/** Posisi cukup teliti untuk titik biru "Lokasi saya"? */
+export const posisiLayak = (p) => Boolean(p) && (!Number.isFinite(p.akurasi) || p.akurasi <= AKURASI_LAYAK_M);
+
+/** Pesan untuk posisi yang terlalu kasar (teks ketelitian dari components/peta/bersama.jsx teksAkurasi). */
+export const pesanTerlaluKasar = (teks) =>
+  `Lokasi perangkat belum akurat (GPS ${teks}), jadi peta tidak dipindah dan titik biru tidak ditampilkan. ` +
+  `Biasanya karena perangkat tanpa GPS (laptop/PC), atau GPS / "lokasi akurat" di HP belum aktif. ` +
+  `Aktifkan GPS dan tunggu sebentar di tempat terbuka: peta pindah sendiri begitu lokasinya akurat.`;
+
 /** Jarak dua posisi { lat, lon } dalam meter (cukup teliti untuk jarak pendek). */
 export function jarakMeter(a, b) {
   const y = (b.lat - a.lat) * 110574;

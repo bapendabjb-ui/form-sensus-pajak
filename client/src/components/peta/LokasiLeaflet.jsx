@@ -110,7 +110,16 @@ export default function LokasiLeaflet({ titik, onPilih, jenis, posisiSaya, pusat
   // lapisan penanda, jadi selalu di atas titik biru.
   useEffect(() => {
     const m = peta.current;
-    if (!m || !posisiSaya) return;
+    if (!m) return;
+    if (!posisiSaya) {
+      // Posisi terlalu kasar / hilang: titik biru dilepas (lib/useLokasiSaya.js posisiPeta).
+      if (saya.current) {
+        saya.current.titik.remove();
+        saya.current.lingkar.remove();
+        saya.current = null;
+      }
+      return;
+    }
     const ll = L.latLng(posisiSaya.lat, posisiSaya.lon);
     const radius = posisiSaya.akurasi ?? 0;
     if (saya.current) {

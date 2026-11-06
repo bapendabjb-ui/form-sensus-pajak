@@ -707,6 +707,8 @@ html.fk-ketik .fk-fab{display:none;}
 /* Ketelitian GPS di samping tombol Lokasi saya; kuning bila titik birunya bisa meleset jauh. */
 .fk-saya-akurasi{position:absolute; right:60px; bottom:39px; z-index:1; padding:4px 9px; border-radius:999px; background:#fff; color:#1A73E8; font-size:12px; font-weight:600; white-space:nowrap; box-shadow:0 1px 4px rgba(0,0,0,.3); pointer-events:none;}
 .fk-saya-akurasi.is-kasar{background:#FEF3C7; color:#92400E;}
+.fk-saya-akurasi.is-buruk{background:#FDECEA; color:#A5312A;}
+.fk-gps-kasar{margin:6px 0 0; padding:8px 11px; border-radius:9px; background:#FDECEA; color:#8F2A23; font-size:12.5px; line-height:1.45;}
 @keyframes fk-kedip{50%{opacity:.35;}}
 
 /* ---- peta sebaran (halaman Peta Sensus) ---- */
