@@ -9,6 +9,7 @@ const { includePertanyaan, bentukFormulir } = require("../bentuk");
 const { hapusBerkas, sapuFotoYatim } = require("../foto");
 const { tutupPengajuan } = require("../hapus");
 const { susunTabel, baseUrlEkspor, namaBerkas, rutekanEkspor } = require("../ekspor");
+const { pencariPersilEkspor } = require("../persil");
 const { muatEntriEkspor } = require("../muatEkspor");
 const { bacaPayload, susunBerkasBank, bacaBerkasBank } = require("../bankFormulir");
 
@@ -190,6 +191,7 @@ async function dataEksporFormulir(req) {
   if (!f) throw notFound("Formulir tidak ditemukan.");
 
   const entri = await muatEntriEkspor({ formulirId: id });
+  const persilDi = await pencariPersilEkspor(entri);
 
   return {
     nama: `formulir-${namaBerkas(f.judul, "formulir")}`,
@@ -197,7 +199,7 @@ async function dataEksporFormulir(req) {
     tabel: susunTabel(
       entri.map((e) => ({ kk: e.kertasKerja, e })),
       [f],
-      { perData: true, baseUrl: baseUrlEkspor(req), timezone: config.timezone }
+      { perData: true, baseUrl: baseUrlEkspor(req), timezone: config.timezone, persilDi }
     ),
   };
 }

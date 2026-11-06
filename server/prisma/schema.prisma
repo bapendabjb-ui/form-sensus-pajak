@@ -97,6 +97,58 @@ model LapisanPeta {
   @@map("lapisan_peta")
 }
 
+/// Bidang tanah (persil) dari peta pendaftaran BPN, diimpor admin dari
+/// shapefile (client/src/lib/shapefile.js membaca dan mengubah koordinatnya ke
+/// WGS 84 di browser; server/src/persil.js memeriksa dan menyimpannya).
+///
+/// Peta Sensus memuatnya per petak (sel_lat / sel_lon, lihat persil.js), bukan
+/// sekaligus: satu kota berisi ratusan ribu bidang.
+///
+/// Impor baru tersembunyi (aktif = false) sampai seluruh berkasnya terkirim,
+/// lalu menggantikan bidang lama di kelurahan yang sama (kunci_wilayah).
+model Persil {
+  id           Int      @id @default(autoincrement())
+  /// NIB seperti di berkas BPN, mis. "03612" - unik per kelurahan, bukan se-kota.
+  nib          String   @default("") @db.VarChar(30)
+  /// Kode wilayah BPN 8 digit, mis. "17117402". Kode + NIB = NIB lengkap.
+  kodeWilayah  String   @default("") @map("kode_wilayah") @db.VarChar(20)
+  kecamatan    String   @default("") @db.VarChar(100)
+  kelurahan    String   @default("") @db.VarChar(100)
+  tipeHak      String   @default("") @map("tipe_hak") @db.VarChar(60)
+  /// Luas menurut peta BPN (m²).
+  luasPeta     Float?   @map("luas_peta")
+  /// Atribut lain dari berkasnya (objek JSON), untuk balon peta.
+  atribut      String   @db.Text
+  /// Geometri GeoJSON (Polygon / MultiPolygon), derajat WGS 84, 6 desimal.
+  geometri     String   @db.MediumText
+  /// Kotak pembatas geometri.
+  minLat       Float    @map("min_lat")
+  minLon       Float    @map("min_lon")
+  maxLat       Float    @map("max_lat")
+  maxLon       Float    @map("max_lon")
+  /// Petak tempat sudut barat daya kotaknya: floor(min / UKURAN_PETAK).
+  selLat       Int      @map("sel_lat")
+  selLon       Int      @map("sel_lon")
+  /// Kotaknya lebih lebar / tinggi dari satu petak: dicari tanpa sel_*.
+  besar        Boolean  @default(false)
+  /// Impor ulang menggantikan seluruh bidang dengan kunci yang sama:
+  /// "kode:<kode wilayah>", atau "nama:<kecamatan>|<kelurahan>" bila tanpa kode.
+  kunciWilayah String   @map("kunci_wilayah") @db.VarChar(250)
+  /// Token impor yang membawanya.
+  impor        String   @db.VarChar(24)
+  /// false = impornya belum selesai; tidak tampil di mana pun.
+  aktif        Boolean  @default(false)
+  /// Username admin yang mengimpor.
+  dibuatOleh   String   @default("") @map("dibuat_oleh") @db.VarChar(64)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([aktif, besar, selLat, selLon], map: "persil_petak_idx")
+  @@index([aktif, kunciWilayah], map: "persil_wilayah_idx")
+  @@index([nib], map: "persil_nib_idx")
+  @@index([impor], map: "persil_impor_idx")
+  @@map("persil")
+}
+
 /// Bank formulir. Setiap formulir dapat diisi berkali-kali di dalam kertas kerja.
 model Formulir {
   id        Int      @id @default(autoincrement())

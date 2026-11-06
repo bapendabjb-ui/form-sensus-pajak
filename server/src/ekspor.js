@@ -38,8 +38,12 @@ const teks = (s) => ({ teks: s === null || s === undefined ? "" : String(s) });
  * latitude, longitude, dan keterangan asal titiknya supaya koordinatnya bisa
  * langsung diolah atau diimpor ke aplikasi peta. Wilayah dipecah per tingkat
  * (kelurahan sampai provinsi) supaya alamat di luar Banjarbaru bisa difilter.
+ *
+ * `persilDi` (src/persil.js pencariPersilEkspor) menambah NIB, tipe hak, dan luas
+ * peta bidang BPN tempat titik Lokasi berada - luasnya bisa dibandingkan dengan
+ * luas tanah isian petugas. Tanpa persil BPN tersimpan, kolom itu tidak ada.
  */
-function kolomPertanyaan(formulir, baseUrl) {
+function kolomPertanyaan(formulir, baseUrl, persilDi = null) {
   return formulir.flatMap((f) =>
     f.pertanyaan.flatMap((q) => {
       const judul = `${f.judul} - ${q.label || "(tanpa judul)"}`;
@@ -62,12 +66,31 @@ function kolomPertanyaan(formulir, baseUrl) {
           const n = v ? Number(v[k]) : NaN;
           return Number.isFinite(n) ? { teks: String(v[k]), angka: n, format: FORMAT_KOORDINAT } : teks("");
         };
-        return [
+        const kolom = [
           // `koordinat` menandai kolom titik untuk ekspor peta (lihat pasanganTitik).
           { f, judul: `${judul} (Latitude)`, koordinat: "lat", sel: koordinat("lat") },
           { f, judul: `${judul} (Longitude)`, koordinat: "lon", sel: koordinat("lon") },
           { f, judul: `${judul} (Keterangan)`, sel: (j) => teks(titik(j) && keteranganLokasi(titik(j))) },
         ];
+        if (persilDi) {
+          const bidang = (j) => {
+            const v = titik(j);
+            return v && Number.isFinite(v.lat) && Number.isFinite(v.lon) ? persilDi(v.lat, v.lon) : null;
+          };
+          kolom.push(
+            { f, judul: `${judul} (NIB BPN)`, sel: (j) => teks(bidang(j)?.nibLengkap) },
+            { f, judul: `${judul} (Tipe hak BPN)`, sel: (j) => teks(bidang(j)?.tipeHak) },
+            {
+              f,
+              judul: `${judul} (Luas peta BPN m²)`,
+              sel: (j) => {
+                const n = bidang(j)?.luasPeta;
+                return Number.isFinite(n) ? { ...teks(groupNum(n)), angka: n } : teks("");
+              },
+            }
+          );
+        }
+        return kolom;
       }
 
       if (q.tipe === "wilayah") {
@@ -152,8 +175,8 @@ function nomoriData(data) {
  * @param {Map} [nomorData]  "No. data" tiap entri (lihat susunTabel); bawaan dihitung dari `data`
  * @returns {{ header: string[], baris: object[][], titik: number[][] }}  `titik`: lihat pasanganTitik
  */
-function susunEkspor(data, formulir, { baseUrl, timezone, nomorData = nomoriData(data) }) {
-  const kolom = kolomPertanyaan(formulir, baseUrl);
+function susunEkspor(data, formulir, { baseUrl, timezone, nomorData = nomoriData(data), persilDi = null }) {
+  const kolom = kolomPertanyaan(formulir, baseUrl, persilDi);
   const header = [
     "Nomor",
     "Status",
@@ -208,11 +231,11 @@ function susunEkspor(data, formulir, { baseUrl, timezone, nomorData = nomoriData
  * @param {object[]} formulir  formulir (+ pertanyaan) yang kolomnya ditampilkan, urut
  * @returns {{ header: string[], baris: object[][], titik: number[][] }}
  */
-function susunEksporPerKk(data, formulir, { baseUrl, timezone }) {
+function susunEksporPerKk(data, formulir, { baseUrl, timezone, persilDi = null }) {
   const blok = formulir.map((f) => ({
     f,
     kolom: [
-      ...kolomPertanyaan([f], baseUrl).map((k) => ({
+      ...kolomPertanyaan([f], baseUrl, persilDi).map((k) => ({
         judul: k.judul,
         koordinat: k.koordinat,
         sel: (_e, j) => k.sel(j),
@@ -272,8 +295,10 @@ function susunEksporPerKk(data, formulir, { baseUrl, timezone }) {
  *        data" dihitung SEBELUM disaring, jadi berikan seluruh data kertas
  *        kerjanya: data ke-2 sebuah kertas kerja tetap bernomor 2 walau data
  *        ke-1 berada di kelurahan lain.
+ * @param {Function} [o.persilDi]  pencari bidang BPN di titik Lokasi (src/persil.js
+ *        pencariPersilEkspor); null = tanpa kolom BPN
  */
-function susunTabel(data, formulir, { perData, ikut, baseUrl, timezone }) {
+function susunTabel(data, formulir, { perData, ikut, baseUrl, timezone, persilDi = null }) {
   const urutForm = new Map(formulir.map((f, i) => [f.id, i]));
   const urut = data
     .filter(({ e }) => urutForm.has(e.formulirId))
@@ -287,8 +312,8 @@ function susunTabel(data, formulir, { perData, ikut, baseUrl, timezone }) {
   const nomorData = nomoriData(urut);
   const pakai = ikut ? urut.filter(({ e }) => ikut(e)) : urut;
   return perData
-    ? susunEkspor(pakai, formulir, { baseUrl, timezone, nomorData })
-    : susunEksporPerKk(pakai, formulir, { baseUrl, timezone });
+    ? susunEkspor(pakai, formulir, { baseUrl, timezone, nomorData, persilDi })
+    : susunEksporPerKk(pakai, formulir, { baseUrl, timezone, persilDi });
 }
 
 /**

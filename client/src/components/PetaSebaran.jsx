@@ -10,9 +10,17 @@ import {
   ContohLapisan,
 } from "./peta/bersama.jsx";
 import { IkonLayarPenuh, IkonTutupPenuh } from "./Icons.jsx";
+import { WARNA_PERSIL, PERSIL_ZOOM_MIN } from "../lib/persilBpn.js";
 
 const SebaranGoogle = lazy(() => import("./peta/SebaranGoogle.jsx"));
 const SebaranLeaflet = lazy(() => import("./peta/SebaranLeaflet.jsx"));
+
+/** Keterangan persil di atas peta, menurut status dari mesin peta. */
+const PESAN_PERSIL = {
+  perbesar: `Perbesar peta (zoom ${PERSIL_ZOOM_MIN}+) untuk melihat persil BPN`,
+  memuat: "Memuat persil BPN…",
+  galat: "Persil BPN gagal dimuat. Geser peta untuk mencoba lagi.",
+};
 
 /**
  * Peta sebaran hasil sensus: banyak titik sekaligus, hanya untuk dilihat.
@@ -30,6 +38,8 @@ const SebaranLeaflet = lazy(() => import("./peta/SebaranLeaflet.jsx"));
  * kosong : pesan di atas peta bila tidak ada titik; petanya tetap tampil
  *          supaya tata letak tidak melompat saat saringan diganti
  * lapisan : lapisan GIS yang menyala dan sudah termuat (lib/lapisanPeta.js useLapisanPeta().aktif)
+ * persil : persil BPN yang menyala (lib/persilBpn.js usePersilBpn().peta), atau null
+ * sorot  : bidang hasil cari NIB yang disorot (lihat peta/SebaranGoogle.jsx), atau null
  */
 export default function PetaSebaran({
   titik = [],
@@ -40,9 +50,12 @@ export default function PetaSebaran({
   keterangan = null,
   kosong = "",
   lapisan = [],
+  persil = null,
+  sorot = null,
 }) {
   const [jenis, setJenis] = useState("peta");
   const [penuh, setPenuh] = useState(false);
+  const [statusPersil, setStatusPersil] = useState("");
   const mesin = useMesinPeta();
 
   // Layar penuh: Escape menutupnya, dan halaman di belakangnya tidak ikut bergulir.
@@ -74,6 +87,9 @@ export default function PetaSebaran({
         kunciPandang={kunciPandang}
         jenis={jenis}
         lapisan={lapisan}
+        persil={persil}
+        sorot={sorot}
+        onStatusPersil={setStatusPersil}
       />
     );
   } else if (mesin.jenis === "leaflet") {
@@ -85,6 +101,9 @@ export default function PetaSebaran({
         kunciPandang={kunciPandang}
         jenis={jenis}
         lapisan={lapisan}
+        persil={persil}
+        sorot={sorot}
+        onStatusPersil={setStatusPersil}
       />
     );
   }
@@ -123,6 +142,11 @@ export default function PetaSebaran({
               <IkonTitik warna={WARNA_STATUS.selesai} dicek /> Sudah dicek
             </span>
           )}
+          {persil && (
+            <span className="fk-legenda">
+              <ContohLapisan warna={WARNA_PERSIL} /> Persil BPN
+            </span>
+          )}
           {lapisan.map((l) => (
             <span className="fk-legenda" key={l.id}>
               <ContohLapisan warna={l.warna} /> {l.nama}
@@ -146,6 +170,11 @@ export default function PetaSebaran({
         {kosong && (
           <div className="fk-peta-kosong" role="status">
             {kosong}
+          </div>
+        )}
+        {persil && PESAN_PERSIL[statusPersil] && (
+          <div className={"fk-peta-persil" + (statusPersil === "galat" ? " is-galat" : "")} role="status">
+            {PESAN_PERSIL[statusPersil]}
           </div>
         )}
       </div>

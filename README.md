@@ -131,6 +131,8 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── admin.js            status login admin untuk komponen dalam
 │       │   ├── konfigurasi.js      batas aplikasi dari server (petugasMaks dll.)
 │       │   ├── lapisanPeta.js      lapisan GIS di Peta Sensus: daftar, nyala/mati per browser, unduh isi
+│       │   ├── persilBpn.js        persil BPN di Peta Sensus: ringkasan, nyala/mati, pemuat petak
+│       │   ├── shapefile.js        pembaca shapefile persil BPN di browser + tebakan sistem koordinat
 │       │   ├── useDragUrut.js      seret (drag & drop) untuk menyusun ulang daftar
 │       │   ├── useMobile.js        deteksi tata letak HP
 │       │   └── useOutside.js
@@ -148,7 +150,9 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── Dialog.jsx          dialog konfirmasi aplikasi (pengganti window.confirm)
 │       │   ├── PengajuanHapus.jsx  pita pengajuan menunggu + isian "Ajukan hapus"
 │       │   ├── KelolaLapisan.jsx   admin: unggah / atur / hapus lapisan GIS (GeoJSON)
-│       │   ├── peta/               mesin peta Google & Leaflet, bersama.jsx, PilihLapisan.jsx (tombol Lapisan)
+│       │   ├── KelolaPersil.jsx    admin: impor shapefile persil BPN, ringkasan, hapus
+│       │   ├── PersilDiTitik.jsx   NIB bidang BPN di bawah jawaban Lokasi
+│       │   ├── peta/               mesin peta Google & Leaflet, bersama.jsx, PilihLapisan.jsx (tombol Lapisan), CariNib.jsx
 │       │   ├── Fields.jsx          semua 16 tipe input pengisian (termasuk NIK, NPWP, NOP, RT & RW)
 │       │   └── Toast.jsx, Ui.jsx
 │       └── pages/
@@ -192,10 +196,11 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │   │   ├── ekspor.js               susunan tabel ekspor (satu pintu untuk semua jenis ekspor) + penulis CSV & Excel
 │   │   ├── eksporPeta.js           tabel ekspor -> titik GeoJSON / KML untuk QGIS, ArcGIS, Google Earth
 │   │   ├── lapisanPeta.js          pembaca & perapi GeoJSON lapisan GIS (tolak CRS selain EPSG:4326)
+│   │   ├── persil.js               persil BPN: periksa kiriman impor, petak peta, bidang di titik, cari NIB
 │   │   ├── muatEkspor.js           pemuatan data ekspor besar secara bertahap (hemat memori)
 │   │   ├── eksporWilayah.js        aturan ekspor per kecamatan / kelurahan objek pajak
 │   │   ├── cadangan.js             cadangan manual: mysqldump, arsip foto per bulan, tiket unduh
-│   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, pengajuan, foto, dashboard, peta, lapisan, nop, wilayah, ekspor, cadangan
+│   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, pengajuan, foto, dashboard, peta, lapisan, persil, nop, wilayah, ekspor, cadangan
 │   └── test/                       tes node:test - logika murni, tanpa database
 │
 ├── uploads/                        foto (lokal; di Railway pakai volume) — tidak di-commit
@@ -479,6 +484,8 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `ekspor.test.js`       | Lokasi terekspor sebagai kolom latitude & longitude, utuh di Excel; semua jenis ekspor memberi urutan, *No. data*, dan isi baris yang sama |
 | `eksporPeta.test.js`   | GeoJSON / KML: titik [bujur, lintang] dari kolom Lokasi, baris tanpa koordinat dihitung, kolom sama di setiap titik, teks KML di-escape |
 | `lapisanPeta.test.js`  | Lapisan GIS: berkas UTM / TM-3 ditolak, koordinat dibulatkan, batas ukuran isi                |
+| `persil.test.js`       | Persil BPN: bidang di luar Banjarbaru / bentuk rusak ditolak, petak & kunci wilayah, titik di bidang berlubang / bertumpuk, pencarian NIB |
+| `shapefile.test.js`    | Pembaca shapefile di browser (`client/src/lib/shapefile.js`): TM-3 / UTM ke derajat, .prj salah / tidak ada, CRS campur, bidang nyasar & rusak, lubang |
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) menjalankan lint, tes,
 build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
@@ -503,6 +510,7 @@ build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
 | `pengajuan_hapus`       | Pengajuan hapus dari petugas: `jenis` (`kertas_kerja`/`entri`), tautan sasaran, salinan `nomor_kk` & `judul`, `alasan`, `pengaju`, `status` (`menunggu`/`disetujui`/`ditolak`), `diputuskan_at`, `diputuskan_oleh` |
 | `nomor_counter`         | Tepat 1 baris (`id = 1`) untuk penomoran                                    |
 | `lapisan_peta`          | Lapisan GIS di Peta Sensus: `nama`, `warna`, `tampil` (menyala saat peta dibuka), `isi` GeoJSON (`LONGTEXT`, maks. 12 MB), `jumlah_fitur`, `ukuran`, `dibuat_oleh` |
+| `persil`                | Bidang persil BPN: `nib`, `kode_wilayah`, `kecamatan`, `kelurahan`, `tipe_hak`, `luas_peta`, `atribut` (JSON), `geometri` GeoJSON WGS 84, kotak `min/max_lat/lon`, petak `sel_lat`/`sel_lon` + `besar`, `kunci_wilayah` (penggantian saat impor ulang), `impor` + `aktif` (tersembunyi sampai impornya selesai) |
 
 Perilaku relasi:
 
@@ -518,6 +526,9 @@ Perilaku relasi:
   yang sudah tersimpan tidak hilang saat admin menambah atau mengurutkan ulang pertanyaan.
 
 ### Migrasi dari versi sebelumnya
+
+Migrasi `20261106100000_persil_bpn` hanya menambah tabel `persil` (persil BPN, lihat
+[Persil BPN](#persil-bpn)); tidak ada data lama yang berubah.
 
 Migrasi `20261104100000_lapisan_peta` hanya menambah tabel `lapisan_peta` (lapisan GIS di Peta
 Sensus); tidak ada data lama yang berubah.
@@ -835,6 +846,57 @@ browser, isi lapisan diunduh sekali per sesi.
 **Hak akses.** Siapa pun yang boleh membuka Peta Sensus (bila *wajib login* menyala: admin, petugas,
 pejabat) bisa melihat lapisan beserta atributnya. Buang dulu kolom data pribadi yang tidak perlu
 (mis. NIK pemilik persil) di QGIS sebelum mengunggah. Mengunggah, mengubah, dan menghapus khusus admin.
+
+### Persil BPN
+
+Peta pendaftaran tanah BPN (shapefile persil per kecamatan) bisa dimasukkan ke aplikasi. Hasilnya:
+
+- **Peta Sensus:** batas bidang tergambar mulai **zoom 17** (lebih jauh dari itu bidang rumah hanya
+  jadi arsiran), di peta Google maupun cadangan. Mengetuk bidang membuka NIB, tipe hak, luas peta,
+  kelurahan, dan atribut lain. Nyala / mati lewat **Lapisan → Persil BPN** (tersimpan per browser).
+- **Cari NIB** di bilah alat peta: NIB 5 digit (kembar di kelurahan lain → pilih kelurahannya) atau
+  NIB lengkap 13 digit (kode wilayah + NIB, mis. `17.11.74.02.03612`). Peta menuju bidangnya dan
+  menyorotnya.
+- **Halaman data:** di bawah jawaban Lokasi tampil NIB bidang tempat titik itu berada, tipe hak, dan
+  luas petanya, bisa langsung dibandingkan dengan luas tanah isian petugas. Tidak tampil apa-apa
+  tanpa sinyal atau bila belum ada persil.
+- **Ekspor:** setiap pertanyaan Lokasi mendapat tiga kolom tambahan, *(NIB BPN)*, *(Tipe hak BPN)*,
+  dan *(Luas peta BPN m²)*, di CSV, Excel, GeoJSON, dan KML. Tanpa persil tersimpan, kolom itu tidak ada.
+
+**Mengimpor (admin):** **Lapisan → Kelola persil BPN…** → *Pilih berkas shapefile* → pilih `.shp`
+dan `.dbf` (beserta `.prj` / `.cpg` bila ada), boleh semua kecamatan sekaligus → **Impor**. Berkas
+RAR / ZIP diekstrak dulu. Impor seluruh Banjarbaru (±212 ribu bidang, `.dbf` ±330 MB) ±1 menit;
+biarkan halamannya terbuka. Kelurahan yang ikut diimpor diganti isinya, kelurahan lain tetap; gagal
+atau dibatalkan di tengah jalan = persil lama tidak berubah.
+
+**Cara kerjanya.** Browser membaca shapefile-nya sendiri (`client/src/lib/shapefile.js`), karena
+`.dbf` BPN ratusan MB, jauh di atas batas unggah Nginx, padahal isinya sebagian besar spasi.
+Bidang dikirim sebagai GeoJSON ringkas ±1 MB sekali kirim, lalu diperiksa ulang server
+(`server/src/persil.js`).
+
+**Sistem koordinat ditebak per bidang, bukan dipercaya dari `.prj`.** Data BPN Banjarbaru
+(Oktober 2026): `.prj` Banjarbaru Utara bertuliskan UTM 50S padahal angkanya TM-3 zona 50.1; tiga
+kecamatan tanpa `.prj`; berkas Banjarbaru Selatan berisi Kel. Sungai Besar dalam UTM 50S sementara
+kelurahan lainnya TM-3. Karena itu tiap bidang dicoba berurutan dengan: sistem koordinat `.prj`,
+derajat WGS 84, TM-3 zona 50.1, UTM 50S, UTM 50N (zona dari pusat wilayah kerja, `WILAYAH` di
+`server/src/batas.js`). Yang pertama jatuh dalam 40 km dari pusat Banjarbaru dipakai. Pembacaan
+yang salah jatuh ratusan sampai ribuan km jauhnya, jadi tidak mungkin tertukar. DGN95 dianggap
+sama dengan WGS 84 (elipsoid sama); datum lain (mis. ID74) diberi peringatan.
+
+Laporan sesudah impor menyebut per berkas sistem koordinat yang dipakai, `.prj` yang tidak cocok,
+dan bidang yang dilewati beserta NIB-nya: yang tidak jatuh di Banjarbaru dengan sistem koordinat mana
+pun (1 bidang di data Cempaka), dan yang bentuknya rusak, hanya garis / titik walau luasnya
+tercatat (43 bidang di data 2026). Bidang yang rusak itu perlu diperbaiki di sumbernya (BPN).
+
+**Penyimpanan & pemuatan.** Tiap bidang disimpan dengan geometri GeoJSON dan kotak pembatasnya,
+ditandai petak ±550 m sudut barat dayanya (`sel_lat`, `sel_lon`). Peta mengunduh hanya petak yang
+terlihat (maks. 30 petak, ±60 disimpan di memori); satu bidang yang menyentuh beberapa petak
+digambar sekali. Petak terpadat Banjarbaru ±1.400 bidang: ±590 KB, ±70 KB setelah gzip, ±80 ms.
+Bidang yang lebih besar dari satu petak (`besar`, ±750 bidang) dicari tanpa petak. Bidang di sebuah
+titik (halaman data, ekspor) memakai indeks yang sama lalu diuji titik-di-poligon, termasuk lubang.
+
+**Hak akses.** Melihat persil sama dengan lapisan GIS (siapa pun yang boleh membuka Peta Sensus);
+impor dan hapus khusus admin. Folder `Data NIB BPN/` (shapefile asli) diabaikan Git.
 
 ---
 
@@ -1299,6 +1361,22 @@ Setiap ekspor di atas (dan ekspor per kertas kerja & per formulir) juga tersedia
 | `DELETE` | `/lapisan/:id` | 🔒 Hapus                                                                        |
 
 Kedua `GET` dibatasi 600 permintaan per 10 menit per IP.
+
+### Persil BPN
+
+| Method | Endpoint | Keterangan |
+| ------ | -------- | ---------- |
+| `GET`  | `/persil` | `{ jumlah, versi, wilayah: [{ kunci, kodeWilayah, kecamatan, kelurahan, jumlah, diimpor, oleh }] }` |
+| `GET`  | `/persil/petak/:i/:j?v=<versi>` | FeatureCollection bidang di petak ±550 m itu (`i` = bujur, `j` = lintang, `floor(derajat / 0.005)`); boleh disimpan browser sehari karena alamatnya memuat versi. 6.000 per 10 menit per IP |
+| `GET`  | `/persil/titik?lat=&lon=` | `{ ada, persil }`: bidang tempat titik itu berada (yang terkecil bila bertumpuk), atau `null` |
+| `GET`  | `/persil/cari?q=` | Bidang ber-NIB itu (maks. 20) + `batas` dan `fitur` GeoJSON. NIB 5 digit (dengan / tanpa nol depan) atau lengkap 13 digit; tanda baca diabaikan |
+| `POST` | `/persil/impor` | 🔒 Mulai impor → `{ token, kirimMaks }`; sisa impor tak selesai > 6 jam dibuang |
+| `POST` | `/persil/impor/:token` | 🔒 `{ sumber, fitur: [...] }` (≤ 3.000 bidang, < 2 MB) → `{ diterima, ditolak: { alasan: jumlah } }` |
+| `POST` | `/persil/impor/:token/selesai` | 🔒 Tampilkan hasil impor, menggantikan kelurahan yang sama, dalam satu transaksi → `{ jumlah, diganti, wilayah }` |
+| `DELETE` | `/persil/impor/:token` | 🔒 Batalkan impor yang belum selesai |
+| `POST` | `/persil/hapus` | 🔒 `{ kunci: [...] }` atau `{ semua: true }` → `{ dihapus }` |
+
+`/persil`, `/persil/titik`, dan `/persil/cari` dibatasi 1.200 per 10 menit per IP.
 
 ### Cek NOP
 

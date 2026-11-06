@@ -20,6 +20,7 @@ const { includePengajuanTerakhir, bentukPengajuanTerakhir } = require("../pengaj
 const { jawabanLokasiPertama, ringkasLokasiEntri } = require("../cekLokasi");
 const { includePertanyaan, bentukFormulir, bentukTim, petaJawaban } = require("../bentuk");
 const { susunTabel, barisTanpaData, baseUrlEkspor, namaBerkas, rutekanEkspor } = require("../ekspor");
+const { pencariPersilEkspor } = require("../persil");
 
 const router = express.Router();
 
@@ -659,7 +660,12 @@ async function dataEkspor(req) {
   const tabel = susunTabel(
     kk.entri.map((e) => ({ kk, e })),
     formulir,
-    { perData: Boolean(pilih), baseUrl: baseUrlEkspor(req), timezone: config.timezone }
+    {
+      perData: Boolean(pilih),
+      baseUrl: baseUrlEkspor(req),
+      timezone: config.timezone,
+      persilDi: await pencariPersilEkspor(kk.entri),
+    }
   );
   if (tabel.baris.length === 0) tabel.baris.push(barisTanpaData(kk));
 

@@ -39,6 +39,30 @@ test("susunEkspor memecah lokasi jadi latitude, longitude, dan keterangan", () =
   assert.deepEqual(ekor(tabel.baris[2]), ["", "", ""]);
 });
 
+test("susunEkspor: dengan persil BPN, NIB / tipe hak / luas peta bidang di titik Lokasi ikut", () => {
+  const bidang = { nibLengkap: "17.11.74.02.03612", tipeHak: "Hak Milik", luasPeta: 566.84 };
+  const persilDi = (lat, lon) => (lat === -3.44 && lon === 114.84 ? bidang : null);
+  const t = susunEkspor([entri({ lat: -3.44, lon: 114.84 }), entri({ lat: -3.5, lon: 114.9 }), entri({ lat: null, lon: null })], formulir, {
+    ...opsi,
+    persilDi,
+  });
+  assert.deepEqual(t.header.slice(-6), [
+    "Objek - Titik (Latitude)",
+    "Objek - Titik (Longitude)",
+    "Objek - Titik (Keterangan)",
+    "Objek - Titik (NIB BPN)",
+    "Objek - Titik (Tipe hak BPN)",
+    "Objek - Titik (Luas peta BPN m²)",
+  ]);
+  const ekor = (r) => r.slice(-3);
+  assert.deepEqual(ekor(t.baris[0]).map((c) => c.teks), ["17.11.74.02.03612", "Hak Milik", "566,84"]);
+  assert.equal(ekor(t.baris[0])[2].angka, 566.84);
+  assert.deepEqual(ekor(t.baris[1]).map((c) => c.teks), ["", "", ""]);
+  assert.deepEqual(ekor(t.baris[2]).map((c) => c.teks), ["", "", ""]);
+  // Titik untuk ekspor peta tetap kolom latitude / longitude.
+  assert.deepEqual(t.titik, [[t.header.length - 6, t.header.length - 5]]);
+});
+
 test("CSV menulis koordinat dengan titik desimal", () => {
   assert.ok(keCsv(tabel).includes('"-3.4412345","114.8412345","±12 m"'));
 });

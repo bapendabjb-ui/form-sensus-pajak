@@ -17,6 +17,7 @@ const { wrap, badRequest, notFound, parseId } = require("../http");
 const { includePertanyaan } = require("../bentuk");
 const { susunTabel, baseUrlEkspor, namaBerkas, rutekanEkspor } = require("../ekspor");
 const { muatEntriEkspor } = require("../muatEkspor");
+const { pencariPersilEkspor } = require("../persil");
 const { pertanyaanObjek, bacaPilihanWilayah, saringWilayah } = require("../eksporWilayah");
 
 const router = express.Router();
@@ -102,13 +103,14 @@ async function susunBerkas(req, entri, formId, { namaBagian, judul, ikut }) {
   if (formId && formulir.length === 0) throw notFound("Formulir tidak ditemukan.");
 
   const satu = formId ? formulir[0] : null;
+  const persilDi = await pencariPersilEkspor(berisi);
   return {
     nama: [...namaBagian, satu && namaBerkas(satu.judul, "formulir")].filter(Boolean).join("-"),
     sheet: satu ? `${judul} ${satu.judul}` : judul,
     tabel: susunTabel(
       entri.map((e) => ({ kk: e.kertasKerja, e })),
       formulir,
-      { perData: Boolean(satu), ikut, baseUrl: baseUrlEkspor(req), timezone: config.timezone }
+      { perData: Boolean(satu), ikut, baseUrl: baseUrlEkspor(req), timezone: config.timezone, persilDi }
     ),
   };
 }

@@ -56,6 +56,7 @@ import {
   Mountain,
   Music,
   Receipt,
+  Search,
   ShieldCheck,
   Ship,
   ShoppingBag,
@@ -110,6 +111,8 @@ export const IkonLayarPenuh = () => <Maximize2 size={15} strokeWidth={GARIS} ari
 export const IkonTutupPenuh = () => <Minimize2 size={15} strokeWidth={GARIS} aria-hidden="true" />;
 /** Lapisan peta dari GIS (Peta Sensus). */
 export const IkonLapisan = () => <Layers size={15} strokeWidth={GARIS} aria-hidden="true" />;
+/** Cari NIB persil BPN di Peta Sensus. */
+export const IkonCari = () => <Search size={15} strokeWidth={GARIS} aria-hidden="true" />;
 
 /** Panah dropdown; CSS memutarnya lewat kelas is-open. */
 export const Chevron = ({ open }) => (

@@ -14,9 +14,11 @@ import {
   svgKlaster,
   KLASTER_ZOOM_MAKS,
   isiBalonLapisan,
+  isiBalonPersil,
   gayaLapisan,
   TITIK_LAPISAN_RADIUS,
 } from "./bersama.jsx";
+import { WARNA_PERSIL, PERSIL_ZOOM_MIN, PemuatPersil, statusPersil } from "../../lib/persilBpn.js";
 
 /**
  * Mesin cadangan Peta Sensus (Leaflet + OpenStreetMap / Esri): banyak titik
@@ -31,6 +33,7 @@ import {
  * jenis  : "peta" | "satelit"
  * lapisan : [{ versi, nama, warna, data }] - lapisan GIS yang menyala (lib/lapisanPeta.js),
  *           digambar di bawah titik sensus
+ * persil, sorot, onStatusPersil : persil BPN - lihat SebaranGoogle
  */
 
 /** Warna = status kertas kerja; sudah dicek admin bercentang. */
@@ -65,7 +68,60 @@ function buatLapisanGis(l, kanvas) {
 /** Kunci gambar sebuah lapisan: berganti bila isi, nama, atau warnanya berganti. */
 const kunciLapisan = (l) => `${l.versi}|${l.warna}|${l.nama}`;
 
-export default function SebaranLeaflet({ titik = [], onBuka, onCek = null, kunciPandang, jenis, lapisan = [] }) {
+const GAYA_PERSIL = { color: WARNA_PERSIL, weight: 1, opacity: 0.85, fillColor: WARNA_PERSIL, fillOpacity: 0.04 };
+const GAYA_SOROT = { color: WARNA_PERSIL, weight: 4, opacity: 1, fillColor: WARNA_PERSIL, fillOpacity: 0.22 };
+
+/** Lapisan persil BPN: bidang petak yang terlihat (dimuat PemuatPersil), digambar di kanvas. */
+function buatLapisanPersil(kanvas, onStatus) {
+  const grup = L.layerGroup();
+  const fitur = new Map(); // id bidang -> L.GeoJSON
+  const pemuat = new PemuatPersil({
+    tambah: (f) => {
+      const layer = L.geoJSON(f, {
+        renderer: kanvas,
+        style: GAYA_PERSIL,
+        onEachFeature: (ft, l) => l.bindPopup(() => isiBalonPersil(ft.properties), { maxWidth: 320 }),
+      });
+      fitur.set(f.id, layer);
+      grup.addLayer(layer);
+    },
+    buang: (id) => {
+      const layer = fitur.get(id);
+      if (!layer) return;
+      grup.removeLayer(layer);
+      fitur.delete(id);
+    },
+    onStatus,
+  });
+  return { grup, pemuat, tampak: false, sorot: null };
+}
+
+/** Sesuaikan persil dengan pandangan peta dan pilihan pemakai (`cfg` null = mati). */
+function perbaruiPersil(m, lp, cfg) {
+  if (!cfg) {
+    lp.tampak = false;
+  } else {
+    lp.pemuat.atur(cfg);
+    const b = m.getBounds();
+    lp.tampak =
+      m.getZoom() >= PERSIL_ZOOM_MIN &&
+      lp.pemuat.tampilkan({ barat: b.getWest(), selatan: b.getSouth(), timur: b.getEast(), utara: b.getNorth() });
+  }
+  if (lp.tampak && !m.hasLayer(lp.grup)) lp.grup.addTo(m);
+  else if (!lp.tampak && m.hasLayer(lp.grup)) lp.grup.remove();
+}
+
+export default function SebaranLeaflet({
+  titik = [],
+  onBuka,
+  onCek = null,
+  kunciPandang,
+  jenis,
+  lapisan = [],
+  persil = null,
+  sorot = null,
+  onStatusPersil,
+}) {
   const wadah = useRef(null);
   const peta = useRef(null);
   const ubin = useRef(null);
@@ -78,6 +134,27 @@ export default function SebaranLeaflet({ titik = [], onBuka, onCek = null, kunci
   const cekRef = useRef(onCek);
   cekRef.current = onCek;
   const pandangRef = useRef(Symbol("belum"));
+
+  // Persil BPN. Pendengar peta dipasang sekali, jadi mereka membaca pilihan
+  // terbaru lewat ref.
+  const lapisanPersil = useRef(null);
+  const persilRef = useRef(persil);
+  persilRef.current = persil;
+  const statusRef = useRef(onStatusPersil);
+  statusRef.current = onStatusPersil;
+  const laporPersil = () => {
+    const lp = lapisanPersil.current;
+    if (lp) statusRef.current?.(statusPersil({ aktif: Boolean(persilRef.current), tampak: lp.tampak, pemuat: lp.pemuat }));
+  };
+  const laporRef = useRef(laporPersil);
+  laporRef.current = laporPersil;
+  const segarkanPersil = () => {
+    if (!peta.current || !lapisanPersil.current) return;
+    perbaruiPersil(peta.current, lapisanPersil.current, persilRef.current);
+    laporPersil();
+  };
+  const segarkanRef = useRef(segarkanPersil);
+  segarkanRef.current = segarkanPersil;
 
   // Buat peta sekali.
   useEffect(() => {
@@ -100,6 +177,10 @@ export default function SebaranLeaflet({ titik = [], onBuka, onCek = null, kunci
       },
     }).addTo(m);
 
+    lapisanPersil.current = buatLapisanPersil(kanvas.current, () => laporRef.current());
+    // moveend juga terpicu setelah zoom.
+    m.on("moveend", () => segarkanRef.current());
+
     const t = setTimeout(() => m.invalidateSize(), 60);
     // Ukuran wadah berubah tanpa jendela berubah (mis. layar penuh): Leaflet
     // tidak tahu sendiri, potongan petanya jadi terpotong.
@@ -113,6 +194,7 @@ export default function SebaranLeaflet({ titik = [], onBuka, onCek = null, kunci
       ubin.current = null;
       lapisanTitik.current = null;
       kanvas.current = null;
+      lapisanPersil.current = null;
       // Ikut terhapus bersama petanya; kosongkan supaya peta baru (mis. saat
       // efek dijalankan dua kali di mode pengembangan) menggambarnya lagi.
       lapisanGis.clear();
@@ -139,6 +221,37 @@ export default function SebaranLeaflet({ titik = [], onBuka, onCek = null, kunci
       }
     }
   }, [lapisan, lapisanGis]);
+
+  // Persil dinyalakan / dimatikan, atau isinya berganti versi.
+  useEffect(() => {
+    segarkanRef.current();
+  }, [persil]);
+
+  // Bidang hasil cari NIB: sorot, rapatkan pandangan ke sana, buka balonnya.
+  useEffect(() => {
+    const m = peta.current;
+    const lp = lapisanPersil.current;
+    if (!m || !lp) return;
+    if (lp.sorot) {
+      lp.sorot.remove();
+      lp.sorot = null;
+    }
+    if (!sorot) return;
+    lp.sorot = L.geoJSON(sorot.fitur, { renderer: kanvas.current, style: GAYA_SOROT }).addTo(m);
+    lp.sorot.bindPopup(() => isiBalonPersil(sorot.fitur.properties), { maxWidth: 320 });
+    const [barat, selatan, timur, utara] = sorot.batas;
+    m.fitBounds(
+      [
+        [selatan, barat],
+        [utara, timur],
+      ],
+      { padding: [60, 60], maxZoom: 19 }
+    );
+    L.popup({ maxWidth: 320 })
+      .setLatLng([(selatan + utara) / 2, (barat + timur) / 2])
+      .setContent(isiBalonPersil(sorot.fitur.properties))
+      .openOn(m);
+  }, [sorot]);
 
   // Ganti lapisan peta jalan / satelit. Sumber ubin dipilih di lib/ubinPeta.js:
   // pemasangan bisa tertunda sesaat saat sumber peta jalan diuji lebih dulu.

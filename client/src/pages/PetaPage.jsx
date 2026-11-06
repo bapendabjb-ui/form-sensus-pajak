@@ -6,7 +6,9 @@ import CustomSelect from "../components/CustomSelect.jsx";
 import { useAdmin } from "../lib/admin.js";
 import { navigate } from "../lib/router.js";
 import { useLapisanPeta } from "../lib/lapisanPeta.js";
+import { usePersilBpn } from "../lib/persilBpn.js";
 import PilihLapisan from "../components/peta/PilihLapisan.jsx";
+import CariNib from "../components/peta/CariNib.jsx";
 
 // Leaflet berat; hanya diunduh saat halaman peta benar-benar dibuka.
 const PetaSebaran = lazy(() => import("../components/PetaSebaran.jsx"));
@@ -37,6 +39,13 @@ export default function PetaPage() {
   const [saring, setSaring] = useState("semua");
   // Lapisan dari GIS (batas blok, persil) di bawah titik sensus.
   const lapisan = useLapisanPeta();
+  // Persil BPN, dimuat per petak saat peta diperbesar; `sorot` = bidang hasil cari NIB.
+  const persil = usePersilBpn();
+  const [sorot, setSorot] = useState(null);
+  const sorotBidang = (b) => {
+    persil.ubahNyala(true);
+    setSorot({ fitur: b.fitur, batas: b.batas });
+  };
 
   const muat = useCallback(async () => {
     setLoading(true);
@@ -94,11 +103,16 @@ export default function PetaPage() {
           onChange={(teks) => setSaring(pilihanSaring.find((p) => p.teks === teks).kunci)}
         />
       </div>
-      <PilihLapisan lapisan={lapisan} admin={Boolean(admin)} />
+      <PilihLapisan lapisan={lapisan} persil={persil} admin={Boolean(admin)} />
+      {persil.ada && <CariNib onPilih={sorotBidang} />}
     </>
   );
 
-  const kosong = tampil.length === 0 ? "Tidak ada titik pada saringan ini." : "";
+  const BELUM_ADA = "Belum ada data berkoordinat. Titik muncul setelah petugas mengisi pertanyaan Lokasi.";
+  const kosong = titik.length === 0 ? BELUM_ADA : tampil.length === 0 ? "Tidak ada titik pada saringan ini." : "";
+  // Tanpa titik sensus peta tetap berguna bila ada persil / lapisan, dan admin
+  // butuh bilah alatnya untuk mengimpor persil pertama kali.
+  const tanpaPeta = titik.length === 0 && !admin && !persil.ada && lapisan.daftar.length === 0;
 
   return (
     <>
@@ -108,7 +122,7 @@ export default function PetaPage() {
 
       {loading ? (
         <Loading label="Memuat titik..." />
-      ) : titik.length === 0 ? (
+      ) : tanpaPeta ? (
         <Empty>
           Belum ada data berkoordinat. Titik muncul setelah petugas mengisi pertanyaan Lokasi, mis. Koordinat
           Objek Pajak.
@@ -127,6 +141,8 @@ export default function PetaPage() {
             }
             kosong={kosong}
             lapisan={lapisan.aktif}
+            persil={persil.peta}
+            sorot={sorot}
           />
         </Suspense>
       )}

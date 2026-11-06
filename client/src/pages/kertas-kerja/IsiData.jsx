@@ -25,6 +25,7 @@ import { useAdmin } from "../../lib/admin.js";
 import { pantauPosisi, ambilPosisi } from "../../lib/rekamPosisi.js";
 import { nilaiTitik } from "../../lib/cekLokasi.js";
 import { TombolDicek, namaAdmin } from "../../components/LokasiObjek.jsx";
+import PersilDiTitik from "../../components/PersilDiTitik.jsx";
 import { formatWaktu, urlPeta } from "../../lib/format.js";
 import { bersihkanDrafLama, useKonfigurasi } from "../../lib/konfigurasi.js";
 import { kembali, pasangPenjaga } from "../../lib/router.js";
@@ -452,6 +453,9 @@ export function IsiData({ kkId, formulirId, entriId }) {
         />
       )}
       {errors[q.id] && <span className="fk-err">{errors[q.id]}</span>}
+      {q.tipe === "lokasi" && typeof answers[q.id]?.lat === "number" && (
+        <PersilDiTitik lat={answers[q.id].lat} lon={answers[q.id].lon} />
+      )}
       {q.tipe === "lokasi" && entriId && admin && typeof answers[q.id]?.lat === "number" && (
         <TombolDicek dicek={koordinatDicek} onUbah={ubahKoordinatDicek} label="Koordinat objek sudah dicek" />
       )}

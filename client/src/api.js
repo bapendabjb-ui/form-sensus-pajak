@@ -648,6 +648,54 @@ export const ubahLapisan = (id, data) => request(`/lapisan/${id}`, { method: "PU
 /** Hapus lapisan. Khusus admin. */
 export const hapusLapisan = (id) => request(`/lapisan/${id}`, { method: "DELETE" });
 
+/* ---------- persil BPN (server/src/persil.js) ---------- */
+
+/** { jumlah, versi, wilayah: [{ kunci, kodeWilayah, kecamatan, kelurahan, jumlah, diimpor, oleh }] }. */
+export const ringkasanPersil = () => request("/persil");
+
+/**
+ * Bidang di satu petak peta (FeatureCollection). Alamatnya memuat versi persil,
+ * jadi browser boleh menyimpan jawabannya - petak yang pernah dibuka tidak
+ * diunduh ulang selama isi persil tidak berubah.
+ */
+export const petakPersil = (i, j, versi) => request(`/persil/petak/${i}/${j}?v=${encodeURIComponent(versi)}`);
+
+/** Bidang ber-NIB itu (maks. 20): [{ id, nib, nibLengkap, kecamatan, kelurahan, tipeHak, luasPeta, batas, fitur }]. */
+export const cariPersil = (q) => request(`/persil/cari?q=${encodeURIComponent(q)}`);
+
+const persilTitikCache = new Map(); // "lat,lon" -> Promise<{ ada, persil }>
+
+/** Bidang BPN tempat titik ini berada: { ada: ada persil tersimpan, persil: bidangnya | null }. */
+export function persilDiTitik(lat, lon) {
+  const kunci = `${lat},${lon}`;
+  if (!persilTitikCache.has(kunci)) {
+    const janji = request(`/persil/titik?lat=${lat}&lon=${lon}`).catch((e) => {
+      persilTitikCache.delete(kunci);
+      throw e;
+    });
+    persilTitikCache.set(kunci, janji);
+  }
+  return persilTitikCache.get(kunci);
+}
+
+/** Lupakan jawaban persilDiTitik yang tersimpan - setelah persil diimpor / dihapus. */
+export const lupakanPersilTitik = () => persilTitikCache.clear();
+
+/** Mulai impor shapefile (khusus admin): { token, kirimMaks }. */
+export const mulaiImporPersil = () => request("/persil/impor", { method: "POST" });
+
+/** Kirim sebagian bidang: { sumber, fitur } -> { diterima, ditolak: { alasan: jumlah } }. */
+export const kirimPersil = (token, isi) => request(`/persil/impor/${token}`, { method: "POST", body: isi });
+
+/** Tampilkan hasil impor (menggantikan kelurahan yang sama): { jumlah, diganti, wilayah }. */
+export const selesaikanImporPersil = (token) => request(`/persil/impor/${token}/selesai`, { method: "POST" });
+
+/** Buang kiriman impor yang tidak diselesaikan. */
+export const batalkanImporPersil = (token) => request(`/persil/impor/${token}`, { method: "DELETE" });
+
+/** Hapus persil: { kunci: [kunci wilayah] } atau { semua: true } -> { dihapus }. */
+export const hapusPersil = (isi) => request("/persil/hapus", { method: "POST", body: isi });
+
 /* ---------- cek NOP ke EPBB ---------- */
 
 /** Data objek pajak dari EPBB: { nop, namaWp, letakSp, letakOp, luasTanah, luasBangunan, belumBayar }. */

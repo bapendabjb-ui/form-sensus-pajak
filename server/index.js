@@ -74,6 +74,7 @@ app.use("/api/foto", require("./src/routes/foto"));
 app.use("/api/dashboard", require("./src/routes/dashboard"));
 app.use("/api/peta", require("./src/routes/peta"));
 app.use("/api/lapisan", require("./src/routes/lapisan"));
+app.use("/api/persil", require("./src/routes/persil"));
 app.use("/api/nop", require("./src/routes/nop"));
 app.use("/api/tautan-peta", require("./src/routes/tautanPeta"));
 app.use("/api/wilayah", require("./src/routes/wilayah"));
@@ -101,6 +102,12 @@ app.get("/api/konfigurasi", async (_req, res, next) => {
       lokasi: {
         kantor: batas.KANTOR,
         akurasiKasarM: batas.AKURASI_KASAR_M,
+      },
+      // Persil BPN: wilayah kerja untuk menebak sistem koordinat saat impor,
+      // dan ukuran petak yang dimuat peta (src/persil.js).
+      persil: {
+        wilayah: batas.WILAYAH,
+        ukuranPetak: require("./src/persil").UKURAN_PETAK,
       },
       periodeData: counter?.periode ?? 0,
       // true = klien langsung menampilkan layar login bagi yang belum masuk.

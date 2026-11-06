@@ -29,9 +29,18 @@ const KANTOR = { nama: "kantor BPPRD", lat: -3.439325, lon: 114.829525, radiusM:
  */
 const AKURASI_KASAR_M = 100;
 
+/**
+ * Wilayah kerja: pusat Kota Banjarbaru dan radius yang mencakup seluruh kota
+ * dengan longgar (ujung kota ±20 km dari pusat). Persil BPN di luar radius ini
+ * ditolak saat impor: koordinat yang dibaca dengan sistem koordinat yang salah
+ * jatuh ratusan sampai ribuan km jauhnya, bukan sedikit meleset.
+ */
+const WILAYAH = { lat: -3.4572, lon: 114.8105, radiusKm: 40 };
+
 module.exports = {
   PETUGAS_MAKS,
   FOTO_MAKS_PER_PERTANYAAN,
   KANTOR,
   AKURASI_KASAR_M,
+  WILAYAH,
 };

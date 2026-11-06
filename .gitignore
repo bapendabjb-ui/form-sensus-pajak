@@ -12,3 +12,6 @@ coverage/
 client/dist/
 server/prisma/dev.db
 uploads/
+
+# Shapefile persil BPN asli: dimasukkan lewat Peta Sensus (Kelola persil BPN), bukan lewat Git.
+Data NIB BPN/

@@ -241,6 +241,30 @@ export function isiBalonLapisan(namaLapisan, properti) {
   );
 }
 
+/**
+ * HTML balon sebuah bidang persil BPN (properti dari server/src/persil.js):
+ * NIB, tipe hak, luas peta, kelurahan, lalu atribut lain dari berkasnya.
+ */
+export function isiBalonPersil(p = {}) {
+  const luas = Number.isFinite(p.luasPeta)
+    ? `${p.luasPeta.toLocaleString("id-ID", { maximumFractionDigits: 2 })} m²`
+    : "";
+  const utama = [
+    ["NIB", p.nib],
+    ["Tipe hak", p.tipeHak],
+    ["Luas peta", luas],
+    ["Kelurahan", p.kelurahan],
+    ["Kecamatan", p.kecamatan],
+  ];
+  const lain = Object.entries(p.lain && typeof p.lain === "object" ? p.lain : {});
+  const isi = [...utama, ...lain].filter(([, v]) => v !== null && v !== undefined && v !== "");
+  const baris = isi
+    .slice(0, ATRIBUT_BALON_MAKS)
+    .map(([k, v]) => `<tr><th>${aman(k)}</th><td>${aman(v)}</td></tr>`)
+    .join("");
+  return `<div class="fk-balon fk-balon-lapisan"><strong>Persil BPN</strong><table class="fk-balon-tabel">${baris}</table></div>`;
+}
+
 /** Gaya bidang & garis lapisan: garis tegas, isian tipis supaya peta di bawahnya tetap terbaca. */
 export const gayaLapisan = (warna) => ({ garis: warna, tebal: 2, isi: warna, isiTembus: 0.12 });
 
