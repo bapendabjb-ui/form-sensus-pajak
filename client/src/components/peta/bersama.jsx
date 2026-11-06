@@ -13,7 +13,7 @@ import { googleGagal, onGoogleGagal } from "../../lib/googleMaps.js";
 import { formatNop } from "../../lib/format.js";
 import { navigate } from "../../lib/router.js";
 import { geserDariPanel } from "../../lib/persilBpn.js";
-import { IkonTutup } from "../Icons.jsx";
+import { IkonTutup, IkonLokasiSaya } from "../Icons.jsx";
 
 /** Pusat Kota Banjarbaru - titik awal bila belum ada koordinat. */
 export const PUSAT_AWAL = { lat: -3.4572, lon: 114.8105 };
@@ -297,6 +297,47 @@ function isiSensusBidang(sensus) {
     )
     .join("");
   return `<div class="fk-balon-sensus"><span class="fk-balon-rekam">Tercatat di sensus</span>${ringkas}<ul>${daftar}</ul></div>`;
+}
+
+/** Ketelitian GPS sebagai teks pendek: "± 12 m", "± 1,2 km". */
+export function teksAkurasi(m) {
+  if (!Number.isFinite(m)) return "";
+  if (m >= 1000) return `± ${(m / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} km`;
+  return `± ${Math.max(1, Math.round(m))} m`;
+}
+
+/** Ketelitian di atas ini ditandai kasar: titik birunya bisa meleset dari posisi sebenarnya. */
+const AKURASI_KASAR_M = 30;
+
+/**
+ * Tombol "Lokasi saya" di sudut kanan bawah peta pemilih (lib/useLokasiSaya.js),
+ * dengan ketelitian GPS di sampingnya - supaya petugas tahu titik birunya
+ * bisa meleset sejauh apa.
+ */
+export function TombolLokasiSaya({ saya, onClick }) {
+  const akurasi = saya.posisi?.akurasi;
+  const kasar = Number.isFinite(akurasi) && akurasi > AKURASI_KASAR_M;
+  return (
+    <>
+      {saya.posisi && Number.isFinite(akurasi) && (
+        <span
+          className={"fk-saya-akurasi" + (kasar ? " is-kasar" : "")}
+          title={kasar ? "GPS belum teliti: titik biru bisa meleset. Tunggu sebentar di tempat terbuka." : "Ketelitian GPS"}
+        >
+          GPS {teksAkurasi(akurasi)}
+        </span>
+      )}
+      <button
+        type="button"
+        className={"fk-lokasi-saya" + (saya.status === "mencari" ? " is-mencari" : saya.posisi ? " is-aktif" : "")}
+        onClick={onClick}
+        aria-label="Lokasi saya"
+        title="Lokasi saya"
+      >
+        <IkonLokasiSaya />
+      </button>
+    </>
+  );
 }
 
 /**

@@ -18,6 +18,7 @@ import { PUSAT_AWAL, WARNA_SAYA, zoomAkurasi } from "./bersama.jsx";
  * jenis   : "peta" | "satelit"
  * posisiSaya : { lat, lon, akurasi } | null - titik biru posisi perangkat
  * pusatkan   : angka yang naik setiap kali peta perlu dipusatkan ke posisiSaya
+ * onGeser    : () => void - petugas menggeser peta (berhenti mengikuti lokasi saya)
  */
 
 // Ikon HTML biasa: ikon gambar bawaan Leaflet tidak ikut terbawa oleh Vite.
@@ -28,7 +29,7 @@ const IKON_PIN = L.divIcon({
   iconAnchor: [14, 34],
 });
 
-export default function LokasiLeaflet({ titik, onPilih, jenis, posisiSaya, pusatkan }) {
+export default function LokasiLeaflet({ titik, onPilih, jenis, posisiSaya, pusatkan, onGeser }) {
   const wadah = useRef(null);
   const peta = useRef(null);
   const penanda = useRef(null);
@@ -36,6 +37,8 @@ export default function LokasiLeaflet({ titik, onPilih, jenis, posisiSaya, pusat
   const ubin = useRef(null);
   const pilihRef = useRef(onPilih);
   pilihRef.current = onPilih;
+  const geserRef = useRef(onGeser);
+  geserRef.current = onGeser;
 
   /** Taruh / pindahkan penanda. Penanda bisa digeser; hasil geser dilaporkan. */
   const pasangPenanda = (latlng) => {
@@ -57,6 +60,7 @@ export default function LokasiLeaflet({ titik, onPilih, jenis, posisiSaya, pusat
     peta.current = m;
     if (titik) pasangPenanda(awal);
 
+    m.on("dragstart", () => geserRef.current?.());
     m.on("click", (e) => {
       pasangPenanda(e.latlng);
       pilihRef.current(e.latlng.lat, e.latlng.lng);

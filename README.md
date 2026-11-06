@@ -133,7 +133,7 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── lapisanPeta.js      lapisan GIS di Peta Sensus: daftar, nyala/mati per browser, unduh isi
 │       │   ├── persilBpn.js        persil BPN di Peta Sensus: ringkasan, pilihan kecamatan, warna (kecamatan / status sensus), ubin kanvas
 │       │   ├── nib.js              jawaban Bidang Tanah BPN (NIB): bentuk, tampilan, NIB dari sertifikat
-│       │   ├── useLokasiSaya.js    tombol "Lokasi saya" peta pemilih (Lokasi & Bidang)
+│       │   ├── useLokasiSaya.js    tombol "Lokasi saya" peta pemilih (Lokasi & Bidang): mengikuti GPS 30 detik sampai peta digeser
 │       │   ├── shapefile.js        pembaca shapefile persil BPN di browser + tebakan sistem koordinat
 │       │   ├── useDragUrut.js      seret (drag & drop) untuk menyusun ulang daftar
 │       │   ├── useMobile.js        deteksi tata letak HP
@@ -489,6 +489,7 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `ekspor.test.js`       | Lokasi terekspor sebagai kolom latitude & longitude, utuh di Excel; semua jenis ekspor memberi urutan, *No. data*, dan isi baris yang sama |
 | `eksporPeta.test.js`   | GeoJSON / KML: titik [bujur, lintang] dari kolom Lokasi, baris tanpa koordinat dihitung, kolom sama di setiap titik, teks KML di-escape |
 | `lapisanPeta.test.js`  | Lapisan GIS: berkas UTM / TM-3 ditolak, koordinat dibulatkan, batas ukuran isi                |
+| `lokasiSaya.test.js`   | Titik biru "Lokasi saya": posisi cache browser ditolak, pembacaan terbaru diikuti (lonjakan kasar dari jaringan diabaikan), peta dipusatkan ulang saat GPS mengunci atau perangkat berpindah |
 | `persil.test.js`       | Persil BPN: bidang di luar Banjarbaru / bentuk rusak ditolak, petak & kunci wilayah, titik di bidang berlubang / bertumpuk, pencarian NIB |
 | `shapefile.test.js`    | Pembaca shapefile di browser (`client/src/lib/shapefile.js`): TM-3 / UTM ke derajat, .prj salah / tidak ada, CRS campur, bidang nyasar & rusak, lubang |
 | `persilBpn.test.js`    | Warna persil per kecamatan (`client/src/lib/persilBpn.js`): lima kecamatan Banjarbaru berbeda, warna mengikuti nama bukan urutan, cadangan untuk kecamatan lain; isi ringkas (zoom 13–16) bolak-balik server → browser kembali ke tempatnya, beserta id tiap bidang; bidang yang diketuk di bawah panel keterangan digeser ke arah terpendek |

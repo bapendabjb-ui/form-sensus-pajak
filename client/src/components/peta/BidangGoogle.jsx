@@ -18,6 +18,7 @@ import { pasangUbinPersil } from "./ubinPersilGoogle.js";
  * fokus    : { batas: [barat, selatan, timur, utara], ke } | null - rapatkan pandangan setiap `ke` berganti
  * onKetuk  : (lat, lon) => void
  * posisiSaya, pusatkan : lihat lib/useLokasiSaya.js
+ * onGeser  : () => void - petugas menggeser peta (berhenti mengikuti lokasi saya)
  * onStatusPersil : (status) => void - lib/persilBpn.js statusPersil
  */
 
@@ -33,6 +34,7 @@ export default function BidangGoogle({
   onKetuk,
   posisiSaya,
   pusatkan,
+  onGeser,
   onStatusPersil,
 }) {
   const wadah = useRef(null);
@@ -44,6 +46,8 @@ export default function BidangGoogle({
   const saya = useRef(null);
   const ketukRef = useRef(onKetuk);
   ketukRef.current = onKetuk;
+  const geserRef = useRef(onGeser);
+  geserRef.current = onGeser;
   const persilRef = useRef(persil);
   persilRef.current = persil;
   const statusRef = useRef(onStatusPersil);
@@ -81,6 +85,7 @@ export default function BidangGoogle({
           // Ketukan pada bidang terpilih = ketukan di peta (membatalkan pilihannya).
           sorot.current.addListener("click", (e) => ketukRef.current?.(e.latLng.lat(), e.latLng.lng()));
           m.addListener("click", (e) => ketukRef.current?.(e.latLng.lat(), e.latLng.lng()));
+          m.addListener("dragstart", () => geserRef.current?.());
           m.addListener("zoom_changed", () => laporRef.current());
           setSiap(true);
         } catch (e) {

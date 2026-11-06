@@ -1,6 +1,5 @@
 import { Suspense, lazy, useState } from "react";
-import { useMesinPeta, PilihJenis, PetaMemuat, CatatanCadangan, PenahanPeta } from "./peta/bersama.jsx";
-import { IkonLokasiSaya } from "./Icons.jsx";
+import { useMesinPeta, PilihJenis, PetaMemuat, CatatanCadangan, PenahanPeta, TombolLokasiSaya } from "./peta/bersama.jsx";
 import { useLokasiSaya } from "../lib/useLokasiSaya.js";
 
 // Hanya mesin yang dipakai yang diunduh: Leaflet tidak ikut termuat selama
@@ -24,9 +23,9 @@ const LokasiLeaflet = lazy(() => import("./peta/LokasiLeaflet.jsx"));
 export default function PetaLokasi({ titik, onPilih }) {
   const [jenis, setJenis] = useState("peta");
   const mesin = useMesinPeta();
-  const { saya, pusatkan, keLokasiSaya } = useLokasiSaya();
+  const { saya, pusatkan, keLokasiSaya, berhentiIkuti } = useLokasiSaya();
 
-  const props = { titik, onPilih, jenis, posisiSaya: saya.posisi, pusatkan };
+  const props = { titik, onPilih, jenis, posisiSaya: saya.posisi, pusatkan, onGeser: berhentiIkuti };
   let kanvas = (
     <div className="fk-peta">
       <PetaMemuat />
@@ -53,17 +52,7 @@ export default function PetaLokasi({ titik, onPilih }) {
             {kanvas}
           </Suspense>
         </PenahanPeta>
-        <button
-          type="button"
-          className={
-            "fk-lokasi-saya" + (saya.status === "mencari" ? " is-mencari" : saya.posisi ? " is-aktif" : "")
-          }
-          onClick={keLokasiSaya}
-          aria-label="Lokasi saya"
-          title="Lokasi saya"
-        >
-          <IkonLokasiSaya />
-        </button>
+        <TombolLokasiSaya saya={saya} onClick={keLokasiSaya} />
       </div>
       {mesin.cadangan && <CatatanCadangan />}
     </div>

@@ -16,12 +16,13 @@ import { PUSAT_AWAL, PetaMemuat, WARNA_SAYA, zoomAkurasi } from "./bersama.jsx";
  * jenis   : "peta" | "satelit"
  * posisiSaya : { lat, lon, akurasi } | null - titik biru posisi perangkat
  * pusatkan   : angka yang naik setiap kali peta perlu dipusatkan ke posisiSaya
+ * onGeser    : () => void - petugas menggeser peta (berhenti mengikuti lokasi saya)
  */
 
 /** Satelit memakai "hybrid" supaya nama jalan tetap terbaca di atas citra. */
 const TIPE = { peta: "roadmap", satelit: "hybrid" };
 
-export default function LokasiGoogle({ kunci, titik, onPilih, jenis, posisiSaya, pusatkan }) {
+export default function LokasiGoogle({ kunci, titik, onPilih, jenis, posisiSaya, pusatkan, onGeser }) {
   const wadah = useRef(null);
   const peta = useRef(null);
   const penanda = useRef(null);
@@ -29,6 +30,8 @@ export default function LokasiGoogle({ kunci, titik, onPilih, jenis, posisiSaya,
   const g = useRef(null);
   const pilihRef = useRef(onPilih);
   pilihRef.current = onPilih;
+  const geserRef = useRef(onGeser);
+  geserRef.current = onGeser;
   const [siap, setSiap] = useState(false);
 
   /** Taruh / pindahkan penanda. Penanda bisa digeser; hasil geser dilaporkan. */
@@ -67,6 +70,7 @@ export default function LokasiGoogle({ kunci, titik, onPilih, jenis, posisiSaya,
           });
           peta.current = m;
           if (titik) pasangPenanda(awal);
+          m.addListener("dragstart", () => geserRef.current?.());
           m.addListener("click", (e) => {
             pasangPenanda(e.latLng);
             pilihRef.current(e.latLng.lat(), e.latLng.lng());

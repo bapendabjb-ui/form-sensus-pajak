@@ -27,6 +27,7 @@ export default function BidangLeaflet({
   onKetuk,
   posisiSaya,
   pusatkan,
+  onGeser,
   onStatusPersil,
 }) {
   const wadah = useRef(null);
@@ -39,6 +40,8 @@ export default function BidangLeaflet({
   const saya = useRef(null);
   const ketukRef = useRef(onKetuk);
   ketukRef.current = onKetuk;
+  const geserRef = useRef(onGeser);
+  geserRef.current = onGeser;
   const persilRef = useRef(persil);
   persilRef.current = persil;
   const statusRef = useRef(onStatusPersil);
@@ -60,6 +63,7 @@ export default function BidangLeaflet({
       kunci: "",
     };
     m.on("click", (e) => ketukRef.current?.(e.latlng.lat, e.latlng.lng));
+    m.on("dragstart", () => geserRef.current?.());
     m.on("zoomend", () => laporRef.current());
     const t = setTimeout(() => m.invalidateSize(), 60);
     const amati = new ResizeObserver(() => m.invalidateSize());

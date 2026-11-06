@@ -1,6 +1,5 @@
 import { Suspense, lazy, useState } from "react";
-import { useMesinPeta, PilihJenis, PetaMemuat, CatatanCadangan, PenahanPeta } from "./peta/bersama.jsx";
-import { IkonLokasiSaya } from "./Icons.jsx";
+import { useMesinPeta, PilihJenis, PetaMemuat, CatatanCadangan, PenahanPeta, TombolLokasiSaya } from "./peta/bersama.jsx";
 import { useLokasiSaya } from "../lib/useLokasiSaya.js";
 import { PERSIL_ZOOM_MIN } from "../lib/persilBpn.js";
 
@@ -31,7 +30,7 @@ export default function PetaBidang({ persil, titik, terpilih, fokus, onKetuk, me
   const [jenis, setJenis] = useState("satelit");
   const [status, setStatus] = useState("");
   const mesin = useMesinPeta();
-  const { saya, pusatkan, keLokasiSaya } = useLokasiSaya();
+  const { saya, pusatkan, keLokasiSaya, berhentiIkuti } = useLokasiSaya();
 
   const props = {
     persil,
@@ -42,6 +41,7 @@ export default function PetaBidang({ persil, titik, terpilih, fokus, onKetuk, me
     onKetuk,
     posisiSaya: saya.posisi,
     pusatkan,
+    onGeser: berhentiIkuti,
     onStatusPersil: setStatus,
   };
   let kanvas = (
@@ -75,15 +75,7 @@ export default function PetaBidang({ persil, titik, terpilih, fokus, onKetuk, me
             {mencari ? "Mencari bidang…" : PESAN_PERSIL[status]}
           </div>
         )}
-        <button
-          type="button"
-          className={"fk-lokasi-saya" + (saya.status === "mencari" ? " is-mencari" : saya.posisi ? " is-aktif" : "")}
-          onClick={keLokasiSaya}
-          aria-label="Lokasi saya"
-          title="Lokasi saya"
-        >
-          <IkonLokasiSaya />
-        </button>
+        <TombolLokasiSaya saya={saya} onClick={keLokasiSaya} />
       </div>
       {mesin.cadangan && <CatatanCadangan />}
     </div>

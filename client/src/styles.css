@@ -704,6 +704,9 @@ html.fk-ketik .fk-fab{display:none;}
 .fk-lokasi-saya:focus-visible{outline:2px solid var(--brand); outline-offset:2px;}
 .fk-lokasi-saya.is-aktif{color:#1A73E8;}
 .fk-lokasi-saya.is-mencari svg{animation:fk-kedip 1s ease-in-out infinite;}
+/* Ketelitian GPS di samping tombol Lokasi saya; kuning bila titik birunya bisa meleset jauh. */
+.fk-saya-akurasi{position:absolute; right:60px; bottom:39px; z-index:1; padding:4px 9px; border-radius:999px; background:#fff; color:#1A73E8; font-size:12px; font-weight:600; white-space:nowrap; box-shadow:0 1px 4px rgba(0,0,0,.3); pointer-events:none;}
+.fk-saya-akurasi.is-kasar{background:#FEF3C7; color:#92400E;}
 @keyframes fk-kedip{50%{opacity:.35;}}
 
 /* ---- peta sebaran (halaman Peta Sensus) ---- */

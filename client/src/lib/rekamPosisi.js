@@ -35,6 +35,40 @@ const SEGAR_MS = 30000;
 /** Jeda maksimal yang boleh dibebankan pada saat menekan Simpan. */
 const TUNGGU_SIMPAN_MS = 1500;
 
+/**
+ * Mode `ikuti` (titik biru "Lokasi saya"): pembacaan baru selalu dipakai, kecuali
+ * jauh lebih kasar dari pembacaan yang masih segar - mis. lonjakan sesaat dari
+ * jaringan (±1 km) di tengah GPS (±10 m). "Jauh lebih kasar" = lebih dari dua kali
+ * dan lebih dari 25 m lebih kasar.
+ */
+export function pakaiPembacaan(lama, baru, { ikuti = false } = {}) {
+  if (!lama) return true;
+  const a = baru.akurasi ?? Infinity;
+  const b = lama.akurasi ?? Infinity;
+  if (!ikuti) return a <= b || baru.waktu - lama.waktu > SEGAR_MS;
+  return a <= Math.max(b * 2, b + 25) || baru.waktu - lama.waktu > SEGAR_MS;
+}
+
+/** Jarak dua posisi { lat, lon } dalam meter (cukup teliti untuk jarak pendek). */
+export function jarakMeter(a, b) {
+  const y = (b.lat - a.lat) * 110574;
+  const x = (b.lon - a.lon) * 111320 * Math.cos(((a.lat + b.lat) / 2) * (Math.PI / 180));
+  return Math.hypot(x, y);
+}
+
+/**
+ * Peta perlu dipusatkan ulang ke posisi baru? Ya bila ketelitiannya membaik
+ * nyata (GPS baru mengunci) atau posisinya berpindah lebih jauh dari
+ * ketelitiannya - bukan setiap goyangan kecil.
+ */
+export function perluPusatkanUlang(lama, baru) {
+  if (!lama) return true;
+  const a = baru.akurasi ?? Infinity;
+  const b = lama.akurasi ?? Infinity;
+  if (a < b * 0.7) return true;
+  return jarakMeter(lama, baru) > Math.max(10, Number.isFinite(a) ? a : 0);
+}
+
 const adaGps = () => typeof navigator !== "undefined" && "geolocation" in navigator;
 
 function pesanGalat(err) {
@@ -47,10 +81,12 @@ function pesanGalat(err) {
  * Pantau posisi perangkat.
  *
  * @param {(keadaan: { status: "mencari"|"siap"|"gagal", posisi: object|null, galat: string }) => void} onUbah
- * @param {{ segar?: boolean }} [opsi] segar = tolak posisi hasil cache (dipakai rekam ulang)
+ * @param {{ segar?: boolean, ikuti?: boolean }} [opsi] segar = tolak posisi hasil cache (dipakai rekam ulang);
+ *   ikuti = titik biru "Lokasi saya" yang mengikuti perangkat: posisi cache ditolak dan pembacaan
+ *   terbaru yang dipakai (pakaiPembacaan), bukan pembacaan tertelitinya - perangkat bisa berpindah
  * @returns {() => void} penghenti - panggil saat layar ditutup
  */
-export function pantauPosisi(onUbah, { segar = false } = {}) {
+export function pantauPosisi(onUbah, { segar = false, ikuti = false } = {}) {
   if (!adaGps()) {
     onUbah({ status: "gagal", posisi: null, galat: "Perangkat atau browser ini tidak mendukung lokasi." });
     return () => {};
@@ -71,15 +107,14 @@ export function pantauPosisi(onUbah, { segar = false } = {}) {
           akurasi: typeof c.accuracy === "number" ? c.accuracy : null,
           waktu: Date.now(),
         };
-        const lebihTeliti = !terbaik || (baru.akurasi ?? Infinity) <= (terbaik.akurasi ?? Infinity);
-        if (lebihTeliti || baru.waktu - terbaik.waktu > SEGAR_MS) terbaik = baru;
+        if (pakaiPembacaan(terbaik, baru, { ikuti })) terbaik = baru;
         onUbah({ status: "siap", posisi: terbaik, galat: "" });
       },
       (err) => {
         // Pembacaan yang sudah ada tetap dipakai; pemantauan berjalan terus.
         if (!terbaik) onUbah({ status: "gagal", posisi: null, galat: pesanGalat(err) });
       },
-      { enableHighAccuracy: true, timeout: TIMEOUT_MS, maximumAge: segar ? 0 : UMUR_MAKS_MS }
+      { enableHighAccuracy: true, timeout: TIMEOUT_MS, maximumAge: segar || ikuti ? 0 : UMUR_MAKS_MS }
     );
   } catch {
     // Beberapa browser melempar bila laman tidak aman (bukan HTTPS).
