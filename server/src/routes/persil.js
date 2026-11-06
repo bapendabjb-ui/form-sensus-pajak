@@ -13,6 +13,12 @@ const persil = require("../persil");
 
 const router = express.Router();
 
+/**
+ * Isi petak / sel untuk alamat bervesi tidak pernah berubah (versi berganti =
+ * alamat baru), jadi browser boleh menyimpannya seminggu tanpa bertanya lagi.
+ */
+const SIMPAN_BROWSER = "private, max-age=604800, immutable";
+
 /*
  * Peta memuat persil per petak: menggeser peta di daerah padat bisa meminta
  * puluhan petak, dan satu kantor bisa keluar lewat satu IP. Yang dicegah hanya
@@ -47,7 +53,7 @@ function bacaTitik(q) {
   return { lat, lon };
 }
 
-/** GET /api/persil -> { jumlah, versi, wilayah: [...] } (lihat persil.ringkasan). */
+/** GET /api/persil -> { jumlah, versi, wilayah: [...], sel: [[i, j]] } (lihat persil.ringkasan). */
 router.get(
   "/",
   batasiCari,
@@ -69,7 +75,7 @@ router.get(
     const i = bacaBulat(req.params.i, "petak");
     const j = bacaBulat(req.params.j, "petak");
     const isi = await persil.petakPeta(i, j);
-    res.setHeader("Cache-Control", req.query.v ? "private, max-age=86400" : "no-cache");
+    res.setHeader("Cache-Control", req.query.v ? SIMPAN_BROWSER : "no-cache");
     res.type("json").send(isi);
   })
 );
@@ -83,7 +89,7 @@ router.get(
   batasiPetak,
   wrap(async (req, res) => {
     const isi = await persil.ringkasPeta(bacaBulat(req.params.i, "sel"), bacaBulat(req.params.j, "sel"));
-    res.setHeader("Cache-Control", req.query.v ? "private, max-age=86400" : "no-cache");
+    res.setHeader("Cache-Control", req.query.v ? SIMPAN_BROWSER : "no-cache");
     res.type("json").send(isi);
   })
 );

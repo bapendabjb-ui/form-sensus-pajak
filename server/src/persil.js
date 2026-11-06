@@ -656,8 +656,9 @@ async function pencariPersilEkspor(entri) {
 
 /**
  * Ringkasan persil tersimpan: { jumlah, versi, wilayah: [{ kunci, kodeWilayah,
- * kecamatan, kelurahan, jumlah, diimpor, oleh }] }. `versi` berganti setiap isi
- * berubah - kunci cache petak di browser.
+ * kecamatan, kelurahan, jumlah, diimpor, oleh }], sel: [[i, j]] }. `versi`
+ * berganti setiap isi berubah - kunci cache petak di browser. `sel` = sel
+ * ringkas berisi bidang, yang diunduh browser di belakang (lib/persilBpn.js).
  */
 async function ringkasan() {
   // Hitungan per wilayah cukup dari indeks (aktif, kunci_wilayah, id); nama
@@ -693,7 +694,7 @@ async function ringkasan() {
     .sort((a, b) => a.kecamatan.localeCompare(b.kecamatan) || a.kelurahan.localeCompare(b.kelurahan));
   const jumlah = wilayah.reduce((n, w) => n + w.jumlah, 0);
   const idMaks = Math.max(0, ...kelompok.map((k) => k._max.id || 0));
-  return { jumlah, versi: `${jumlah}-${idMaks}`, wilayah };
+  return { jumlah, versi: `${jumlah}-${idMaks}`, wilayah, sel: jumlah ? await daftarSelRingkas() : [] };
 }
 
 /** Bidang dengan NIB yang dicari, paling banyak 20: bentukInfo + kotak + geometri. */
@@ -713,6 +714,31 @@ async function cariNib(q) {
   return daftar.map(bentukSorot);
 }
 
+let simpananSel = null; // Promise<[[i, j]]>: sel ringkas yang berisi bidang
+
+/**
+ * Daftar sel ringkas [[i, j], ...] yang memuat sudut barat daya bidang - untuk
+ * menyiapkan peta sekota di belakang (server: hangatkanRingkas; browser:
+ * ringkasan().sel). Disimpan sampai persil berubah.
+ */
+function daftarSelRingkas() {
+  if (!simpananSel) {
+    const janji = prisma.$queryRaw`
+      SELECT DISTINCT FLOOR(sel_lat / ${PETAK_PER_RINGKAS}) AS j, FLOOR(sel_lon / ${PETAK_PER_RINGKAS}) AS i
+      FROM persil WHERE aktif = 1`.then((r) => r.map(({ i, j }) => [Number(i), Number(j)]));
+    simpananSel = janji;
+    janji.catch(() => simpananSel === janji && (simpananSel = null));
+  }
+  return simpananSel;
+}
+
+/** Persil berubah (impor selesai, hapus): buang semua isi ringkas tersimpan, lalu siapkan lagi. */
+function persilBerubah() {
+  simpananRingkas.clear();
+  simpananSel = null;
+  hangatkanDiBelakang();
+}
+
 let menghangatkan = null; // Promise selama penghangatan berjalan
 let hangatkanLagi = false;
 
@@ -730,10 +756,7 @@ function hangatkanRingkas() {
   menghangatkan = (async () => {
     do {
       hangatkanLagi = false;
-      const sel = await prisma.$queryRaw`
-        SELECT DISTINCT FLOOR(sel_lat / ${PETAK_PER_RINGKAS}) AS j, FLOOR(sel_lon / ${PETAK_PER_RINGKAS}) AS i
-        FROM persil WHERE aktif = 1`;
-      for (const { i, j } of sel) await ringkasPeta(Number(i), Number(j));
+      for (const [i, j] of await daftarSelRingkas()) await ringkasPeta(i, j);
     } while (hangatkanLagi);
   })().finally(() => {
     menghangatkan = null;
@@ -778,8 +801,7 @@ async function selesaikanImpor(token) {
     prisma.persil.deleteMany({ where: { aktif: true, kunciWilayah: { in: kunci } } }),
     prisma.persil.updateMany({ where: { impor: token }, data: { aktif: true } }),
   ]);
-  simpananRingkas.clear();
-  hangatkanDiBelakang();
+  persilBerubah();
   return { jumlah: baru.count, diganti: lama.count, wilayah: kunci.length };
 }
 
@@ -795,8 +817,7 @@ async function hapusPersil({ kunci, semua = false }) {
   const hasil = semua
     ? await prisma.persil.deleteMany({})
     : await prisma.persil.deleteMany({ where: { aktif: true, kunciWilayah: { in: daftar } } });
-  simpananRingkas.clear();
-  hangatkanDiBelakang();
+  persilBerubah();
   return hasil.count;
 }
 

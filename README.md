@@ -853,7 +853,7 @@ pejabat) bisa melihat lapisan beserta atributnya. Buang dulu kolom data pribadi 
 Peta pendaftaran tanah BPN (shapefile persil per kecamatan) bisa dimasukkan ke aplikasi. Hasilnya:
 
 - **Peta Sensus:** bidang tergambar mulai **zoom 13** (seluruh Banjarbaru dalam satu layar, tampil
-  sebagai sebaran berwarna; dari zoom 15 batas tiap bidang lengkap), di peta Google maupun cadangan,
+  sebagai sebaran berwarna; dari zoom 17 batas tiap bidang lengkap), di peta Google maupun cadangan,
   dengan **warna per kecamatan** (tabel di bawah). Mengetuk bidang menyorotnya dan membuka NIB, tipe hak,
   luas peta, kelurahan, dan atribut lain. **Lapisan → Persil BPN** menyalakan / mematikannya, dan
   centang di bawahnya memilih kecamatan mana yang tampil (tersimpan per browser). Legenda menyebut
@@ -917,8 +917,14 @@ browser, dalam dua tingkat rincian:
 
 | Zoom | Data | Ukuran |
 | --- | --- | --- |
-| 13–14 | **Ringkas** per sel ±2,2 km (4 × 4 petak): koordinat dibulatkan 1e-5° (±1,1 m), garis disederhanakan ±3 m (Douglas-Peucker), ditulis sebagai selisih antartitik. Di zoom ini satu piksel ±10–20 m, jadi bedanya tidak terlihat | Seluruh kota 83 sel, 6,8 MB / **2,1 MB gzip**; sel terbesar 316 KB, disusun ≤ 160 ms lalu disimpan di memori server sampai persil berubah; seluruhnya disiapkan di belakang 20 detik sesudah server menyala dan sesudah impor / hapus (±4 detik) |
-| 15 ke atas | **Lengkap** per petak ±550 m: id, kecamatan, poligon | Petak terpadat ±1.400 bidang: ±290 KB, ±55 KB gzip, ±60 ms |
+| 13–16 | **Ringkas** per sel ±2,2 km (4 × 4 petak): koordinat dibulatkan 1e-5° (±1,1 m), garis disederhanakan ±3 m (Douglas-Peucker), ditulis sebagai selisih antartitik. Sampai zoom 16 satu piksel ≥ ±2,4 m, jadi bedanya tidak terlihat. Begitu persil pertama tergambar, browser mengunduh **semua** sel kota di belakang (tiga sekaligus) - geser dan zoom berikutnya tidak menunggu jaringan | Seluruh kota 83 sel, 6,8 MB / **2,1 MB gzip**; sel terbesar 316 KB, disusun ≤ 160 ms lalu disimpan di memori server sampai persil berubah; seluruhnya disiapkan di belakang 20 detik sesudah server menyala dan sesudah impor / hapus (±4 detik) |
+| 17 ke atas | **Lengkap** per petak ±550 m: id, kecamatan, poligon. Selama petaknya belum tiba, ubin digambar dulu dari isi ringkas lalu dipertajam - persil tidak pernah hilang saat peta digeser / diperbesar | Petak terpadat ±1.400 bidang: ±290 KB, ±55 KB gzip, ±60 ms |
+
+Keterangan "Memuat persil BPN…" hanya muncul bila ada bagian peta yang belum bisa digambar sama
+sekali (biasanya hanya saat pertama dibuka); unduhan di belakang dan penajaman tidak. Isi petak /
+sel disimpan browser seminggu (`immutable`, alamatnya memuat versi). Diuji di peta Google dengan
+jaringan diperlambat (jeda 150 ms, ±10 Mbps): 5× perbesar, 2× geser, 3× perkecil tanpa sekali pun
+persil hilang atau keterangan memuat muncul.
 
 Bidang kecil masuk sel ringkas tempat sudut barat dayanya saja (tidak pernah ganda); bidang besar
 masuk setiap sel yang disentuhnya dan digambar sekali menurut id-nya.
@@ -1402,9 +1408,9 @@ Kedua `GET` dibatasi 600 permintaan per 10 menit per IP.
 
 | Method | Endpoint | Keterangan |
 | ------ | -------- | ---------- |
-| `GET`  | `/persil` | `{ jumlah, versi, wilayah: [{ kunci, kodeWilayah, kecamatan, kelurahan, jumlah, diimpor, oleh }] }` |
-| `GET`  | `/persil/petak/:i/:j?v=<versi>` | Bidang di petak ±550 m itu, ringkas: `{ kecamatan: [nama], bidang: [[id, indeks kecamatan, poligon-poligon]] }` (`i` = bujur, `j` = lintang, `floor(derajat / 0.005)`); boleh disimpan browser sehari karena alamatnya memuat versi. 6.000 per 10 menit per IP |
-| `GET`  | `/persil/ringkas/:i/:j?v=<versi>` | Isi ringkas sel ±2,2 km (zoom 13–14, `floor(derajat / 0.02)`): `{ kecamatan, asal, bidang: [indeks kecamatan, n, dx, dy, ...], besar: [[id, indeks kecamatan, [x, y, dx, dy, ...]]] }`, satuan 1e-5°. Disimpan browser sehari dan di memori server; 6.000 per 10 menit per IP |
+| `GET`  | `/persil` | `{ jumlah, versi, wilayah: [{ kunci, kodeWilayah, kecamatan, kelurahan, jumlah, diimpor, oleh }], sel: [[i, j]] }` - `sel` = sel ringkas berisi bidang, diunduh browser di belakang |
+| `GET`  | `/persil/petak/:i/:j?v=<versi>` | Bidang di petak ±550 m itu, ringkas: `{ kecamatan: [nama], bidang: [[id, indeks kecamatan, poligon-poligon]] }` (`i` = bujur, `j` = lintang, `floor(derajat / 0.005)`); boleh disimpan browser seminggu karena alamatnya memuat versi. 6.000 per 10 menit per IP |
+| `GET`  | `/persil/ringkas/:i/:j?v=<versi>` | Isi ringkas sel ±2,2 km (zoom 13–16, `floor(derajat / 0.02)`): `{ kecamatan, asal, bidang: [indeks kecamatan, n, dx, dy, ...], besar: [[id, indeks kecamatan, [x, y, dx, dy, ...]]] }`, satuan 1e-5°. Disimpan browser seminggu dan di memori server; 6.000 per 10 menit per IP |
 | `GET`  | `/persil/titik?lat=&lon=[&bentuk=1]` | `{ ada, persil }`: bidang tempat titik itu berada (yang terkecil bila bertumpuk), atau `null`. `bentuk=1` menambah `batas` dan `fitur` GeoJSON (bidang yang diketuk di peta) |
 | `GET`  | `/persil/cari?q=` | Bidang ber-NIB itu (maks. 20) + `batas` dan `fitur` GeoJSON. NIB 5 digit (dengan / tanpa nol depan) atau lengkap 13 digit; tanda baca diabaikan |
 | `POST` | `/persil/impor` | 🔒 Mulai impor → `{ token, kirimMaks }`; sisa impor tak selesai > 6 jam dibuang |

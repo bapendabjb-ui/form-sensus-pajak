@@ -11,9 +11,13 @@ import * as api from "../api.js";
  * digambar ke ubin kanvas 256 px seperti ubin peta biasa: mesin peta meminta
  * ubin yang terlihat, ubinnya digambar dari data yang diunduh sekali lalu
  * disimpan (server/src/persil.js):
- *   - zoom 13-14: isi ringkas per sel ±2,2 km (garis disederhanakan ±3 m,
- *     tidak terlihat di zoom itu) - seluruh kota ±2 MB;
- *   - zoom 15 ke atas: petak ±550 m dengan bentuk lengkap.
+ *   - zoom 13-16: isi ringkas per sel ±2,2 km (garis disederhanakan ±3 m,
+ *     tidak terlihat di zoom itu) - seluruh kota ±2 MB, diunduh semua di
+ *     belakang begitu persil pertama tergambar, supaya geser / zoom berikutnya
+ *     tidak pernah menunggu jaringan;
+ *   - zoom 17 ke atas: petak ±550 m dengan bentuk lengkap. Selama petaknya
+ *     belum ada, ubin digambar dulu dari isi ringkas lalu dipertajam - persil
+ *     tidak pernah hilang saat peta digeser atau diperbesar.
  * Keterangan bidang diambil dari server saat bidangnya diketuk. Pengelolaannya
  * di components/KelolaPersil.jsx.
  */
@@ -25,8 +29,11 @@ import * as api from "../api.js";
  */
 export const PERSIL_ZOOM_MIN = 13;
 
-/** Dari zoom ini dipakai bentuk lengkap (petak); di bawahnya isi ringkas. */
-export const PERSIL_ZOOM_RINCI = 15;
+/**
+ * Dari zoom ini dipakai bentuk lengkap (petak); di bawahnya isi ringkas. Di
+ * zoom 16 satu piksel ±2,4 m, jadi penyederhanaan ±3 m baru terlihat di zoom 17.
+ */
+export const PERSIL_ZOOM_RINCI = 17;
 
 /** Sampai /api/konfigurasi menjawab - sama dengan server/src/persil.js UKURAN_PETAK / UKURAN_RINGKAS. */
 const UKURAN_PETAK_BAWAAN = 0.005;
@@ -118,7 +125,7 @@ function simpan(kunci, nilai) {
  *   kecamatan: { nama, jumlah, warna: { peta, satelit }, tampil }[],  urut abjad
  *   ubahKecamatan: (nama: string, tampil: boolean) => void,
  *   muatUlang: () => Promise<void>,
- *   peta: { versi, ukuranPetak, ukuranRingkas, warna, kecamatan: string[], tersembunyi: string[], kunci } | null
+ *   peta: { versi, ukuranPetak, ukuranRingkas, sel, warna, kecamatan: string[], tersembunyi: string[], kunci } | null
  *          untuk mesin peta; null = jangan digambar. `kunci` berganti setiap gambarnya harus diulang.
  * }}
  */
@@ -189,12 +196,14 @@ export function usePersilBpn() {
       versi,
       ukuranPetak: ukuran.petak,
       ukuranRingkas: ukuran.ringkas,
+      // Sel ringkas sekota, untuk disiapkan di belakang (bukan bagian dari `kunci`).
+      sel: ringkasan?.sel || [],
       warna: Object.fromEntries(kecamatan.map((k) => [k.nama, k.warna])),
       kecamatan: kecamatan.map((k) => k.nama),
       tersembunyi: sembunyi,
       kunci: `${versi}|${ukuran.petak}|${ukuran.ringkas}|${sembunyi.join(",")}`,
     };
-  }, [ada, nyala, versi, ukuran, kecamatan]);
+  }, [ada, nyala, versi, ukuran, kecamatan, ringkasan]);
 
   return { ringkasan, ada, nyala, ubahNyala, kecamatan, ubahKecamatan, muatUlang, peta };
 }
@@ -240,10 +249,23 @@ function uraiPetak(isi) {
 }
 
 /** Petak data (bentuk lengkap), dari simpanan bila sudah pernah diunduh. Urutan simpanan = terakhir dipakai. */
-const muatPetak = (versi, i, j) =>
-  muatDenganSimpanan(simpanan, PETAK_SIMPAN_MAKS, `${versi}|${i},${j}`, () =>
-    api.petakPersil(i, j, versi).then(uraiPetak)
+const muatPetak = (versi, i, j, opsi) =>
+  muatDenganSimpanan(
+    simpanan,
+    PETAK_SIMPAN_MAKS,
+    `${versi}|${i},${j}`,
+    () => api.petakPersil(i, j, versi).then(uraiPetak),
+    opsi
   );
+
+/** Petak data [i, j] yang menyentuh kotak ini. */
+function petakDi({ barat, timur, utara, selatan }, g) {
+  const hasil = [];
+  for (let i = Math.floor(barat / g); i <= Math.floor(timur / g); i++) {
+    for (let j = Math.floor(selatan / g); j <= Math.floor(utara / g); j++) hasil.push([i, j]);
+  }
+  return hasil;
+}
 
 /* ---------- isi ringkas (zoom 13-14) ---------- */
 
@@ -340,42 +362,83 @@ export function uraiRingkas(isi) {
   return { nama: isi.kecamatan || [], asal: isi.asal || [0, 0], n: nC, xy, awal, ki, id, kotak };
 }
 
-/** Muat satu unduhan bersama penghitung status (memuat / galat) dan simpanan LRU. */
-function muatDenganSimpanan(simpananIni, maks, kunci, ambil) {
+/** Kunci simpanan yang isinya sudah tiba (bukan sekadar sedang diunduh). */
+const siap = new Set();
+
+/**
+ * Muat satu unduhan lewat simpanan LRU. Unduhan biasa ikut dihitung di
+ * keadaanPetak (keterangan "Memuat persil" di peta); `diam` = unduhan di
+ * belakang (menyiapkan sekota, mempertajam ubin yang sudah berisi) - tidak.
+ */
+function muatDenganSimpanan(simpananIni, maks, kunci, ambil, { diam = false } = {}) {
   const ada = simpananIni.get(kunci);
   if (ada) {
     simpananIni.delete(kunci);
     simpananIni.set(kunci, ada);
     return ada;
   }
-  sedangDimuat++;
-  lapor();
+  if (!diam) {
+    sedangDimuat++;
+    lapor();
+  }
   const janji = ambil()
     .then(
       (hasil) => {
         galatTerakhir = "";
+        siap.add(kunci);
         return hasil;
       },
       (e) => {
         // Dicoba lagi saat ubinnya diminta lagi.
-        simpananIni.delete(kunci);
-        galatTerakhir = e.message || "Persil gagal dimuat.";
+        if (simpananIni.get(kunci) === janji) simpananIni.delete(kunci);
+        if (!diam) galatTerakhir = e.message || "Persil gagal dimuat.";
         throw e;
       }
     )
     .finally(() => {
-      sedangDimuat--;
-      lapor();
+      if (!diam) {
+        sedangDimuat--;
+        lapor();
+      }
     });
   simpananIni.set(kunci, janji);
-  while (simpananIni.size > maks) simpananIni.delete(simpananIni.keys().next().value);
+  while (simpananIni.size > maks) {
+    const tertua = simpananIni.keys().next().value;
+    simpananIni.delete(tertua);
+    siap.delete(tertua);
+  }
   return janji;
 }
 
-const muatRingkas = (versi, i, j) =>
-  muatDenganSimpanan(simpananRingkas, RINGKAS_SIMPAN_MAKS, `${versi}|${i},${j}`, () =>
-    api.ringkasPersil(i, j, versi).then(uraiRingkas)
+const muatRingkas = (versi, i, j, opsi) =>
+  muatDenganSimpanan(
+    simpananRingkas,
+    RINGKAS_SIMPAN_MAKS,
+    `${versi}|${i},${j}`,
+    () => api.ringkasPersil(i, j, versi).then(uraiRingkas),
+    opsi
   );
+
+let disiapkanUntuk = null; // versi persil yang isi ringkas sekotanya sedang / sudah diunduh
+
+/**
+ * Unduh isi ringkas semua sel kota di belakang (±2 MB, sekali per versi;
+ * sesudahnya dari cache browser), tiga sekaligus. Dipanggil saat persil
+ * pertama kali digambar, jadi pembuka peta yang tidak sampai zoom 13 tidak
+ * ikut mengunduhnya.
+ */
+function siapkanSekota(cfg) {
+  if (disiapkanUntuk === cfg.versi || !cfg.sel?.length) return;
+  disiapkanUntuk = cfg.versi;
+  const antrean = [...cfg.sel];
+  const pekerja = async () => {
+    while (antrean.length && disiapkanUntuk === cfg.versi) {
+      const [i, j] = antrean.shift();
+      await muatRingkas(cfg.versi, i, j, { diam: true }).catch(() => {});
+    }
+  };
+  for (let k = 0; k < 3; k++) pekerja();
+}
 
 /* ---------- ubin kanvas ---------- */
 
@@ -394,7 +457,7 @@ const yKeLat = (y, n) => (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * 18
 const GAYA_ZOOM = {
   13: { garis: 0.35, tembusGaris: 0.75, tembusIsi: 0.3 },
   14: { garis: 0.45, tembusGaris: 0.85, tembusIsi: 0.2 },
-  15: { garis: 0.55, tembusGaris: 0.95, tembusIsi: 0.07 },
+  15: { garis: 0.55, tembusGaris: 0.95, tembusIsi: 0.08 },
   16: { garis: 0.8, tembusGaris: 0.95, tembusIsi: 0.07 },
   17: { garis: 1.1, tembusGaris: 0.95, tembusIsi: 0.07 },
 };
@@ -425,9 +488,32 @@ export async function gambarUbinPersil(ubin, { x, y, z }, cfg, jenis, batal = ()
     utara: yKeLat(y, n),
     selatan: yKeLat(y + 1, n),
   };
-  const jalur = z < PERSIL_ZOOM_RINCI ? await jalurRingkas(batas, { x, y, n }, cfg, jenis) : await jalurRinci(batas, { x, y, n }, cfg, jenis);
-  if (batal()) return;
-  gambarJalur(ubin, jalur, z);
+  const posisi = { x, y, n };
+  siapkanSekota(cfg);
+
+  if (z < PERSIL_ZOOM_RINCI) {
+    const jalur = await jalurRingkas(batas, posisi, cfg, jenis);
+    if (!batal()) gambarJalur(ubin, jalur, z);
+    return;
+  }
+
+  // Bentuk lengkap. Petaknya belum semua tiba: gambar dulu dari isi ringkas
+  // (biasanya sudah tersimpan), lalu pertajam di belakang - ubinnya tidak
+  // pernah kosong menunggu jaringan.
+  const lengkap = petakDi(batas, cfg.ukuranPetak).every(([i, j]) => siap.has(`${cfg.versi}|${i},${j}`));
+  if (!lengkap) {
+    const kasar = await jalurRingkas(batas, posisi, cfg, jenis);
+    if (batal()) return;
+    gambarJalur(ubin, kasar, z);
+    jalurRinci(batas, posisi, cfg, jenis, { diam: true })
+      .then((jalur) => !batal() && gambarJalur(ubin, jalur, z))
+      .catch(() => {
+        // Tetap gambar ringkas; dicoba lagi saat ubinnya diminta lagi.
+      });
+    return;
+  }
+  const jalur = await jalurRinci(batas, posisi, cfg, jenis);
+  if (!batal()) gambarJalur(ubin, jalur, z);
 }
 
 /*
@@ -445,15 +531,10 @@ function jalurUntuk(jalur, warna) {
   return p;
 }
 
-/** Jalur per warna dari petak bentuk lengkap (zoom 15 ke atas). */
-async function jalurRinci({ barat, timur, utara, selatan }, { x, y, n }, cfg, jenis) {
-  const g = cfg.ukuranPetak;
-
-  const tunggu = [];
-  for (let i = Math.floor(barat / g); i <= Math.floor(timur / g); i++) {
-    for (let j = Math.floor(selatan / g); j <= Math.floor(utara / g); j++) tunggu.push(muatPetak(cfg.versi, i, j));
-  }
-  const petak = await Promise.all(tunggu);
+/** Jalur per warna dari petak bentuk lengkap (zoom 17 ke atas). */
+async function jalurRinci(batas, { x, y, n }, cfg, jenis, opsi) {
+  const { barat, timur, utara, selatan } = batas;
+  const petak = await Promise.all(petakDi(batas, cfg.ukuranPetak).map(([i, j]) => muatPetak(cfg.versi, i, j, opsi)));
 
   // Satu jalur per warna: digambar sekaligus, dan bidang yang menyentuh
   // beberapa petak data cukup sekali.
@@ -484,7 +565,7 @@ async function jalurRinci({ barat, timur, utara, selatan }, { x, y, n }, cfg, je
 }
 
 /**
- * Jalur per warna dari isi ringkas (zoom 13-14). Bidang kecil hanya ada di sel
+ * Jalur per warna dari isi ringkas (zoom 13-16, dan pengganti sementara di atasnya). Bidang kecil hanya ada di sel
  * sudut barat dayanya, jadi sel di selatan / barat ubin ikut dimuat: bidangnya
  * bisa menjulur masuk. Bidang besar ada di setiap sel yang disentuhnya - cukup sekali.
  */
