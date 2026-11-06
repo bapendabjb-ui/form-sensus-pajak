@@ -9,8 +9,8 @@ import {
   WARNA_STATUS,
   ContohLapisan,
   ContohPersil,
-  PanelBidang,
 } from "./peta/bersama.jsx";
+import PanelBidang from "./peta/PanelBidang.jsx";
 import { IkonLayarPenuh, IkonTutupPenuh } from "./Icons.jsx";
 import { PERSIL_ZOOM_MIN, warnaDi, STATUS_BIDANG, LABEL_BELUM, warnaStatusBidang } from "../lib/persilBpn.js";
 
@@ -44,7 +44,7 @@ const PESAN_PERSIL = {
  * sorot  : bidang hasil cari NIB yang disorot (lihat peta/SebaranGoogle.jsx), atau null
  *
  * Keterangan bidang persil yang diketuk / dicari tampil di panel tetap di kiri atas
- * peta (PanelBidang), bukan balon: tidak ikut bergeser saat peta digeser.
+ * peta (peta/PanelBidang.jsx: tab NIB dan NOP), bukan balon: tidak ikut bergeser.
  */
 export default function PetaSebaran({
   titik = [],
@@ -170,7 +170,7 @@ export default function PetaSebaran({
           {persil?.status && (
             <span className="fk-legenda-persil">
               <span className="fk-legenda">
-                Persil BPN, status sensus<span className="fk-legenda-persil-titik">:</span>
+                NOP PBB<span className="fk-legenda-persil-titik">:</span>
               </span>
               {[...STATUS_BIDANG, { kunci: "belum", label: LABEL_BELUM }].map((s) => (
                 <span className="fk-legenda fk-legenda-status" key={s.kunci}>
@@ -216,7 +216,7 @@ export default function PetaSebaran({
           </Suspense>
         </PenahanPeta>
         {bidang && (
-          <PanelBidang properti={bidang.fitur.properties} onTutup={() => setBidang(null)} panelRef={panelRef} />
+          <PanelBidang bidang={bidang} onTutup={() => setBidang(null)} panelRef={panelRef} />
         )}
         {kosong && !bidang && (
           <div className="fk-peta-kosong" role="status">

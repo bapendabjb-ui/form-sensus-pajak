@@ -45,9 +45,29 @@ export default function PetaPage() {
   const sorotBidang = (b) => {
     persil.ubahNyala(true);
     if (persil.kecamatan.some((k) => k.nama === b.kecamatan && !k.tampil)) persil.ubahKecamatan(b.kecamatan, true);
-    // `id` = warna sorotnya mengikuti status sensus bidang itu (mode warna "Status sensus").
-    setSorot({ id: b.id, kecamatan: b.kecamatan, fitur: b.fitur, batas: b.batas });
+    // Utuh: `id` = warna sorotnya mengikuti status NOP bidang itu, dan panel bidang (tab NOP)
+    // butuh kunci, NIB, dan keterangan BPN-nya. Objek baru supaya bidang yang sama bisa dicari lagi.
+    setSorot({ ...b });
   };
+
+  // Dibuka dari halaman Integrasi / tautan Excel (/peta?nib=17.11.74.02.00004): sorot bidangnya.
+  const [nibAwal] = useState(() => new URLSearchParams(window.location.search).get("nib") || "");
+  useEffect(() => {
+    if (!nibAwal || !persil.ada) return undefined;
+    let batal = false;
+    api
+      .cariPersil(nibAwal)
+      .then((daftar) => {
+        if (batal) return;
+        if (daftar?.length) sorotBidang(daftar[0]);
+        else toast(`Bidang NIB ${nibAwal} tidak ditemukan di peta BPN.`, true);
+      })
+      .catch((e) => !batal && toast(e.message, true));
+    return () => {
+      batal = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nibAwal, persil.ada]);
 
   const muat = useCallback(async () => {
     setLoading(true);

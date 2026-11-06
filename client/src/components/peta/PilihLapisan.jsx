@@ -76,7 +76,7 @@ export default function PilihLapisan({ lapisan, persil, admin = false }) {
           <div className="fk-peta-jenis">
             {[
               ["kecamatan", "Kecamatan"],
-              ["status", "Status sensus"],
+              ["status", "NOP PBB"],
             ].map(([k, label]) => (
               <button
                 type="button"
@@ -92,7 +92,7 @@ export default function PilihLapisan({ lapisan, persil, admin = false }) {
           </div>
           {persil.mode === "status" && (
             <span className="fk-hint-kecil">
-              Bidang yang sudah dicatat petugas di pertanyaan Bidang Tanah BPN, menurut hubungannya dengan NOP.
+              Lapisan NOP PBB: bidang menurut NOP-nya, dari data sensus dan dari tab NOP saat bidang diketuk.
             </span>
           )}
           {persil.statusGalat && <span className="fk-err">{persil.statusGalat}</span>}

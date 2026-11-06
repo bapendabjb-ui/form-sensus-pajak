@@ -7,6 +7,7 @@ import { useDialog } from "../../components/Dialog.jsx";
 import { Loading, ErrorBox, Empty, StatusPill, BerkasPill } from "../../components/Ui.jsx";
 import PetugasTim from "../../components/PetugasTim.jsx";
 import Sheet from "../../components/Sheet.jsx";
+import PitaTitipan from "../../components/PitaTitipan.jsx";
 import { PitaPengajuan, AjukanHapus } from "../../components/PengajuanHapus.jsx";
 import { judulEntri, ringkasEntri, fotoEntri } from "../../lib/ringkas.js";
 import { formatWaktu } from "../../lib/format.js";
@@ -238,6 +239,7 @@ export function DetailKertasKerja({ id }) {
   return (
     <div className={"fk-fill" + (hanyaLihat ? "" : " ada-fab")}>
       {tombolKembali}
+      {!hanyaLihat && <PitaTitipan di="detail" />}
 
       <PitaPengajuan
         pengajuan={kk.pengajuanHapus}

@@ -42,7 +42,7 @@ const bentukTersimpan = new Map();
 export default function NibInput({ value, onChange, invalid, konteks = {} }) {
   const toast = useToast();
   const v = useMemo(() => nibDari(value), [value]);
-  const { entriId = null, titik = null } = konteks;
+  const { entriId = null, titik = null, nop: nopIni = "" } = konteks;
   const persil = usePersilBpn({ paksa: true });
   const [petaBuka, setPetaBuka] = useState(false);
   const [ketikBuka, setKetikBuka] = useState(false);
@@ -185,7 +185,10 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
           {v.bidang.map((b) => {
             const k = kunciBidang(b.kode, b.nib);
             const rinci = [b.tipeHak, Number.isFinite(b.luas) && `luas peta ${formatLuas(b.luas)}`, b.kelurahan && `Kel. ${b.kelurahan}`].filter(Boolean);
-            const dataLain = lain[k] || [];
+            const dataLain = (lain[k] || []).filter((d) => d.sumber !== "peta");
+            // NOP yang dicatat langsung pada bidang ini dari Peta Sensus (tab NOP).
+            const nopPeta = [...new Set((lain[k] || []).filter((d) => d.sumber === "peta").map((d) => d.nop))];
+            const nopPetaLain = nopPeta.filter((n) => n !== nopIni);
             return (
               <li className="fk-nib-item" key={k}>
                 <div className="fk-nib-isi">
@@ -196,6 +199,15 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
                   {rinci.length > 0 && <div className="fk-nib-rinci">{rinci.join(" · ")}</div>}
                   {b.diPeta === false && (
                     <div className="fk-nib-peringatan">Tidak ada di peta BPN. NIB tetap dicatat dari sertifikat.</div>
+                  )}
+                  {nopIni && nopPeta.includes(nopIni) && (
+                    <div className="fk-nib-cocok">NOP formulir ini sudah tercatat di bidang ini dari peta.</div>
+                  )}
+                  {nopPetaLain.length > 0 && (
+                    <div className="fk-nib-peringatan">
+                      Bidang ini sudah punya NOP {nopPetaLain.map(formatNop).join(", ")} (dari peta)
+                      {nopIni ? ", berbeda dengan NOP di formulir ini." : "."}
+                    </div>
                   )}
                   {dataLain.length > 0 && (
                     <div className="fk-nib-peringatan">

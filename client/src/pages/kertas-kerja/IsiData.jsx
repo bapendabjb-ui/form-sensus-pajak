@@ -29,6 +29,8 @@ import PersilDiTitik from "../../components/PersilDiTitik.jsx";
 import { formatWaktu, urlPeta } from "../../lib/format.js";
 import { bersihkanDrafLama, useKonfigurasi } from "../../lib/konfigurasi.js";
 import { kembali, pasangPenjaga } from "../../lib/router.js";
+import { bacaTitipan, hapusTitipan } from "../../lib/titipanBidang.js";
+import { nibLengkap } from "../../lib/nib.js";
 import { urlKk, susunTataLetak } from "./bersama.js";
 
 const UMUR_FOTO_DRAF_MS = 20 * 3600 * 1000; // unggahan yang tak disimpan dibersihkan server setelah 24 jam
@@ -119,6 +121,26 @@ export function IsiData({ kkId, formulirId, entriId }) {
     }
   }, [kunciDraf]);
 
+  // Bidang yang dititipkan dari tab NOP di Peta Sensus (lib/titipanBidang.js): diisikan ke
+  // formulir baru pertama yang punya pertanyaan Bidang Tanah BPN, beserta NOP-nya bila ada.
+  const pakaiTitipan = useCallback(
+    (f) => {
+      const t = bacaTitipan();
+      const qNib = t && f.pertanyaan.find((q) => q.tipe === "nib");
+      if (!qNib) return;
+      const qNop = t.nop ? f.pertanyaan.find((q) => q.tipe === "nop") : null;
+      setAnswers((a) => ({
+        ...a,
+        [qNib.id]: { bidang: [t.bidang], status: "" },
+        ...(qNop ? { [qNop.id]: t.nop } : {}),
+      }));
+      hapusTitipan();
+      berubah.current = true;
+      toast(`Bidang NIB ${nibLengkap(t.bidang.kode, t.bidang.nib)}${qNop ? " dan NOP-nya" : ""} sudah terisi dari peta.`);
+    },
+    [toast]
+  );
+
   const kosongkan = useCallback((f) => {
     const awal = {};
     for (const q of f.pertanyaan) awal[q.id] = emptyValue(q.tipe);
@@ -157,6 +179,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
           f = form;
           setNomor(kk.nomor);
           kosongkan(form);
+          pakaiTitipan(form);
         }
         setFormulir(f);
 
@@ -177,7 +200,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
     return () => {
       batal = true;
     };
-  }, [entriId, formulirId, kkId, kosongkan, kunciDraf]);
+  }, [entriId, formulirId, kkId, kosongkan, kunciDraf, pakaiTitipan]);
 
   // Simpan draf ke perangkat setiap kali isian berubah (tidak saat tawaran draf lama masih tampil).
   useEffect(() => {
@@ -432,7 +455,14 @@ export function IsiData({ kkId, formulirId, entriId }) {
   // Pertanyaan Bidang Tanah BPN: data yang sedang dibuka (tidak ikut disebut di
   // peringatan bidang ganda) dan titik Lokasi objeknya (usulan bidang, pusat peta).
   const titikNib = titikDariFormulir(formulir.pertanyaan, answers);
-  const konteksNib = { entriId: entriId || null, titik: titikNib ? { lat: titikNib.lat, lon: titikNib.lon } : null };
+  const qNop = formulir.pertanyaan.find((q) => q.tipe === "nop");
+  const nopIni = qNop && /^\d{18}$/.test(answers[qNop.id] || "") ? answers[qNop.id] : "";
+  const konteksNib = {
+    entriId: entriId || null,
+    titik: titikNib ? { lat: titikNib.lat, lon: titikNib.lon } : null,
+    // NOP data ini: dibandingkan dengan NOP yang sudah tercatat di bidang dari peta.
+    nop: nopIni,
+  };
 
   const kolomIsian = (q) => (
     <div className="fk-field" key={q.id} data-qid={q.id}>

@@ -10,10 +10,8 @@ import { Component, useEffect, useState } from "react";
 import * as api from "../../api.js";
 import { LAPISAN } from "../../lib/ubinPeta";
 import { googleGagal, onGoogleGagal } from "../../lib/googleMaps.js";
-import { formatNop } from "../../lib/format.js";
-import { navigate } from "../../lib/router.js";
 import { geserDariPanel } from "../../lib/persilBpn.js";
-import { IkonTutup, IkonLokasiSaya } from "../Icons.jsx";
+import { IkonLokasiSaya } from "../Icons.jsx";
 
 /** Pusat Kota Banjarbaru - titik awal bila belum ada koordinat. */
 export const PUSAT_AWAL = { lat: -3.4572, lon: 114.8105 };
@@ -245,60 +243,6 @@ export function isiBalonLapisan(namaLapisan, properti) {
   );
 }
 
-/**
- * HTML balon sebuah bidang persil BPN (properti dari server/src/persil.js):
- * NIB, tipe hak, luas peta, kelurahan, lalu atribut lain dari berkasnya.
- */
-export function isiBalonPersil(p = {}) {
-  const luas = Number.isFinite(p.luasPeta)
-    ? `${p.luasPeta.toLocaleString("id-ID", { maximumFractionDigits: 2 })} m²`
-    : "";
-  const utama = [
-    ["NIB", p.nib],
-    ["Tipe hak", p.tipeHak],
-    ["Luas peta", luas],
-    ["Kelurahan", p.kelurahan],
-    ["Kecamatan", p.kecamatan],
-  ];
-  const lain = Object.entries(p.lain && typeof p.lain === "object" ? p.lain : {});
-  const isi = [...utama, ...lain].filter(([, v]) => v !== null && v !== undefined && v !== "");
-  const baris = isi
-    .slice(0, ATRIBUT_BALON_MAKS)
-    .map(([k, v]) => `<tr><th>${aman(k)}</th><td>${aman(v)}</td></tr>`)
-    .join("");
-  return (
-    `<div class="fk-balon fk-balon-lapisan"><strong>Persil BPN</strong><table class="fk-balon-tabel">${baris}</table>` +
-    isiSensusBidang(p.sensus) +
-    "</div>"
-  );
-}
-
-/**
- * Bagian keterangan persil: data sensus yang mencatat bidang ini (server/src/integrasi.js
- * sensusBidang), masing-masing dengan tombol ke datanya (data-url, lihat
- * PanelBidang). Tidak tampil bila keterangannya tidak dikirim.
- */
-function isiSensusBidang(sensus) {
-  if (!Array.isArray(sensus)) return "";
-  if (!sensus.length) return `<span class="fk-balon-sub fk-balon-sensus-kosong">Belum tercatat di sensus.</span>`;
-  const nop = new Set(sensus.map((s) => s.nop).filter(Boolean));
-  const ringkas =
-    nop.size > 1
-      ? `<span class="fk-balon-kurang">${nop.size} NOP berbeda di bidang ini</span>`
-      : nop.size === 0
-        ? `<span class="fk-balon-kurang">Tercatat tanpa NOP</span>`
-        : "";
-  const daftar = sensus
-    .map(
-      (s) =>
-        `<li><span><b>${aman(s.nop ? formatNop(s.nop) : "Tanpa NOP")}</b>` +
-        `<span class="fk-balon-sub">${aman(s.nomor)}${s.judul ? ` · ${aman(s.judul)}` : ""}</span></span>` +
-        `<button type="button" class="fk-balon-buka" data-url="/kertas-kerja/${Number(s.kkId)}/data/${Number(s.entriId)}">Buka</button></li>`
-    )
-    .join("");
-  return `<div class="fk-balon-sensus"><span class="fk-balon-rekam">Tercatat di sensus</span>${ringkas}<ul>${daftar}</ul></div>`;
-}
-
 /** Ketelitian GPS sebagai teks pendek: "± 12 m", "± 1,2 km". */
 export function teksAkurasi(m) {
   if (!Number.isFinite(m)) return "";
@@ -341,34 +285,9 @@ export function TombolLokasiSaya({ saya, onClick }) {
 }
 
 /**
- * Keterangan bidang persil yang diketuk di Peta Sensus: panel tetap di kiri
- * atas peta, tidak ikut bergeser dan tidak menutupi bidangnya seperti balon.
- * Tombol "Buka" di daftar sensus membuka datanya. Digambar PetaSebaran di atas
- * kedua mesin peta; mesinnya menyorot bidang dan menjaga bidang tetap terlihat
- * (geserPanel).
- *
- * properti : properties Feature bidang (server/src/persil.js propertiPeta + sensus)
- * panelRef : ref elemen panel, dibaca mesin peta untuk mengukurnya
- */
-export function PanelBidang({ properti, onTutup, panelRef }) {
-  const klik = (e) => {
-    const tombol = e.target.closest("[data-url]");
-    if (tombol) navigate(tombol.dataset.url);
-  };
-  return (
-    <div className="fk-peta-panel" ref={panelRef} role="region" aria-label="Keterangan bidang terpilih">
-      <button type="button" className="fk-peta-panel-tutup" onClick={onTutup} aria-label="Tutup keterangan bidang" title="Tutup">
-        <IkonTutup />
-      </button>
-      {/* Tombol di dalamnya tombol sungguhan; klik (juga dari keyboard) ditangkap di sini. */}
-      <div onClick={klik} dangerouslySetInnerHTML={{ __html: isiBalonPersil(properti) }} />
-    </div>
-  );
-}
-
-/**
  * Geseran peta supaya titik `p` (piksel dari sudut kiri atas `wadah` peta)
- * tidak tertutup panel bidang; null bila tidak perlu (lib/persilBpn.js geserDariPanel).
+ * tidak tertutup panel bidang (components/peta/PanelBidang.jsx); null bila tidak
+ * perlu (lib/persilBpn.js geserDariPanel).
  */
 export function geserPanel(p, panel, wadah) {
   if (!p || !panel || !wadah) return null;

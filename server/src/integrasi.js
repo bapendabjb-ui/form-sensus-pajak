@@ -18,8 +18,12 @@
  *   tanpa_nib   NOP tanpa bidang (belum bersertifikat / NIB belum diketahui / belum diisi)
  *   kosong      keduanya belum diisi
  *
- * Sumbernya tabel entri_nib (bentuk ternormalisasi jawaban "nib", ditulis
- * ulang setiap data disimpan - src/entri.js) dan jawaban pertanyaan NOP.
+ * Dua sumber pasangan NIB-NOP, dibaca bersama sebagai lapisan NOP PBB:
+ *   - tabel entri_nib: bentuk ternormalisasi jawaban "nib" bersama NOP datanya,
+ *     ditulis ulang setiap data disimpan (src/entri.js) - formulir mulai dari NOP;
+ *   - tabel bidang_nop: NOP yang ditambahkan langsung pada bidang dari Peta Sensus
+ *     (tab NOP di panel bidang) - peta mulai dari bidang.
+ * Pasangan yang sama di kedua sumber dihitung sekali.
  */
 
 const prisma = require("./prisma");
@@ -43,6 +47,31 @@ const URUTAN_POLA = Object.keys(POLA);
 const STATUS_BIDANG = ["cocok", "tinjau", "tanpa_nop"];
 
 const nopSah = (v) => (typeof v === "string" && v.length === PANJANG_NOP ? v : "");
+
+/** Label status bidang (lapisan NOP PBB, unduhan). */
+const LABEL_STATUS_BIDANG = {
+  cocok: "1 NIB = 1 NOP",
+  tinjau: "Perlu ditinjau: beberapa NIB / NOP",
+  tanpa_nop: "NIB tanpa NOP",
+};
+
+/** Keterangan NOP dari peta paling panjang. */
+const KETERANGAN_MAKS = 200;
+
+/** "kode|nib" -> { kode, nib }, atau null. */
+function pisahKunci(k) {
+  const s = String(k || "");
+  const i = s.indexOf("|");
+  if (i < 0) return null;
+  const kode = s.slice(0, i);
+  const nib = s.slice(i + 1);
+  return nib ? { kode, nib } : null;
+}
+
+const nibDariKunci = (k) => {
+  const p = pisahKunci(k);
+  return p ? nibLengkap(p.kode, p.nib) : "";
+};
 
 /* ---------- analisis (murni) ---------- */
 
@@ -207,27 +236,34 @@ function barisEntriNib(normal) {
 
 /* ---------- pembacaan ---------- */
 
-/** Seluruh bidang tercatat: [{ entriId, kunci, nop }]. */
+/** Seluruh bidang tercatat di data sensus: [{ entriId, kunci, nop }]. */
 async function bacaBidangTercatat() {
   const rows = await prisma.entriNib.findMany({ select: { entriId: true, kodeWilayah: true, nib: true, nop: true } });
   return rows.map((r) => ({ entriId: r.entriId, kunci: kunciBidang(r.kodeWilayah, r.nib), nop: r.nop }));
 }
 
+/** Seluruh NOP dari peta: [{ id, kunci, nop }]. */
+async function bacaNopPeta() {
+  const rows = await prisma.bidangNop.findMany({ select: { id: true, kodeWilayah: true, nib: true, nop: true } });
+  return rows.map((r) => ({ id: r.id, kunci: kunciBidang(r.kodeWilayah, r.nib), nop: r.nop }));
+}
+
 /**
- * Status bidang persil untuk Peta Sensus (mode warna "Status sensus"):
- * { cocok: [id], tinjau: [id], tanpa_nop: [id] } - id persil yang sedang aktif,
- * ditulis sebagai selisih berurutan (selisihUrut). Bidang yang tidak tercantum
- * belum tercatat di sensus.
+ * Status bidang persil untuk Peta Sensus (mode warna "Status sensus" / lapisan
+ * NOP PBB): { cocok: [id], tinjau: [id], tanpa_nop: [id] } - id persil yang
+ * sedang aktif, ditulis sebagai selisih berurutan (selisihUrut). Bidang yang
+ * tidak tercantum belum tercatat di sensus maupun di peta.
  */
 async function statusBidangPeta() {
-  const baris = await bacaBidangTercatat();
+  const [sensus, peta] = await Promise.all([bacaBidangTercatat(), bacaNopPeta()]);
   const hasil = Object.fromEntries(STATUS_BIDANG.map((s) => [s, []]));
-  if (!baris.length) return hasil;
-  const a = analisis(baris);
+  if (!sensus.length && !peta.length) return hasil;
+  const a = analisis([...sensus, ...peta]);
   const persil = await prisma.$queryRaw`
     SELECT p.id AS id, p.kode_wilayah AS kode, p.nib AS nib
     FROM persil p
-    JOIN (SELECT DISTINCT kode_wilayah, nib FROM entri_nib) b ON b.kode_wilayah = p.kode_wilayah AND b.nib = p.nib
+    JOIN (SELECT kode_wilayah, nib FROM entri_nib UNION SELECT kode_wilayah, nib FROM bidang_nop) b
+      ON b.kode_wilayah = p.kode_wilayah AND b.nib = p.nib
     WHERE p.aktif = 1`;
   for (const p of persil) hasil[a.statusBidang(kunciBidang(p.kode, p.nib))].push(Number(p.id));
   for (const s of STATUS_BIDANG) hasil[s] = selisihUrut(hasil[s]);
@@ -248,21 +284,23 @@ const PILIH_DATA = {
   },
 };
 
+/** Kunci bidang -> syarat Prisma { kodeWilayah, nib }; kunci yang rusak dibuang. */
+const syaratKunci = (kunci) =>
+  [...new Set(kunci)]
+    .map(pisahKunci)
+    .filter(Boolean)
+    .map((p) => ({ kodeWilayah: p.kode, nib: p.nib }));
+
 /**
- * Data lain yang mencatat bidang-bidang ini: { [kunci]: [{ entriId, kkId, nomor, nop, judul }] }.
- * Untuk peringatan di layar isi data dan balon bidang di Peta Sensus.
+ * Data sensus yang mencatat bidang-bidang ini: { [kunci]: [{ entriId, kkId, nomor, nop, judul }] }.
+ * Untuk peringatan di layar isi data dan tab NOP di Peta Sensus.
  *
  * @param {string[]} kunci       kunciBidang
  * @param {number|null} kecuali  id data yang sedang dibuka (tidak ikut disebut)
  * @param {number} maks          data paling banyak per bidang
  */
 async function sensusBidang(kunci, { kecuali = null, maks = 10 } = {}) {
-  const pasangan = [...new Set(kunci)]
-    .map((k) => {
-      const i = k.indexOf("|");
-      return i < 0 ? null : { kodeWilayah: k.slice(0, i), nib: k.slice(i + 1) };
-    })
-    .filter((p) => p && p.nib);
+  const pasangan = syaratKunci(kunci);
   if (!pasangan.length) return {};
   const rows = await prisma.entriNib.findMany({
     where: { OR: pasangan, ...(kecuali ? { entriId: { not: kecuali } } : {}) },
@@ -286,53 +324,219 @@ async function sensusBidang(kunci, { kecuali = null, maks = 10 } = {}) {
   return hasil;
 }
 
+/** NOP dari peta pada bidang-bidang ini: { [kunci]: [baris bidang_nop] }, urut waktu. */
+async function petaBidang(kunci) {
+  const pasangan = syaratKunci(kunci);
+  if (!pasangan.length) return {};
+  const rows = await prisma.bidangNop.findMany({ where: { OR: pasangan }, orderBy: { id: "asc" }, take: 1000 });
+  const hasil = {};
+  for (const r of rows) (hasil[kunciBidang(r.kodeWilayah, r.nib)] ||= []).push(r);
+  return hasil;
+}
+
+/**
+ * Isi tab NOP di panel bidang Peta Sensus, per kunci bidang:
+ *   { nop: [{ nop, sensus: [data], peta: [{ id, keterangan, oleh, waktu, bisaHapus }], bidangLain }],
+ *     tanpaNop: [data sensus yang mencatat bidang ini tanpa NOP] }
+ * `bidangLain` = berapa bidang lain yang juga tercatat untuk NOP itu (kedua sumber).
+ *
+ * @param {object|null} pengguna  src/auth.js bacaPengguna - menentukan bisaHapus
+ */
+async function nopBidang(kunci, pengguna = null) {
+  const daftar = [...new Set(kunci)].filter((k) => pisahKunci(k));
+  if (!daftar.length) return {};
+  const [sensus, peta] = await Promise.all([sensusBidang(daftar, { maks: 20 }), petaBidang(daftar)]);
+  const semuaNop = new Set();
+  for (const k of daftar) {
+    for (const s of sensus[k] || []) if (s.nop) semuaNop.add(s.nop);
+    for (const p of peta[k] || []) semuaNop.add(p.nop);
+  }
+  const kunciPerNop = new Map();
+  if (semuaNop.size) {
+    const nop = [...semuaNop];
+    const [a, b] = await Promise.all([
+      prisma.entriNib.findMany({ where: { nop: { in: nop } }, select: { kodeWilayah: true, nib: true, nop: true }, distinct: ["kodeWilayah", "nib", "nop"] }),
+      prisma.bidangNop.findMany({ where: { nop: { in: nop } }, select: { kodeWilayah: true, nib: true, nop: true } }),
+    ]);
+    for (const r of [...a, ...b]) {
+      if (!kunciPerNop.has(r.nop)) kunciPerNop.set(r.nop, new Set());
+      kunciPerNop.get(r.nop).add(kunciBidang(r.kodeWilayah, r.nib));
+    }
+  }
+  return Object.fromEntries(daftar.map((k) => [k, susunNopBidang(k, { sensus: sensus[k] || [], peta: peta[k] || [], kunciPerNop, pengguna })]));
+}
+
+/**
+ * NOP dari peta boleh dihapus admin, atau petugas yang menambahkannya sendiri.
+ * @param {{ olehPeran, olehId }} baris
+ * @param {{ role, id } | null} pengguna
+ */
+function bolehHapusNop(baris, pengguna) {
+  if (!pengguna) return false;
+  if (pengguna.role === "admin") return true;
+  return pengguna.role === "petugas" && baris.olehPeran === "petugas" && baris.olehId === pengguna.id;
+}
+
+/** Tab NOP satu bidang (murni - lihat nopBidang). */
+function susunNopBidang(kunci, { sensus = [], peta = [], kunciPerNop = new Map(), pengguna = null } = {}) {
+  const perNop = new Map();
+  const grup = (nop) => {
+    if (!perNop.has(nop)) perNop.set(nop, { nop, sensus: [], peta: [], bidangLain: 0 });
+    return perNop.get(nop);
+  };
+  const tanpaNop = [];
+  for (const s of sensus) {
+    const data = { entriId: s.entriId, kkId: s.kkId, nomor: s.nomor, judul: s.judul };
+    if (s.nop) grup(s.nop).sensus.push(data);
+    else tanpaNop.push(data);
+  }
+  for (const p of peta) {
+    grup(p.nop).peta.push({
+      id: p.id,
+      keterangan: p.keterangan || "",
+      oleh: p.olehNama || "",
+      waktu: p.createdAt,
+      bisaHapus: bolehHapusNop(p, pengguna),
+    });
+  }
+  const nop = [...perNop.values()].sort((a, b) => a.nop.localeCompare(b.nop));
+  for (const g of nop) {
+    const bidang = kunciPerNop.get(g.nop) || new Set([kunci]);
+    g.bidangLain = [...bidang].filter((k) => k !== kunci).length;
+  }
+  return { nop, tanpaNop };
+}
+
+/**
+ * Baca kiriman "tambah NOP pada bidang": { kunci, nop, keterangan }. Melempar
+ * pesan yang bisa ditampilkan bila tidak sah. NOP boleh diketik bertitik.
+ * @returns {{ kode: string, nib: string, nop: string, keterangan: string }}
+ */
+function bacaKirimanNop(body = {}) {
+  const k = pisahKunci(body.kunci);
+  if (!k || !/^\d*$/.test(k.kode) || k.nib.length > 30 || k.kode.length > 20) {
+    throw new Error("Bidang tidak dikenal. Ketuk bidangnya lagi di peta.");
+  }
+  const nop = String(body.nop ?? "").replace(/\D/g, "");
+  if (nop.length !== PANJANG_NOP) throw new Error(`NOP PBB harus ${PANJANG_NOP} digit (baru ${nop.length} digit).`);
+  const keterangan = String(body.keterangan ?? "").replace(/\s+/g, " ").trim();
+  if (keterangan.length > KETERANGAN_MAKS) throw new Error(`Keterangan paling panjang ${KETERANGAN_MAKS} huruf.`);
+  return { kode: k.kode, nib: k.nib, nop, keterangan };
+}
+
 /* ---------- laporan ---------- */
 
 const bulat2 = (n) => Math.round(n * 100) / 100;
 
 /**
- * Laporan integrasi seluruh data dari formulir yang punya pertanyaan NIB:
- *   ringkas : { data, pola: { [kunci]: jumlah }, bidang, bidangDiPeta, nop }
+ * NOP dari peta beserta keterangan bidang BPN-nya:
+ * [{ id, kunci, nop, keterangan, olehNama, createdAt, tipeHak, luas, kelurahan, kecamatan, diPeta }]
+ */
+async function bacaNopPetaLengkap() {
+  const rows = await prisma.$queryRaw`
+    SELECT b.id AS id, b.kode_wilayah AS kode, b.nib AS nib, b.nop AS nop, b.keterangan AS keterangan,
+           b.oleh_nama AS olehNama, b.created_at AS createdAt,
+           p.tipe_hak AS tipeHak, p.luas_peta AS luas, p.kelurahan AS kelurahan, p.kecamatan AS kecamatan, p.id AS persilId
+    FROM bidang_nop b
+    LEFT JOIN persil p ON p.aktif = 1 AND p.kode_wilayah = b.kode_wilayah AND p.nib = b.nib
+    ORDER BY b.id, p.id`;
+  const dilihat = new Set();
+  const hasil = [];
+  for (const r of rows) {
+    const id = Number(r.id);
+    if (dilihat.has(id)) continue;
+    dilihat.add(id);
+    hasil.push({
+      id,
+      kunci: kunciBidang(r.kode, r.nib),
+      nop: r.nop,
+      keterangan: r.keterangan || "",
+      olehNama: r.olehNama || "",
+      createdAt: r.createdAt,
+      tipeHak: r.tipeHak || "",
+      luas: r.luas === null || r.luas === undefined ? null : Number(r.luas),
+      kelurahan: r.kelurahan || "",
+      kecamatan: r.kecamatan || "",
+      diPeta: r.persilId !== null && r.persilId !== undefined,
+    });
+  }
+  return hasil;
+}
+
+/**
+ * Laporan integrasi seluruh data dari formulir yang punya pertanyaan NIB,
+ * ditambah NOP dari peta (susunBaris):
+ *   ringkas : { formulir, data, peta, pola, bidang, bidangDiPeta, bidangCocok, nop }
  *   cakupan : [{ kunci, kecamatan, kelurahan, bidangBpn, tersensus }] - bidang BPN
- *             per kelurahan yang sudah tercatat di sensus
- *   baris   : satu per data, urut pola (yang perlu ditindaklanjuti dulu)
+ *             per kelurahan yang sudah tercatat (sensus atau peta)
+ *   baris   : urut pola (yang perlu ditindaklanjuti dulu)
  */
 async function susunLaporan() {
   const formNib = await prisma.pertanyaan.findMany({ where: { tipe: "nib" }, select: { formulirId: true }, distinct: ["formulirId"] });
   const idForm = formNib.map((f) => f.formulirId);
-  const entri = idForm.length
-    ? await prisma.entri.findMany({ where: { formulirId: { in: idForm } }, select: PILIH_DATA, orderBy: { id: "asc" } })
-    : [];
+  const [entri, peta] = await Promise.all([
+    idForm.length
+      ? prisma.entri.findMany({ where: { formulirId: { in: idForm } }, select: PILIH_DATA, orderBy: { id: "asc" } })
+      : [],
+    bacaNopPetaLengkap(),
+  ]);
 
   const data = entri.map((e) => {
     const jawaban = urutJawaban(e.jawaban);
     const { bidang, status } = bidangEntri(jawaban);
     return { e, jawaban, bidang, status, nop: nopEntri(jawaban) };
   });
-  const a = analisis(data.flatMap((d) => d.bidang.map((b) => ({ kunci: b.kunci, nop: d.nop }))));
+  const { baris, ringkas } = susunBaris(data, peta);
+  return {
+    ringkas: { formulir: idForm.length, ...ringkas },
+    cakupan: await cakupanKelurahan(),
+    baris,
+  };
+}
+
+/**
+ * Baris laporan (murni): satu per data sensus, ditambah satu per NOP dari peta
+ * untuk pasangan NIB-NOP yang belum tercatat di data mana pun. Polanya dihitung
+ * dari kedua sumber sekaligus.
+ *
+ * @param {object[]} data  [{ e, jawaban, bidang, status, nop }] (susunLaporan)
+ * @param {object[]} peta  bacaNopPetaLengkap
+ */
+function susunBaris(data, peta = []) {
+  const pasanganSensus = data.flatMap((d) => d.bidang.map((b) => ({ kunci: b.kunci, nop: d.nop })));
+  const a = analisis([...pasanganSensus, ...peta.map((p) => ({ kunci: p.kunci, nop: p.nop }))]);
 
   const pola = Object.fromEntries(URUTAN_POLA.map((p) => [p, 0]));
   const semuaBidang = new Set();
   const bidangDiPeta = new Set();
   const semuaNop = new Set();
+
+  const keterangan = (kunciRow, nopRow) => {
+    const nopLain = new Set();
+    for (const k of kunciRow) for (const n of a.nopDi(k)) if (n !== nopRow) nopLain.add(n);
+    const nibLain = nopRow ? [...a.bidangDari(nopRow)].filter((k) => !kunciRow.includes(k)) : [];
+    return { nopLain: [...nopLain], nibLain: nibLain.map(nibDariKunci) };
+  };
+  const luasDari = (bidang) =>
+    bidang.some((b) => Number.isFinite(b.luas)) ? bulat2(bidang.reduce((n, b) => (Number.isFinite(b.luas) ? n + b.luas : n), 0)) : null;
+
   const baris = data.map((d) => {
-    const p = a.pola({ nop: d.nop, kunci: d.bidang.map((b) => b.kunci) });
+    const kunci = d.bidang.map((b) => b.kunci);
+    const p = a.pola({ nop: d.nop, kunci });
     pola[p] += 1;
     if (d.nop) semuaNop.add(d.nop);
-    const nopLain = new Set();
     for (const b of d.bidang) {
       semuaBidang.add(b.kunci);
       if (b.diPeta) bidangDiPeta.add(b.kunci);
-      for (const n of a.nopDi(b.kunci)) if (n !== d.nop) nopLain.add(n);
     }
-    const nibLain = d.nop ? [...a.bidangDari(d.nop)].filter((k) => !d.bidang.some((b) => b.kunci === k)) : [];
-    const luasPeta = d.bidang.reduce((n, b) => (Number.isFinite(b.luas) ? n + b.luas : n), 0);
     return {
+      jenis: "sensus",
       entriId: d.e.id,
       kkId: d.e.kertasKerjaId,
       nomor: d.e.kertasKerja.nomor,
       formulir: d.e.formulir.judul,
       judul: judulDari(d.jawaban),
+      oleh: "",
       nop: d.nop,
       pola: p,
       status: d.status,
@@ -346,43 +550,86 @@ async function susunLaporan() {
         kelurahan: b.kelurahan,
         kecamatan: b.kecamatan,
       })),
-      luasPeta: d.bidang.some((b) => Number.isFinite(b.luas)) ? bulat2(luasPeta) : null,
+      luasPeta: luasDari(d.bidang),
       luasTanah: luasTanahDari(d.jawaban),
-      nopLain: [...nopLain],
-      nibLain: nibLain.map((k) => {
-        const [kode, nib] = k.split("|");
-        return nibLengkap(kode, nib);
-      }),
+      ...keterangan(kunci, d.nop),
       kelurahan: d.bidang.find((b) => b.kelurahan)?.kelurahan || "",
       createdAt: d.e.createdAt,
     };
   });
+
+  // NOP dari peta yang pasangannya belum ada di data sensus: dikelompokkan per NOP.
+  const sudah = new Set(pasanganSensus.filter((x) => x.nop).map((x) => `${x.kunci}#${x.nop}`));
+  const perNop = new Map();
+  for (const p of peta) {
+    semuaNop.add(p.nop);
+    semuaBidang.add(p.kunci);
+    if (p.diPeta) bidangDiPeta.add(p.kunci);
+    if (sudah.has(`${p.kunci}#${p.nop}`)) continue;
+    if (!perNop.has(p.nop)) perNop.set(p.nop, []);
+    const daftar = perNop.get(p.nop);
+    if (!daftar.some((x) => x.kunci === p.kunci)) daftar.push(p);
+  }
+  for (const [nop, daftar] of perNop) {
+    const kunci = daftar.map((p) => p.kunci);
+    const p = a.pola({ nop, kunci });
+    pola[p] += 1;
+    const bidang = daftar.map((x) => ({
+      kunci: x.kunci,
+      nib: nibDariKunci(x.kunci),
+      sumber: "peta",
+      diPeta: x.diPeta,
+      tipeHak: x.tipeHak,
+      luas: x.luas,
+      kelurahan: x.kelurahan,
+      kecamatan: x.kecamatan,
+    }));
+    baris.push({
+      jenis: "peta",
+      entriId: null,
+      kkId: null,
+      nomor: "",
+      formulir: "Peta Sensus",
+      judul: [...new Set(daftar.map((x) => x.keterangan).filter(Boolean))].join("; "),
+      oleh: [...new Set(daftar.map((x) => x.olehNama).filter(Boolean))].join(", "),
+      nop,
+      pola: p,
+      status: "",
+      bidang,
+      luasPeta: luasDari(bidang),
+      luasTanah: null,
+      ...keterangan(kunci, nop),
+      kelurahan: bidang.find((b) => b.kelurahan)?.kelurahan || "",
+      createdAt: daftar.reduce((t, x) => (!t || x.createdAt < t ? x.createdAt : t), null),
+    });
+  }
 
   const urutPola = new Map(URUTAN_POLA.map((p, i) => [p, i]));
   baris.sort(
     (x, y) =>
       urutPola.get(x.pola) - urutPola.get(y.pola) ||
       (x.nop || "~").localeCompare(y.nop || "~") ||
-      x.nomor.localeCompare(y.nomor) ||
-      x.entriId - y.entriId
+      (x.nomor || "~").localeCompare(y.nomor || "~") ||
+      (x.entriId ?? Infinity) - (y.entriId ?? Infinity) ||
+      (x.bidang[0]?.kunci || "").localeCompare(y.bidang[0]?.kunci || "")
   );
 
   return {
+    baris,
     ringkas: {
-      formulir: idForm.length,
       data: data.length,
+      peta: peta.length,
       pola,
       bidang: semuaBidang.size,
       bidangDiPeta: bidangDiPeta.size,
+      bidangCocok: [...semuaBidang].filter((k) => a.statusBidang(k) === "cocok").length,
       nop: semuaNop.size,
     },
-    cakupan: await cakupanKelurahan(),
-    baris,
   };
 }
 
 /**
- * Bidang BPN per kelurahan dan yang sudah tercatat di sensus:
+ * Bidang BPN per kelurahan dan yang sudah tercatat (sensus atau peta):
  * [{ kunci, kodeWilayah, kecamatan, kelurahan, bidangBpn, tersensus }], urut kecamatan & kelurahan.
  */
 async function cakupanKelurahan() {
@@ -391,7 +638,8 @@ async function cakupanKelurahan() {
     prisma.$queryRaw`
       SELECT p.kunci_wilayah AS kunci, COUNT(DISTINCT p.id) AS n
       FROM persil p
-      JOIN (SELECT DISTINCT kode_wilayah, nib FROM entri_nib) b ON b.kode_wilayah = p.kode_wilayah AND b.nib = p.nib
+      JOIN (SELECT kode_wilayah, nib FROM entri_nib UNION SELECT kode_wilayah, nib FROM bidang_nop) b
+        ON b.kode_wilayah = p.kode_wilayah AND b.nib = p.nib
       WHERE p.aktif = 1
       GROUP BY p.kunci_wilayah`,
   ]);
@@ -420,6 +668,182 @@ async function cakupanKelurahan() {
     .sort((x, y) => x.kecamatan.localeCompare(y.kecamatan) || x.kelurahan.localeCompare(y.kelurahan));
 }
 
+/* ---------- lapisan NOP PBB: unduhan ---------- */
+
+/**
+ * Pasangan NIB-NOP dari kedua sumber, satu per (bidang, NOP), beserta bidang yang
+ * tercatat tanpa NOP (murni):
+ * [{ kunci, nop, status, sensus: [{ nomor, entriId, kkId }], peta: [{ keterangan, oleh }],
+ *    jumlahNopBidang, jumlahBidangNop }]
+ *
+ * @param {{ entriId, kkId, nomor, kunci, nop }[]} sensus
+ * @param {{ kunci, nop, keterangan, olehNama }[]} peta
+ */
+function susunPasangan(sensus, peta) {
+  const a = analisis([...sensus, ...peta]);
+  const perPasangan = new Map();
+  const ambil = (kunci, nop) => {
+    const k = `${kunci}#${nop}`;
+    if (!perPasangan.has(k)) perPasangan.set(k, { kunci, nop, sensus: [], peta: [] });
+    return perPasangan.get(k);
+  };
+  for (const s of sensus) {
+    const p = ambil(s.kunci, s.nop || "");
+    if (!p.sensus.some((x) => x.entriId === s.entriId)) p.sensus.push({ entriId: s.entriId, kkId: s.kkId, nomor: s.nomor });
+  }
+  for (const x of peta) ambil(x.kunci, x.nop).peta.push({ keterangan: x.keterangan || "", oleh: x.olehNama || "" });
+  // Bidang tanpa NOP yang ternyata punya NOP lain (dari data lain / peta) tidak perlu baris kosong.
+  const hasil = [];
+  for (const p of perPasangan.values()) {
+    if (!p.nop && a.nopDi(p.kunci).size > 0) continue;
+    hasil.push({
+      ...p,
+      status: a.statusBidang(p.kunci),
+      jumlahNopBidang: a.nopDi(p.kunci).size,
+      jumlahBidangNop: p.nop ? a.bidangDari(p.nop).size : 0,
+    });
+  }
+  return hasil.sort((x, y) => x.kunci.localeCompare(y.kunci) || x.nop.localeCompare(y.nop));
+}
+
+/** Seluruh pasangan untuk unduhan (susunPasangan), dengan nomor kertas kerja tiap data sensus. */
+async function bacaPasangan() {
+  const [rows, peta] = await Promise.all([
+    prisma.entriNib.findMany({
+      select: { entriId: true, kodeWilayah: true, nib: true, nop: true, entri: { select: { kertasKerjaId: true, kertasKerja: { select: { nomor: true } } } } },
+      orderBy: { entriId: "asc" },
+    }),
+    prisma.bidangNop.findMany({ orderBy: { id: "asc" } }),
+  ]);
+  return susunPasangan(
+    rows.map((r) => ({ entriId: r.entriId, kkId: r.entri.kertasKerjaId, nomor: r.entri.kertasKerja.nomor, kunci: kunciBidang(r.kodeWilayah, r.nib), nop: r.nop })),
+    peta.map((r) => ({ kunci: kunciBidang(r.kodeWilayah, r.nib), nop: r.nop, keterangan: r.keterangan, olehNama: r.olehNama }))
+  );
+}
+
+/** Persil aktif untuk bidang-bidang tercatat: Map(kunci -> { tipeHak, luasPeta, kelurahan, kecamatan, geometri }). */
+async function persilTercatat({ geometri = false } = {}) {
+  const rows = geometri
+    ? await prisma.$queryRaw`
+        SELECT p.id AS id, p.kode_wilayah AS kode, p.nib AS nib, p.tipe_hak AS tipeHak, p.luas_peta AS luasPeta,
+               p.kelurahan AS kelurahan, p.kecamatan AS kecamatan, p.geometri AS geometri
+        FROM persil p
+        JOIN (SELECT kode_wilayah, nib FROM entri_nib UNION SELECT kode_wilayah, nib FROM bidang_nop) b
+          ON b.kode_wilayah = p.kode_wilayah AND b.nib = p.nib
+        WHERE p.aktif = 1
+        ORDER BY p.id`
+    : await prisma.$queryRaw`
+        SELECT p.id AS id, p.kode_wilayah AS kode, p.nib AS nib, p.tipe_hak AS tipeHak, p.luas_peta AS luasPeta,
+               p.kelurahan AS kelurahan, p.kecamatan AS kecamatan
+        FROM persil p
+        JOIN (SELECT kode_wilayah, nib FROM entri_nib UNION SELECT kode_wilayah, nib FROM bidang_nop) b
+          ON b.kode_wilayah = p.kode_wilayah AND b.nib = p.nib
+        WHERE p.aktif = 1
+        ORDER BY p.id`;
+  const peta = new Map();
+  for (const r of rows) {
+    const k = kunciBidang(r.kode, r.nib);
+    if (peta.has(k)) continue;
+    peta.set(k, {
+      tipeHak: r.tipeHak || "",
+      luasPeta: r.luasPeta === null || r.luasPeta === undefined ? null : Number(r.luasPeta),
+      kelurahan: r.kelurahan || "",
+      kecamatan: r.kecamatan || "",
+      geometri: r.geometri || null,
+    });
+  }
+  return peta;
+}
+
+const SUMBER_PASANGAN = (p) =>
+  p.sensus.length && p.peta.length ? "Data sensus + peta" : p.peta.length ? "Peta" : "Data sensus";
+
+/** Tabel Excel pasangan NIB-NOP (murni): { header, baris }. */
+function tabelPasangan(pasangan, persil = new Map(), { baseUrl = "" } = {}) {
+  const teks = (s) => ({ teks: s === null || s === undefined ? "" : String(s) });
+  const bulat = (n) => ({ teks: String(n), angka: n, format: "0" });
+  const header = [
+    "NIB",
+    "NOP",
+    "Status bidang",
+    "Sumber",
+    "Kertas kerja",
+    "Keterangan (peta)",
+    "Dicatat oleh (peta)",
+    "Jumlah NOP di bidang ini",
+    "Jumlah bidang NOP ini",
+    "Tipe hak",
+    "Luas peta BPN (m²)",
+    "Kelurahan (BPN)",
+    "Kecamatan (BPN)",
+    "Tautan data",
+  ];
+  return {
+    header,
+    baris: pasangan.map((p) => {
+      const b = persil.get(p.kunci) || {};
+      return [
+        teks(nibDariKunci(p.kunci)),
+        teks(p.nop && formatNop(p.nop)),
+        teks(LABEL_STATUS_BIDANG[p.status]),
+        teks(SUMBER_PASANGAN(p)),
+        teks([...new Set(p.sensus.map((s) => s.nomor))].join("; ")),
+        teks([...new Set(p.peta.map((x) => x.keterangan).filter(Boolean))].join("; ")),
+        teks([...new Set(p.peta.map((x) => x.oleh).filter(Boolean))].join(", ")),
+        bulat(p.jumlahNopBidang),
+        bulat(p.jumlahBidangNop),
+        teks(b.tipeHak),
+        Number.isFinite(b.luasPeta) ? { teks: String(b.luasPeta), angka: b.luasPeta } : teks(""),
+        teks(b.kelurahan),
+        teks(b.kecamatan),
+        teks(p.sensus.map((s) => `${baseUrl}/kertas-kerja/${s.kkId}/data/${s.entriId}`).join(" ")),
+      ];
+    }),
+  };
+}
+
+/**
+ * Lapisan NOP PBB sebagai GeoJSON (teks, murni): satu Feature per bidang BPN
+ * yang tercatat, dengan NOP-nya - peta PBB per bidang untuk QGIS / SISMIOP.
+ * Tanpa data pribadi wajib pajak (nama, alamat), hanya NIB, NOP, dan statusnya.
+ *
+ * @param {object[]} pasangan  susunPasangan
+ * @param {Map} persil         persilTercatat({ geometri: true })
+ */
+function teksGeojsonPbb(pasangan, persil) {
+  const perBidang = new Map();
+  for (const p of pasangan) {
+    if (!perBidang.has(p.kunci)) perBidang.set(p.kunci, []);
+    perBidang.get(p.kunci).push(p);
+  }
+  const fitur = [];
+  for (const [kunci, daftar] of perBidang) {
+    const b = persil.get(kunci);
+    if (!b || !b.geometri) continue;
+    const k = pisahKunci(kunci);
+    const nop = daftar.map((p) => p.nop).filter(Boolean);
+    const sumber = new Set(daftar.map(SUMBER_PASANGAN));
+    const status = daftar[0].status;
+    const properti = {
+      nib: nibLengkap(k.kode, k.nib),
+      kode_wilayah: k.kode,
+      nomor_bidang: k.nib,
+      nop: nop.length === 1 ? formatNop(nop[0]) : "",
+      daftar_nop: nop.map(formatNop).join("; "),
+      jumlah_nop: nop.length,
+      status,
+      keterangan_status: LABEL_STATUS_BIDANG[status] || "",
+      sumber: sumber.size > 1 ? "Data sensus + peta" : [...sumber][0],
+      tipe_hak: b.tipeHak,
+      luas_peta: b.luasPeta,
+      kelurahan: b.kelurahan,
+      kecamatan: b.kecamatan,
+    };
+    fitur.push(`{"type":"Feature","geometry":${b.geometri},"properties":${JSON.stringify(properti)}}`);
+  }
+  return `{"type":"FeatureCollection","name":"peta_bidang_pbb","features":[\n${fitur.join(",\n")}\n]}\n`;
+}
+
 /**
  * Saring baris laporan: `pola` (kunci POLA, atau "" = semua) dan `cari` (NOP,
  * NIB, nama, atau nomor kertas kerja; tanda baca diabaikan untuk angka).
@@ -430,7 +854,7 @@ function saringBaris(baris, { pola = "", cari = "" } = {}) {
   return baris.filter((b) => {
     if (pola && b.pola !== pola) return false;
     if (!kata) return true;
-    if (b.judul.toLowerCase().includes(kata) || b.kelurahan.toLowerCase().includes(kata)) return true;
+    if ([b.judul, b.kelurahan, b.oleh || ""].some((t) => t.toLowerCase().includes(kata))) return true;
     if (!angka) return false;
     return (
       b.nop.includes(angka) ||
@@ -458,6 +882,7 @@ function tabelLaporan(baris, { baseUrl = "" } = {}) {
     "NOP lain di bidang yang sama",
     "NIB lain milik NOP ini",
     "Nama / keterangan",
+    "Sumber",
     "Kertas kerja",
     "Formulir",
     "Tautan data",
@@ -478,9 +903,14 @@ function tabelLaporan(baris, { baseUrl = "" } = {}) {
       teks(b.nopLain.map(formatNop).join("; ")),
       teks(b.nibLain.join("; ")),
       teks(b.judul),
+      teks(b.jenis === "peta" ? `Peta Sensus${b.oleh ? ` (oleh ${b.oleh})` : ""}` : "Data sensus"),
       teks(b.nomor),
       teks(b.formulir),
-      teks(`${baseUrl}/kertas-kerja/${b.kkId}/data/${b.entriId}`),
+      teks(
+        b.jenis === "peta"
+          ? `${baseUrl}/peta?nib=${encodeURIComponent(b.bidang[0]?.nib || "")}`
+          : `${baseUrl}/kertas-kerja/${b.kkId}/data/${b.entriId}`
+      ),
     ]),
   };
 }
@@ -497,9 +927,22 @@ module.exports = {
   barisEntriNib,
   saringBaris,
   tabelLaporan,
+  susunBaris,
+  susunNopBidang,
+  bolehHapusNop,
+  bacaKirimanNop,
+  susunPasangan,
+  tabelPasangan,
+  teksGeojsonPbb,
+  pisahKunci,
+  LABEL_STATUS_BIDANG,
   // database
   lengkapiBidang,
   statusBidangPeta,
   sensusBidang,
+  petaBidang,
+  nopBidang,
   susunLaporan,
+  bacaPasangan,
+  persilTercatat,
 };

@@ -716,8 +716,9 @@ export const hapusPersil = (isi) => request("/persil/hapus", { method: "POST", b
 export const statusBidangSensus = () => request("/integrasi/bidang");
 
 /**
- * Data lain yang sudah mencatat bidang-bidang ini (kunci "kode|nib"):
- * { [kunci]: [{ entriId, kkId, nomor, nop, judul }] }. `kecuali` = id data yang sedang dibuka.
+ * Data lain dan NOP dari peta yang sudah tercatat di bidang-bidang ini (kunci "kode|nib"):
+ * { [kunci]: [{ sumber: "sensus", entriId, kkId, nomor, nop, judul } | { sumber: "peta", nop, oleh }] }.
+ * `kecuali` = id data yang sedang dibuka.
  */
 export function cekBidangSensus(kunci, kecuali = null) {
   const q = new URLSearchParams({ kunci: kunci.join(",") });
@@ -741,6 +742,25 @@ export function unduhIntegrasi({ pola = "", cari = "" } = {}) {
   if (cari) q.set("cari", cari);
   return unduhBerkas(`/integrasi/unduh${q.toString() ? `?${q}` : ""}`, "integrasi-nib-nop.xlsx");
 }
+
+/**
+ * Isi tab NOP satu bidang: { nop: [{ nop, sensus: [{ entriId, kkId, nomor, judul }],
+ * peta: [{ id, keterangan, oleh, waktu, bisaHapus }], bidangLain }], tanpaNop: [data] }.
+ */
+export const nopBidang = (kunci) => request(`/integrasi/nop-bidang?kunci=${encodeURIComponent(kunci)}`);
+
+/** Tambah NOP pada bidang dari peta (petugas / admin). Balasan: isi tab NOP terbaru. */
+export const tambahNopBidang = ({ kunci, nop, keterangan = "" }) =>
+  request("/integrasi/nop-bidang", { method: "POST", body: { kunci, nop, keterangan } });
+
+/** Hapus NOP dari peta (admin, atau petugas yang menambahkannya). Balasan: isi tab NOP terbaru. */
+export const hapusNopBidang = (id) => request(`/integrasi/nop-bidang/${id}`, { method: "DELETE" });
+
+/** Unduh pasangan NIB-NOP dari data sensus dan peta (.xlsx). Khusus admin. */
+export const unduhPasanganNibNop = () => unduhBerkas("/integrasi/unduh-pasangan", "pasangan-nib-nop.xlsx");
+
+/** Unduh lapisan NOP PBB (.geojson, untuk QGIS). Khusus admin. */
+export const unduhPetaBidangPbb = () => unduhBerkas("/integrasi/unduh-geojson", "peta-bidang-pbb.geojson");
 
 /* ---------- cek NOP ke EPBB ---------- */
 

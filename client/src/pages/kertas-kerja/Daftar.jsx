@@ -6,6 +6,7 @@ import { useToast } from "../../components/Toast.jsx";
 import { useDialog } from "../../components/Dialog.jsx";
 import { PageHead, Panel, Loading, ErrorBox, Empty, StatusPill, BerkasPill } from "../../components/Ui.jsx";
 import PetugasTim from "../../components/PetugasTim.jsx";
+import PitaTitipan from "../../components/PitaTitipan.jsx";
 import { IkonData, CheckIcon } from "../../components/Icons.jsx";
 import { formatWaktu } from "../../lib/format.js";
 import {
@@ -344,6 +345,7 @@ export function DaftarKertasKerja() {
           )}
         </div>
       </PageHead>
+      {!hanyaLihat && <PitaTitipan di="daftar" />}
 
       {error && <ErrorBox onRetry={muat}>{error}</ErrorBox>}
 

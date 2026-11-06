@@ -425,6 +425,31 @@ model EntriNib {
   @@map("entri_nib")
 }
 
+/// NOP PBB yang dicatat langsung pada bidang BPN dari Peta Sensus (tab NOP di
+/// panel bidang), tanpa formulir. Bersama entri_nib membentuk lapisan NOP PBB:
+/// pasangan NIB-NOP, boleh banyak-ke-banyak (src/integrasi.js). Dikunci kode
+/// wilayah + NIB, bukan id persil: id persil berganti setiap impor ulang.
+model BidangNop {
+  id          Int      @id @default(autoincrement())
+  /// Kode wilayah BPN 8 digit, mis. "17117402" - kosong bila berkas BPN-nya tanpa kode.
+  kodeWilayah String   @default("") @map("kode_wilayah") @db.VarChar(20)
+  /// NIB 5 digit, mis. "03612".
+  nib         String   @db.VarChar(30)
+  /// NOP 18 digit.
+  nop         String   @db.VarChar(18)
+  /// Keterangan opsional, mis. "sebagian bidang", "rumah susun".
+  keterangan  String   @default("") @db.VarChar(200)
+  /// Yang menambahkan: peran ("admin" | "petugas"), id akunnya, dan namanya saat itu.
+  olehPeran   String   @default("") @map("oleh_peran") @db.VarChar(10)
+  olehId      Int?     @map("oleh_id")
+  olehNama    String   @default("") @map("oleh_nama") @db.VarChar(150)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([kodeWilayah, nib, nop], map: "bidang_nop_unik")
+  @@index([nop], map: "bidang_nop_nop_idx")
+  @@map("bidang_nop")
+}
+
 /// Berkas foto yang diunggah. entri_id masih NULL selama foto baru diunggah
 /// dan entrinya belum disimpan; foto yatim dibersihkan otomatis.
 model Foto {

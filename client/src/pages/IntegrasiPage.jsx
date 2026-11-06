@@ -9,10 +9,12 @@ import { formatLuas } from "../lib/persilBpn.js";
 import { STATUS_TANAH } from "../lib/nib.js";
 
 /**
- * Integrasi NIB BPN dengan NOP PBB: pola hubungan seluruh data yang mencatat
- * bidang (server/src/integrasi.js), cakupan sensus per kelurahan BPN, dan
- * daftar kerja per pola - yang bisa diunduh admin sebagai Excel untuk
- * ditindaklanjuti di SISMIOP (gabung / pecah NOP, objek baru).
+ * Integrasi NIB BPN dengan NOP PBB: pola hubungan seluruh pasangan NIB-NOP -
+ * dari data sensus (formulir) dan dari tab NOP di Peta Sensus
+ * (server/src/integrasi.js) - cakupan per kelurahan BPN, dan daftar kerja per
+ * pola yang bisa diunduh admin sebagai Excel untuk ditindaklanjuti di SISMIOP
+ * (gabung / pecah NOP, objek baru). Admin juga bisa mengunduh lapisan NOP PBB
+ * (GeoJSON untuk QGIS, dan Excel pasangan NIB-NOP).
  */
 
 /** Kelas pita pola: cocok = selesai, perlu ditinjau = kuning, belum lengkap = merah. */
@@ -50,7 +52,7 @@ export default function IntegrasiPage() {
   const [cariKirim, setCariKirim] = useState("");
   const [loading, setLoading] = useState(true);
   const [lagi, setLagi] = useState(false);
-  const [unduh, setUnduh] = useState(false);
+  const [unduh, setUnduh] = useState(""); // "" | "daftar" | "pasangan" | "geojson"
   const [error, setError] = useState("");
   const ke = useRef(0);
 
@@ -93,14 +95,16 @@ export default function IntegrasiPage() {
     }
   };
 
-  const unduhExcel = async () => {
-    setUnduh(true);
+  const unduhBerkas = async (jenis) => {
+    setUnduh(jenis);
     try {
-      await api.unduhIntegrasi({ pola, cari: cariKirim });
+      if (jenis === "daftar") await api.unduhIntegrasi({ pola, cari: cariKirim });
+      else if (jenis === "pasangan") await api.unduhPasanganNibNop();
+      else await api.unduhPetaBidangPbb();
     } catch (e) {
       toast(e.message, true);
     } finally {
-      setUnduh(false);
+      setUnduh("");
     }
   };
 
@@ -127,13 +131,14 @@ export default function IntegrasiPage() {
   const { ringkas, cakupan, data } = laporan;
   const labelPola = laporan.pola || {};
 
-  if (ringkas.formulir === 0) {
+  if (ringkas.formulir === 0 && !ringkas.peta) {
     return (
       <>
         {kepala}
         <Empty>
-          Belum ada formulir dengan pertanyaan Bidang Tanah BPN. Admin menambahkannya di menu Formulir, pada formulir
-          PBB yang juga punya pertanyaan NOP PBB: Tambah pertanyaan → Bidang Tanah BPN (NIB).
+          Belum ada NIB yang dicatat. Ada dua cara: admin menambahkan pertanyaan Bidang Tanah BPN ke formulir PBB yang juga
+          punya pertanyaan NOP PBB (Formulir → Tambah pertanyaan → Bidang Tanah BPN), atau petugas mengetuk bidang di Peta
+          Sensus lalu menambah NOP di tab NOP.
         </Empty>
       </>
     );
@@ -141,7 +146,8 @@ export default function IntegrasiPage() {
 
   const totalBpn = cakupan.reduce((n, c) => n + c.bidangBpn, 0);
   const totalSensus = cakupan.reduce((n, c) => n + c.tersensus, 0);
-  const perluTindak = ringkas.data - (ringkas.pola.cocok || 0);
+  const totalBaris = Object.values(ringkas.pola).reduce((n, x) => n + x, 0);
+  const perluTindak = totalBaris - (ringkas.pola.cocok || 0);
 
   return (
     <>
@@ -149,10 +155,10 @@ export default function IntegrasiPage() {
 
       <div className="fk-stats">
         {[
-          [ringkas.data, "Data PBB"],
-          [ringkas.nop, "NOP tercatat"],
+          [ringkas.data, "Data PBB (formulir)"],
+          [ringkas.peta || 0, "NOP dari peta"],
           [ringkas.bidang, "Bidang BPN tercatat"],
-          [ringkas.pola.cocok || 0, "Sudah 1 NIB = 1 NOP"],
+          [ringkas.bidangCocok || 0, "Bidang 1 NIB = 1 NOP"],
         ].map(([n, label]) => (
           <div className="fk-stat" key={label}>
             <div className="fk-stat-num">{angka(n)}</div>
@@ -163,7 +169,7 @@ export default function IntegrasiPage() {
 
       <Panel
         title="Pola hubungan"
-        sub={`${angka(perluTindak)} dari ${angka(ringkas.data)} data perlu ditindaklanjuti. Pilih pola untuk melihat datanya.`}
+        sub={`${angka(perluTindak)} dari ${angka(totalBaris)} baris perlu ditindaklanjuti. Pilih pola untuk melihat datanya.`}
       >
         <div className="fk-integrasi-pola" role="radiogroup" aria-label="Saring menurut pola">
           <button
@@ -173,7 +179,7 @@ export default function IntegrasiPage() {
             className={"fk-filter-btn" + (pola === "" ? " is-on" : "")}
             onClick={() => setPola("")}
           >
-            Semua <span className="fk-filter-jumlah">{angka(ringkas.data)}</span>
+            Semua <span className="fk-filter-jumlah">{angka(totalBaris)}</span>
           </button>
           {Object.keys(labelPola).map((k) => (
             <button
@@ -193,7 +199,7 @@ export default function IntegrasiPage() {
 
       <Panel
         title="Daftar data"
-        sub={`${angka(data.total)} data${pola ? ` · ${labelPola[pola]}` : ""}`}
+        sub={`${angka(data.total)} baris${pola ? ` · ${labelPola[pola]}` : ""}`}
         className="fk-integrasi-daftar"
       >
         <div className="fk-integrasi-alat">
@@ -207,8 +213,8 @@ export default function IntegrasiPage() {
             onChange={(e) => setCari(e.target.value)}
           />
           {admin && (
-            <button type="button" className="fk-btn-ghost" onClick={unduhExcel} disabled={unduh || data.total === 0}>
-              {unduh ? "Menyiapkan..." : "Unduh Excel"}
+            <button type="button" className="fk-btn-ghost" onClick={() => unduhBerkas("daftar")} disabled={Boolean(unduh) || data.total === 0}>
+              {unduh === "daftar" ? "Menyiapkan..." : "Unduh Excel"}
             </button>
           )}
         </div>
@@ -218,7 +224,7 @@ export default function IntegrasiPage() {
         ) : (
           <div className="fk-lib-list">
             {baris.map((b) => (
-              <BarisData key={b.entriId} b={b} labelPola={labelPola} />
+              <BarisData key={b.jenis === "peta" ? `p${b.nop}` : b.entriId} b={b} labelPola={labelPola} />
             ))}
           </div>
         )}
@@ -228,6 +234,26 @@ export default function IntegrasiPage() {
           </button>
         )}
       </Panel>
+
+      {admin && ringkas.bidang > 0 && (
+        <Panel
+          title="Lapisan NOP PBB"
+          sub="Peta bidang PBB: setiap bidang BPN yang sudah tercatat beserta NOP dan statusnya, dari data sensus dan dari peta."
+        >
+          <div className="fk-integrasi-alat">
+            <button type="button" className="fk-btn-ghost" onClick={() => unduhBerkas("geojson")} disabled={Boolean(unduh)}>
+              {unduh === "geojson" ? "Menyiapkan..." : "Unduh peta (GeoJSON)"}
+            </button>
+            <button type="button" className="fk-btn-ghost" onClick={() => unduhBerkas("pasangan")} disabled={Boolean(unduh)}>
+              {unduh === "pasangan" ? "Menyiapkan..." : "Pasangan NIB–NOP (Excel)"}
+            </button>
+          </div>
+          <p className="fk-hint">
+            GeoJSON dibuka di QGIS (Layer → Add Layer → Add Vector Layer), koordinat EPSG:4326. Isinya NIB, NOP, status,
+            tipe hak, luas peta, kelurahan, dan kecamatan - tanpa nama atau alamat wajib pajak.
+          </p>
+        </Panel>
+      )}
 
       {cakupan.length > 0 && (
         <Panel
@@ -258,9 +284,11 @@ export default function IntegrasiPage() {
   );
 }
 
-/** Satu data di daftar kerja integrasi; mengetuknya membuka datanya. */
+/** Satu baris daftar kerja: data sensus (membuka datanya) atau NOP dari peta (membuka bidangnya di Peta Sensus). */
 function BarisData({ b, labelPola }) {
-  const buka = () => navigate(`/kertas-kerja/${b.kkId}/data/${b.entriId}`);
+  const dariPeta = b.jenis === "peta";
+  const buka = () =>
+    navigate(dariPeta ? `/peta?nib=${encodeURIComponent(b.bidang[0]?.nib || "")}` : `/kertas-kerja/${b.kkId}/data/${b.entriId}`);
   const nib = b.bidang.map((x) => (x.diPeta ? x.nib : `${x.nib} (tidak di peta)`));
   const rinci = [
     b.bidang.length > 1 && `${b.bidang.length} bidang`,
@@ -284,10 +312,10 @@ function BarisData({ b, labelPola }) {
           <div className="fk-lib-sub fk-integrasi-lain">NOP lain di bidang yang sama: {b.nopLain.map(formatNop).join(", ")}</div>
         )}
         {b.nibLain.length > 0 && (
-          <div className="fk-lib-sub fk-integrasi-lain">Bidang lain milik NOP ini (data lain): {b.nibLain.join(", ")}</div>
+          <div className="fk-lib-sub fk-integrasi-lain">Bidang lain milik NOP ini: {b.nibLain.join(", ")}</div>
         )}
         <div className="fk-lib-sub">
-          Kertas kerja {b.nomor} · {b.formulir}
+          {dariPeta ? `Dari peta${b.oleh ? ` · ${b.oleh}` : ""}` : `Kertas kerja ${b.nomor} · ${b.formulir}`}
         </div>
       </div>
       <span className="fk-baris-panah" aria-hidden="true">

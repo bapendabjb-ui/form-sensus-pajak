@@ -85,14 +85,21 @@ export default function Dashboard() {
             </button>
           )}
 
-          {/* Formulir PBB punya pertanyaan Bidang Tanah BPN: jalan ke halaman Integrasi NIB-NOP (di HP tidak ada di bilah tab). */}
+          {/* Ada formulir berpertanyaan Bidang Tanah BPN / NOP dari peta: jalan ke halaman Integrasi NIB-NOP (di HP tidak ada di bilah tab). */}
           {stats.integrasiNib && (
             <button type="button" className="fk-pengajuan-ringkas" onClick={() => navigate("/integrasi")}>
               <span className="fk-pengajuan-ringkas-teks">
                 <b>Integrasi NIB–NOP</b>
                 <span>
-                  {stats.integrasiNib.data > 0
-                    ? `${Number(stats.integrasiNib.data).toLocaleString("id-ID")} data sudah mencatat bidang BPN`
+                  {stats.integrasiNib.data > 0 || stats.integrasiNib.peta > 0
+                    ? [
+                        stats.integrasiNib.data > 0 &&
+                          `${Number(stats.integrasiNib.data).toLocaleString("id-ID")} data mencatat bidang BPN`,
+                        stats.integrasiNib.peta > 0 &&
+                          `${Number(stats.integrasiNib.peta).toLocaleString("id-ID")} NOP dari peta`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
                     : "Belum ada data yang mencatat bidang BPN"}
                 </span>
               </span>

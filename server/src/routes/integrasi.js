@@ -5,13 +5,19 @@
  *
  * Laporan dan status bidang terbuka bagi siapa pun yang boleh membuka Peta
  * Sensus (bila wajib login: admin, petugas, pejabat) - isinya sama dengan yang
- * sudah tampil di daftar kertas kerja dan peta. Unduhan Excel khusus admin,
- * seperti ekspor lainnya.
+ * sudah tampil di daftar kertas kerja dan peta. Unduhan (Excel, GeoJSON) khusus
+ * admin, seperti ekspor lainnya.
+ *
+ * NOP per bidang dari Peta Sensus (tab NOP di panel bidang): menambah butuh
+ * login petugas atau admin (pejabat ditolak tolakTulisPejabat); menghapus hanya
+ * admin atau petugas yang menambahkannya.
  */
 
 const express = require("express");
-const { requireAdmin } = require("../auth");
-const { wrap, parseId } = require("../http");
+const { requireAdmin, bacaPengguna } = require("../auth");
+const { wrap, parseId, badRequest, unauthorized, forbidden, notFound, conflict } = require("../http");
+const prisma = require("../prisma");
+const { kunciBidang } = require("../answers");
 const { pembatas } = require("../laju");
 const { simpanSementara } = require("../simpanSementara");
 const { kirimXlsx, baseUrlEkspor } = require("../ekspor");
@@ -73,22 +79,110 @@ router.get(
   })
 );
 
+/** Daftar kunci bidang dari query `kunci=a,b`. */
+const bacaDaftarKunci = (q, maks = 40) =>
+  String(q || "")
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean)
+    .slice(0, maks);
+
 /**
  * GET /api/integrasi/cek?kunci=<kode|nib>,...&kecuali=<id data> ->
- *   { [kunci]: [{ entriId, kkId, nomor, nop, judul }] }
- * Data lain yang sudah mencatat bidang yang sama - peringatan di layar isi data.
+ *   { [kunci]: [{ sumber: "sensus", entriId, kkId, nomor, nop, judul } | { sumber: "peta", nop, oleh }] }
+ * Data lain dan NOP dari peta yang sudah tercatat di bidang yang sama -
+ * peringatan di layar isi data.
  */
 router.get(
   "/cek",
   batasi,
   wrap(async (req, res) => {
-    const kunci = String(req.query.kunci || "")
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean)
-      .slice(0, 40);
+    const kunci = bacaDaftarKunci(req.query.kunci);
     const kecuali = req.query.kecuali ? parseId(req.query.kecuali) : null;
-    res.json(await integrasi.sensusBidang(kunci, { kecuali }));
+    const [sensus, peta] = await Promise.all([integrasi.sensusBidang(kunci, { kecuali }), integrasi.petaBidang(kunci)]);
+    const hasil = {};
+    for (const k of kunci) {
+      const daftar = [
+        ...(sensus[k] || []).map((d) => ({ sumber: "sensus", ...d })),
+        ...(peta[k] || []).map((p) => ({ sumber: "peta", nop: p.nop, oleh: p.olehNama })),
+      ];
+      if (daftar.length) hasil[k] = daftar;
+    }
+    res.json(hasil);
+  })
+);
+
+/* ---------- NOP per bidang dari Peta Sensus ---------- */
+
+/** GET /api/integrasi/nop-bidang?kunci=<kode|nib> -> isi tab NOP (integrasi.nopBidang). */
+router.get(
+  "/nop-bidang",
+  batasi,
+  wrap(async (req, res) => {
+    const kunci = String(req.query.kunci || "");
+    if (!integrasi.pisahKunci(kunci)) throw badRequest("Bidang tidak dikenal.");
+    const pengguna = await bacaPengguna(req);
+    res.setHeader("Cache-Control", "no-cache");
+    res.json((await integrasi.nopBidang([kunci], pengguna))[kunci]);
+  })
+);
+
+/**
+ * POST /api/integrasi/nop-bidang { kunci, nop, keterangan } -> isi tab NOP terbaru.
+ * Bidangnya harus ada di peta BPN yang aktif. Pasangan yang sudah ada: 409.
+ */
+router.post(
+  "/nop-bidang",
+  batasi,
+  wrap(async (req, res) => {
+    const pengguna = await bacaPengguna(req);
+    if (!pengguna) throw unauthorized("Masuk sebagai petugas atau admin untuk menambah NOP.");
+    if (pengguna.role !== "admin" && pengguna.role !== "petugas") throw forbidden("Hanya petugas dan admin yang boleh menambah NOP.");
+    let isi;
+    try {
+      isi = integrasi.bacaKirimanNop(req.body || {});
+    } catch (e) {
+      throw badRequest(e.message);
+    }
+    const ada = await prisma.persil.findFirst({ where: { aktif: true, kodeWilayah: isi.kode, nib: isi.nib }, select: { id: true } });
+    if (!ada) throw notFound("Bidang ini tidak ada di peta BPN yang aktif. Muat ulang peta lalu ketuk bidangnya lagi.");
+    try {
+      await prisma.bidangNop.create({
+        data: {
+          kodeWilayah: isi.kode,
+          nib: isi.nib,
+          nop: isi.nop,
+          keterangan: isi.keterangan,
+          olehPeran: pengguna.role,
+          olehId: pengguna.id,
+          olehNama: String(pengguna.nama || pengguna.username || "").slice(0, 150),
+        },
+      });
+    } catch (e) {
+      if (e && e.code === "P2002") throw conflict("NOP ini sudah tercatat di bidang ini.");
+      throw e;
+    }
+    const kunci = kunciBidang(isi.kode, isi.nib);
+    res.status(201).json((await integrasi.nopBidang([kunci], pengguna))[kunci]);
+  })
+);
+
+/** DELETE /api/integrasi/nop-bidang/:id -> isi tab NOP terbaru. Admin, atau petugas yang menambahkannya. */
+router.delete(
+  "/nop-bidang/:id",
+  batasi,
+  wrap(async (req, res) => {
+    const id = parseId(req.params.id);
+    const pengguna = await bacaPengguna(req);
+    if (!pengguna) throw unauthorized("Masuk sebagai petugas atau admin untuk menghapus NOP.");
+    const baris = await prisma.bidangNop.findUnique({ where: { id } });
+    if (!baris) throw notFound("NOP ini sudah dihapus.");
+    if (!integrasi.bolehHapusNop(baris, pengguna)) {
+      throw forbidden("NOP ini hanya bisa dihapus admin atau petugas yang menambahkannya.");
+    }
+    await prisma.bidangNop.delete({ where: { id } });
+    const kunci = kunciBidang(baris.kodeWilayah, baris.nib);
+    res.json((await integrasi.nopBidang([kunci], pengguna))[kunci]);
   })
 );
 
@@ -106,6 +200,36 @@ router.get(
       sheet: "Integrasi NIB-NOP",
       tabel: integrasi.tabelLaporan(baris, { baseUrl: baseUrlEkspor(req) }),
     });
+  })
+);
+
+/** GET /api/integrasi/unduh-pasangan -> pasangan NIB-NOP kedua sumber (.xlsx). Khusus admin. */
+router.get(
+  "/unduh-pasangan",
+  requireAdmin,
+  wrap(async (req, res) => {
+    const [pasangan, persil] = await Promise.all([integrasi.bacaPasangan(), integrasi.persilTercatat()]);
+    await kirimXlsx(res, {
+      nama: `pasangan-nib-nop-${new Date().toISOString().slice(0, 10)}`,
+      sheet: "Pasangan NIB-NOP",
+      tabel: integrasi.tabelPasangan(pasangan, persil, { baseUrl: baseUrlEkspor(req) }),
+    });
+  })
+);
+
+/**
+ * GET /api/integrasi/unduh-geojson -> lapisan NOP PBB (.geojson, EPSG:4326): satu
+ * bidang BPN tercatat per Feature dengan NOP dan statusnya, untuk QGIS. Khusus admin.
+ */
+router.get(
+  "/unduh-geojson",
+  requireAdmin,
+  wrap(async (_req, res) => {
+    const [pasangan, persil] = await Promise.all([integrasi.bacaPasangan(), integrasi.persilTercatat({ geometri: true })]);
+    const nama = `peta-bidang-pbb-${new Date().toISOString().slice(0, 10)}.geojson`;
+    res.setHeader("Content-Type", "application/geo+json; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${nama}"`);
+    res.send(integrasi.teksGeojsonPbb(pasangan, persil));
   })
 );
 

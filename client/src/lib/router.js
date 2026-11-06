@@ -179,7 +179,8 @@ const angka = (s) => (/^\d+$/.test(s || "") ? Number(s) : null);
  *   fokus   : layar pengisian — bilah tab disembunyikan agar layar lega
  */
 export function cocokkanRute(pathname) {
-  const b = pathname.split("/").filter(Boolean);
+  // Kueri (mis. /peta?nib=...) dibaca halamannya sendiri, bukan bagian rute.
+  const b = pathname.split("?")[0].split("/").filter(Boolean);
 
   if (b.length === 0) return { nama: "dashboard", tab: "dashboard", judul: "Dashboard" };
 

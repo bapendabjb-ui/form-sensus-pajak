@@ -93,8 +93,9 @@ export const warnaDi = (warna, kecamatan, jenis) =>
 /* ---------- warna status sensus (integrasi NIB-NOP) ---------- */
 
 /*
- * Mode warna "Status sensus": bidang diwarnai menurut hubungannya dengan NOP
- * hasil sensus (server/src/integrasi.js statusBidangPeta), bukan kecamatannya.
+ * Mode warna "NOP PBB" (lapisan NOP PBB): bidang diwarnai menurut hubungannya
+ * dengan NOP - dari data sensus dan dari tab NOP di panel bidang
+ * (server/src/integrasi.js statusBidangPeta), bukan kecamatannya.
  * Tiga slot pertama palet kategori - satu-satunya tiga yang tetap terbedakan
  * berpasangan di peta (divalidasi --pairs all, terang dan gelap/satelit).
  * Bidang yang belum tercatat abu-abu tipis supaya yang sudah tercatat menonjol.
@@ -104,13 +105,24 @@ export const STATUS_BIDANG = [
   { kunci: "tinjau", label: "Perlu ditinjau: beberapa NIB / NOP", warna: { peta: "#eb6834", satelit: "#d95926" } },
   { kunci: "tanpa_nop", label: "NIB tanpa NOP", warna: { peta: "#1baf7a", satelit: "#199e70" } },
 ];
-const BELUM = { kunci: "belum", label: "Belum tercatat di sensus", warna: ABU };
+const BELUM = { kunci: "belum", label: "Belum tercatat", warna: ABU };
 
 /** Warna sebuah status bidang ("belum" untuk yang tidak tercatat). */
 export const warnaStatusBidang = (status, jenis) =>
   ((STATUS_BIDANG.find((s) => s.kunci === status) || BELUM).warna)[jenis === "satelit" ? "satelit" : "peta"];
 
 export const LABEL_BELUM = BELUM.label;
+
+/*
+ * NOP sebuah bidang ditambah / dihapus dari panel peta, atau data sensus
+ * disimpan: warna status dimuat ulang tanpa menunggu halaman dibuka lagi.
+ */
+const pendengarStatus = new Set();
+let statusKe = 0;
+export function kabarkanStatusBerubah() {
+  statusKe += 1;
+  for (const fn of pendengarStatus) fn(statusKe);
+}
 
 /** Warna satu bidang menurut mode warna peta: status sensus (cfg.status) atau kecamatan. */
 const warnaBidang = (cfg, id, kec, jenis) =>
@@ -197,6 +209,12 @@ export function usePersilBpn({ paksa = false } = {}) {
   // Status sensus tiap bidang: { peta: Map, ke: nomor muatan } - dimuat saat mode "status" dipilih.
   const [status, setStatus] = useState(null);
   const [statusGalat, setStatusGalat] = useState("");
+  // Naik setiap kabarkanStatusBerubah: status dimuat ulang.
+  const [statusBaru, setStatusBaru] = useState(statusKe);
+  useEffect(() => {
+    pendengarStatus.add(setStatusBaru);
+    return () => pendengarStatus.delete(setStatusBaru);
+  }, []);
   const [ukuran, setUkuran] = useState({ petak: UKURAN_PETAK_BAWAAN, ringkas: UKURAN_RINGKAS_BAWAAN });
 
   const muatUlang = useCallback(
@@ -243,8 +261,8 @@ export function usePersilBpn({ paksa = false } = {}) {
   const ada = Boolean(ringkasan && ringkasan.jumlah > 0);
   const versi = ringkasan?.versi;
 
-  // Status sensus dimuat sekali tiap mode "status" dinyalakan / halaman dibuka:
-  // isinya berubah setiap petugas menyimpan data, jadi tidak disimpan lama.
+  // Status dimuat sekali tiap mode "status" dinyalakan / halaman dibuka / NOP
+  // bidang berubah: isinya berubah setiap petugas menyimpan data, jadi tidak disimpan lama.
   useEffect(() => {
     if (mode !== "status" || !ada) return undefined;
     let batal = false;
@@ -252,11 +270,11 @@ export function usePersilBpn({ paksa = false } = {}) {
     api
       .statusBidangSensus()
       .then((isi) => !batal && setStatus((s) => ({ peta: petaStatusBidang(isi), ke: (s?.ke || 0) + 1 })))
-      .catch((e) => !batal && setStatusGalat(e.message || "Status sensus bidang gagal dimuat."));
+      .catch((e) => !batal && setStatusGalat(e.message || "Status NOP bidang gagal dimuat."));
     return () => {
       batal = true;
     };
-  }, [mode, ada, versi]);
+  }, [mode, ada, versi, statusBaru]);
 
   const kecamatan = useMemo(() => {
     const jumlah = new Map();

@@ -10,7 +10,8 @@
  * semua foto (baris database dan berkasnya di UPLOAD_DIR), seluruh pengajuan
  * hapus beserta riwayatnya, dan counter nomor dikembalikan ke 0. Periode data dinaikkan sehingga draf isian di browser
  * petugas ikut dibuang saat aplikasi dibuka berikutnya.
- * Yang tetap: admin, petugas, bank formulir & pertanyaannya.
+ * Yang tetap: admin, petugas, bank formulir & pertanyaannya, persil BPN, dan NOP yang
+ * dicatat langsung pada bidang dari Peta Sensus (bidang_nop) - tidak terikat kertas kerja.
  *
  * AUTO_INCREMENT id sengaja tidak di-reset: draf isian di browser petugas
  * disimpan per id kertas kerja / entri, jadi id lama tidak boleh dipakai ulang.

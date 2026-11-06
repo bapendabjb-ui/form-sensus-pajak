@@ -6,11 +6,11 @@
  */
 
 const express = require("express");
-const { requireAdmin } = require("../auth");
+const { requireAdmin, bacaPengguna } = require("../auth");
 const { wrap, badRequest } = require("../http");
 const { pembatas } = require("../laju");
 const persil = require("../persil");
-const { sensusBidang } = require("../integrasi");
+const { nopBidang } = require("../integrasi");
 const { kunciBidang } = require("../answers");
 
 const router = express.Router();
@@ -46,17 +46,19 @@ function bacaBulat(nilai, label) {
 }
 
 /**
- * Tambahkan data sensus yang mencatat bidang-bidang ini ke balon petanya
- * (fitur.properties.sensus): NOP, nomor kertas kerja, dan judul datanya.
+ * Tambahkan NOP yang tercatat di bidang-bidang ini ke panel petanya
+ * (fitur.properties.nop, integrasi.nopBidang): dari data sensus (nomor kertas
+ * kerja, judul) dan dari peta (keterangan, yang menambahkan, boleh dihapus?).
  */
-async function denganSensus(daftar) {
+async function denganSensus(daftar, req) {
   const bentuk = daftar.filter((b) => b && b.fitur);
   if (!bentuk.length) return daftar;
-  const sensus = await sensusBidang(bentuk.map((b) => kunciBidang(b.kodeWilayah, b.nib)));
+  const pengguna = await bacaPengguna(req);
+  const isi = await nopBidang(bentuk.map((b) => kunciBidang(b.kodeWilayah, b.nib)), pengguna);
   for (const b of bentuk) {
     const k = kunciBidang(b.kodeWilayah, b.nib);
     b.kunci = k;
-    b.fitur.properties.sensus = sensus[k] || [];
+    b.fitur.properties.nop = isi[k] || { nop: [], tanpaNop: [] };
   }
   return daftar;
 }
@@ -123,7 +125,7 @@ router.get(
     const { lat, lon } = bacaTitik(req.query);
     const bentuk = req.query.bentuk === "1";
     const [ada, hasil] = await Promise.all([persil.adaPersil(), persil.cariDiTitik(lat, lon, { bentuk })]);
-    if (hasil && bentuk) await denganSensus([hasil]);
+    if (hasil && bentuk) await denganSensus([hasil], req);
     res.json({ ada, persil: hasil });
   })
 );
@@ -133,7 +135,7 @@ router.get(
   "/cari",
   batasiCari,
   wrap(async (req, res) => {
-    res.json(await denganSensus(await persil.cariNib(req.query.q)));
+    res.json(await denganSensus(await persil.cariNib(req.query.q), req));
   })
 );
 
