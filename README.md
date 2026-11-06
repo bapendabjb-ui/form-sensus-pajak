@@ -917,11 +917,16 @@ browser, dalam dua tingkat rincian:
 
 | Zoom | Data | Ukuran |
 | --- | --- | --- |
-| 13–14 | **Ringkas** per sel ±2,2 km (4 × 4 petak): koordinat dibulatkan 1e-5° (±1,1 m), garis disederhanakan ±3 m (Douglas-Peucker), ditulis sebagai selisih antartitik. Di zoom ini satu piksel ±10–20 m, jadi bedanya tidak terlihat | Seluruh kota 83 sel, 6,8 MB / **2,1 MB gzip**; sel terbesar 316 KB, disusun ≤ 160 ms lalu disimpan di memori server sampai persil berubah |
+| 13–14 | **Ringkas** per sel ±2,2 km (4 × 4 petak): koordinat dibulatkan 1e-5° (±1,1 m), garis disederhanakan ±3 m (Douglas-Peucker), ditulis sebagai selisih antartitik. Di zoom ini satu piksel ±10–20 m, jadi bedanya tidak terlihat | Seluruh kota 83 sel, 6,8 MB / **2,1 MB gzip**; sel terbesar 316 KB, disusun ≤ 160 ms lalu disimpan di memori server sampai persil berubah; seluruhnya disiapkan di belakang 20 detik sesudah server menyala dan sesudah impor / hapus (±4 detik) |
 | 15 ke atas | **Lengkap** per petak ±550 m: id, kecamatan, poligon | Petak terpadat ±1.400 bidang: ±290 KB, ±55 KB gzip, ±60 ms |
 
 Bidang kecil masuk sel ringkas tempat sudut barat dayanya saja (tidak pernah ganda); bidang besar
-masuk setiap sel yang disentuhnya dan digambar sekali menurut id-nya. Keterangan bidang (NIB, luas,
+masuk setiap sel yang disentuhnya dan digambar sekali menurut id-nya.
+
+Setiap warna digambar sebagai satu `Path2D` berisi ribuan cincin, dan cincin ditutup dengan garis ke
+titik awalnya - **bukan `closePath()`**: di Chrome, `closePath()` pada jalur sepanjang itu makin
+lambat seiring panjangnya. Sebelum diganti, Peta Sensus membeku ±18 detik saat menggambar seluruh
+kota (17,5 detik di `closePath` saja); sesudahnya ±0,3 detik, tanpa jeda beku di atas ±70 ms. Keterangan bidang (NIB, luas,
 ...) baru diambil saat bidangnya diketuk. Bidang yang lebih besar dari satu petak (`besar`,
 ±750 bidang) dicari tanpa petak. Bidang di sebuah titik (ketukan, halaman data, ekspor) memakai
 indeks yang sama lalu diuji titik-di-poligon, termasuk lubang.

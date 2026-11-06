@@ -207,6 +207,10 @@ async function start() {
   sapu();
   setInterval(sapu, 6 * 3600 * 1000).unref();
 
+  // Peta persil ringkas (zoom 13-14) disiapkan di belakang setelah server
+  // tenang, supaya pembuka peta pertama sesudah deploy tidak menunggu.
+  setTimeout(() => require("./src/persil").hangatkanDiBelakang(), 20 * 1000).unref();
+
   const admin = await ensureAdminSeed();
   console.log(
     admin.created

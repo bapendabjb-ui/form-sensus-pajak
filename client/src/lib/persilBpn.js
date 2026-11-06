@@ -430,6 +430,14 @@ export async function gambarUbinPersil(ubin, { x, y, z }, cfg, jenis, batal = ()
   gambarJalur(ubin, jalur, z);
 }
 
+/*
+ * TUTUP_CINCIN: cincin ditutup dengan garis ke titik awalnya, bukan
+ * closePath(). Di Chrome, closePath() pada Path2D berisi ribuan subjalur makin
+ * lambat seiring panjang jalurnya: menggambar Banjarbaru di zoom 13 memakan
+ * ±17 detik di closePath saja (diukur 2026-11-06), dengan lineTo ±20 ms.
+ * Isian tetap benar karena fill() menutup setiap subjalur sendiri.
+ */
+
 /** Path2D untuk satu warna (dibuat saat pertama dibutuhkan). */
 function jalurUntuk(jalur, warna) {
   let p = jalur.get(warna);
@@ -461,13 +469,13 @@ async function jalurRinci({ barat, timur, utara, selatan }, { x, y, n }, cfg, je
       const p = jalurUntuk(jalur, warnaDi(cfg.warna, b.kec, jenis));
       for (const poligon of b.poligon) {
         for (const cincin of poligon) {
+          // Cincin GeoJSON sudah tertutup (titik akhir = titik awal): tanpa closePath (lihat TUTUP_CINCIN).
           for (let k = 0; k < cincin.length; k++) {
             const px = (lonKeX(cincin[k][0], n) - x) * UKURAN_UBIN;
             const py = (latKeY(cincin[k][1], n) - y) * UKURAN_UBIN;
             if (k) p.lineTo(px, py);
             else p.moveTo(px, py);
           }
-          p.closePath();
         }
       }
     }
@@ -511,13 +519,20 @@ async function jalurRingkas({ barat, timur, utara, selatan }, { x, y, n }, cfg, 
       if (sel.kotak[o + 2] < bw || sel.kotak[o] > be || sel.kotak[o + 3] < bs || sel.kotak[o + 1] > bu) continue;
       if (id) dariSelIni.add(id);
       const p = jalurUntuk(jalur, warna);
+      let ax = 0;
+      let ay = 0;
       for (let v = sel.awal[c]; v < sel.awal[c + 1]; v++) {
         const px = (lonKeX((x0 + sel.xy[2 * v]) / SATUAN_RINGKAS, n) - x) * UKURAN_UBIN;
         const py = (latKeY((y0 + sel.xy[2 * v + 1]) / SATUAN_RINGKAS, n) - y) * UKURAN_UBIN;
-        if (v === sel.awal[c]) p.moveTo(px, py);
-        else p.lineTo(px, py);
+        if (v === sel.awal[c]) {
+          p.moveTo(px, py);
+          [ax, ay] = [px, py];
+        } else {
+          p.lineTo(px, py);
+        }
       }
-      p.closePath();
+      // Isi ringkas tanpa titik penutup: garis kembali ke titik awal (lihat TUTUP_CINCIN).
+      p.lineTo(ax, ay);
     }
     for (const id of dariSelIni) sudah.add(id);
   }

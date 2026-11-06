@@ -713,6 +713,38 @@ async function cariNib(q) {
   return daftar.map(bentukSorot);
 }
 
+let menghangatkan = null; // Promise selama penghangatan berjalan
+let hangatkanLagi = false;
+
+/**
+ * Susun isi ringkas semua sel di belakang layar, satu per satu, supaya
+ * pembuka peta pertama sesudah server dinyalakan / persil berubah tidak ikut
+ * menunggu penyusunannya. Dipanggil lagi saat masih berjalan = diulang sekali
+ * setelah selesai (persilnya bisa sudah berubah lagi).
+ */
+function hangatkanRingkas() {
+  if (menghangatkan) {
+    hangatkanLagi = true;
+    return menghangatkan;
+  }
+  menghangatkan = (async () => {
+    do {
+      hangatkanLagi = false;
+      const sel = await prisma.$queryRaw`
+        SELECT DISTINCT FLOOR(sel_lat / ${PETAK_PER_RINGKAS}) AS j, FLOOR(sel_lon / ${PETAK_PER_RINGKAS}) AS i
+        FROM persil WHERE aktif = 1`;
+      for (const { i, j } of sel) await ringkasPeta(Number(i), Number(j));
+    } while (hangatkanLagi);
+  })().finally(() => {
+    menghangatkan = null;
+  });
+  return menghangatkan;
+}
+
+/** hangatkanRingkas tanpa ditunggu; gagal cukup dicatat (sel disusun saat diminta). */
+const hangatkanDiBelakang = () =>
+  hangatkanRingkas().catch((e) => console.warn("[Sensus Pajak] penyiapan peta persil ringkas gagal:", e.message));
+
 /* ---------- impor & hapus ---------- */
 
 /** Mulai impor: buang sisa impor lama yang ditinggalkan, lalu beri token baru. */
@@ -747,6 +779,7 @@ async function selesaikanImpor(token) {
     prisma.persil.updateMany({ where: { impor: token }, data: { aktif: true } }),
   ]);
   simpananRingkas.clear();
+  hangatkanDiBelakang();
   return { jumlah: baru.count, diganti: lama.count, wilayah: kunci.length };
 }
 
@@ -763,6 +796,7 @@ async function hapusPersil({ kunci, semua = false }) {
     ? await prisma.persil.deleteMany({})
     : await prisma.persil.deleteMany({ where: { aktif: true, kunciWilayah: { in: daftar } } });
   simpananRingkas.clear();
+  hangatkanDiBelakang();
   return hasil.count;
 }
 
@@ -792,6 +826,7 @@ module.exports = {
   bidangDiPetak,
   petakPeta,
   ringkasPeta,
+  hangatkanDiBelakang,
   cariDiTitik,
   adaPersil,
   pencariPersilEkspor,
