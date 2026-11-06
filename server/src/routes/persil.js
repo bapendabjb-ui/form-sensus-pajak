@@ -58,9 +58,9 @@ router.get(
 );
 
 /**
- * GET /api/persil/petak/:i/:j?v=<versi> -> FeatureCollection bidang di petak itu.
- * Alamatnya memuat versi persil, jadi isinya untuk alamat yang sama tidak
- * pernah berubah: browser boleh menyimpannya.
+ * GET /api/persil/petak/:i/:j?v=<versi> -> bidang di petak itu, ringkas
+ * (persil.teksPetak). Alamatnya memuat versi persil, jadi isinya untuk alamat
+ * yang sama tidak pernah berubah: browser boleh menyimpannya.
  */
 router.get(
   "/petak/:i/:j",
@@ -68,19 +68,23 @@ router.get(
   wrap(async (req, res) => {
     const i = bacaBulat(req.params.i, "petak");
     const j = bacaBulat(req.params.j, "petak");
-    const daftar = await persil.bidangDiPetak(i, j);
+    const isi = await persil.petakPeta(i, j);
     res.setHeader("Cache-Control", req.query.v ? "private, max-age=86400" : "no-cache");
-    res.type("application/geo+json").send(persil.teksKoleksi(daftar));
+    res.type("json").send(isi);
   })
 );
 
-/** GET /api/persil/titik?lat=&lon= -> { ada: ada persil tersimpan, persil: bidang di titik itu | null }. */
+/**
+ * GET /api/persil/titik?lat=&lon=[&bentuk=1] -> { ada: ada persil tersimpan, persil: bidang di titik itu | null }.
+ * `bentuk=1`: bidangnya beserta kotak dan Feature-nya - bidang yang diketuk di peta.
+ */
 router.get(
   "/titik",
   batasiCari,
   wrap(async (req, res) => {
     const { lat, lon } = bacaTitik(req.query);
-    const [ada, hasil] = await Promise.all([persil.adaPersil(), persil.cariDiTitik(lat, lon)]);
+    const bentuk = req.query.bentuk === "1";
+    const [ada, hasil] = await Promise.all([persil.adaPersil(), persil.cariDiTitik(lat, lon, { bentuk })]);
     res.json({ ada, persil: hasil });
   })
 );

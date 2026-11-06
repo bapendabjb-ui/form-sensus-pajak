@@ -304,8 +304,43 @@ const propertiPeta = (p) => ({
 const teksFitur = (p) =>
   `{"type":"Feature","id":${p.id},"geometry":${p.geometri},"properties":${JSON.stringify(propertiPeta(p))}}`;
 
-/** Bidang-bidang sebagai FeatureCollection (teks). */
-const teksKoleksi = (daftar) => `{"type":"FeatureCollection","features":[${daftar.map(teksFitur).join(",")}]}`;
+/**
+ * Koordinat geometri tersimpan sebagai daftar poligon (bentuk MultiPolygon),
+ * teks. Geometri ditulis rapikanGeometri sebagai {"type":..,"coordinates":..},
+ * jadi cukup dipotong; bentuk lain (tidak semestinya ada) diurai.
+ */
+function teksPoligon(geometri) {
+  const POLY = '{"type":"Polygon","coordinates":';
+  const MULTI = '{"type":"MultiPolygon","coordinates":';
+  if (geometri.startsWith(POLY)) return `[${geometri.slice(POLY.length, -1)}]`;
+  if (geometri.startsWith(MULTI)) return geometri.slice(MULTI.length, -1);
+  try {
+    return JSON.stringify(poligonDari(JSON.parse(geometri)));
+  } catch {
+    return "[]";
+  }
+}
+
+/**
+ * Isi satu petak peta, ringkas - hanya yang dibutuhkan untuk menggambar:
+ * { kecamatan: [nama...], bidang: [[id, indeks kecamatan, poligon-poligon], ...] }.
+ * Keterangan bidang (NIB, luas, ...) diambil saat bidangnya diketuk (cariDiTitik).
+ */
+function teksPetak(daftar) {
+  const indeks = new Map();
+  const bidang = daftar.map((p) => {
+    if (!indeks.has(p.kecamatan)) indeks.set(p.kecamatan, indeks.size);
+    return `[${p.id},${indeks.get(p.kecamatan)},${teksPoligon(p.geometri)}]`;
+  });
+  return `{"kecamatan":${JSON.stringify([...indeks.keys()])},"bidang":[${bidang.join(",")}]}`;
+}
+
+/** Bidang untuk disorot di peta: keterangan + kotak + Feature GeoJSON. */
+const bentukSorot = (p) => ({
+  ...bentukInfo(p),
+  batas: [p.minLon, p.minLat, p.maxLon, p.maxLat],
+  fitur: JSON.parse(teksFitur(p)),
+});
 
 /* ---------- database ---------- */
 
@@ -324,6 +359,9 @@ const PILIH_PETA = {
   maxLat: true,
   maxLon: true,
 };
+
+/** Untuk petak peta: cukup bentuk dan kecamatannya. */
+const PILIH_PETAK = { id: true, kecamatan: true, geometri: true };
 
 /** Petak berisi titik ini. */
 const petakTitik = (lat, lon) => ({ i: Math.floor(lon / UKURAN_PETAK), j: Math.floor(lat / UKURAN_PETAK) });
@@ -358,8 +396,11 @@ async function bidangDiKotak({ s, n, w, e }, pilih = PILIH_PETA) {
   return kecil.concat(besar);
 }
 
-/** Bidang di satu petak peta. */
-const bidangDiPetak = (i, j) => bidangDiKotak(batasPetak(i, j));
+/** Bidang di satu petak peta (`pilih` bawaan: lengkap, untuk pencarian titik). */
+const bidangDiPetak = (i, j, pilih = PILIH_PETA) => bidangDiKotak(batasPetak(i, j), pilih);
+
+/** Isi petak peta siap kirim (teksPetak). */
+const petakPeta = async (i, j) => teksPetak(await bidangDiPetak(i, j, PILIH_PETAK));
 
 /**
  * Dari bidang-bidang calon, yang memuat titik ini. Bila bertumpuk (data BPN
@@ -386,10 +427,14 @@ function pilihDiTitik(calon, lat, lon) {
   return terpilih;
 }
 
-/** Bidang tempat titik ini berada: bentukInfo, atau null. */
-async function cariDiTitik(lat, lon) {
+/**
+ * Bidang tempat titik ini berada: bentukInfo, atau null. `bentuk` = sertakan
+ * kotak dan Feature-nya (bentukSorot), untuk menyorot bidang yang diketuk di peta.
+ */
+async function cariDiTitik(lat, lon, { bentuk = false } = {}) {
   const p = pilihDiTitik(await bidangDiKotak({ s: lat, n: lat, w: lon, e: lon }), lat, lon);
-  return p ? bentukInfo(p) : null;
+  if (!p) return null;
+  return bentuk ? bentukSorot(p) : bentukInfo(p);
 }
 
 /** Sudah ada persil aktif? */
@@ -499,11 +544,7 @@ async function cariNib(q) {
     orderBy: [{ kecamatan: "asc" }, { kelurahan: "asc" }, { id: "asc" }],
     take: 20,
   });
-  return daftar.map((p) => ({
-    ...bentukInfo(p),
-    batas: [p.minLon, p.minLat, p.maxLon, p.maxLat],
-    fitur: JSON.parse(teksFitur(p)),
-  }));
+  return daftar.map(bentukSorot);
 }
 
 /* ---------- impor & hapus ---------- */
@@ -573,9 +614,10 @@ module.exports = {
   pilihDiTitik,
   petakTitik,
   batasPetak,
-  teksKoleksi,
+  teksPetak,
   // database
   bidangDiPetak,
+  petakPeta,
   cariDiTitik,
   adaPersil,
   pencariPersilEkspor,

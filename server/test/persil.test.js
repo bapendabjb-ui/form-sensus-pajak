@@ -17,7 +17,7 @@ const {
   pilihDiTitik,
   petakTitik,
   batasPetak,
-  teksKoleksi,
+  teksPetak,
 } = require("../src/persil");
 
 /*
@@ -178,19 +178,24 @@ test("bacaKueriNib: NIB pendek dengan / tanpa nol depan, NIB lengkap 13 digit", 
   assert.throws(() => bacaKueriNib("12345678901234"), /13 digit/);
 });
 
-test("teksKoleksi: FeatureCollection sah dengan id bidang dan keterangan balon", () => {
-  const { data } = bacaFiturImpor(bidang());
-  const koleksi = JSON.parse(teksKoleksi([{ id: 7, ...data }]));
-  assert.equal(koleksi.type, "FeatureCollection");
-  const [f] = koleksi.features;
-  assert.equal(f.id, 7);
-  assert.equal(f.geometry.type, "Polygon");
-  assert.deepEqual(f.properties, {
-    nib: "17.11.74.02.03612",
-    tipeHak: "Hak Milik",
-    luasPeta: 566.84,
-    kelurahan: "Loktabat Selatan",
-    kecamatan: "Banjarbaru Selatan",
-    lain: { PENGGUNAAN: "Kosong", TAHUN: 0 },
-  });
+test("teksPetak: ringkas - id, indeks kecamatan, dan poligon-poligon (Polygon & MultiPolygon)", () => {
+  const { data: a } = bacaFiturImpor(bidang());
+  const { data: b } = bacaFiturImpor(
+    bidang({
+      kecamatan: "Cempaka",
+      geometri: { type: "MultiPolygon", coordinates: [[kotak(LON, LAT)], [kotak(LON + 0.01, LAT)]] },
+    })
+  );
+  const { data: c } = bacaFiturImpor(bidang({ nib: "1" }));
+  const petak = JSON.parse(teksPetak([{ id: 7, ...a }, { id: 8, ...b }, { id: 9, ...c }]));
+  assert.deepEqual(petak.kecamatan, ["Banjarbaru Selatan", "Cempaka"]);
+  assert.deepEqual(
+    petak.bidang.map(([id, k, poligon]) => [id, k, poligon.length]),
+    [
+      [7, 0, 1],
+      [8, 1, 2],
+      [9, 0, 1],
+    ]
+  );
+  assert.deepEqual(petak.bidang[0][2], [JSON.parse(a.geometri).coordinates]);
 });

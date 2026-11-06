@@ -44,6 +44,7 @@ export default function PetaPage() {
   const [sorot, setSorot] = useState(null);
   const sorotBidang = (b) => {
     persil.ubahNyala(true);
+    if (persil.kecamatan.some((k) => k.nama === b.kecamatan && !k.tampil)) persil.ubahKecamatan(b.kecamatan, true);
     setSorot({ fitur: b.fitur, batas: b.batas });
   };
 

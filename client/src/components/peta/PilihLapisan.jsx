@@ -1,16 +1,16 @@
 import { useCallback, useRef, useState } from "react";
 import { useOutside } from "../../lib/useOutside.js";
 import { useMobile } from "../../lib/useMobile.js";
-import { WARNA_PERSIL, PERSIL_ZOOM_MIN } from "../../lib/persilBpn.js";
+import { PERSIL_ZOOM_MIN } from "../../lib/persilBpn.js";
 import Sheet from "../Sheet.jsx";
 import KelolaLapisan from "../KelolaLapisan.jsx";
 import KelolaPersil from "../KelolaPersil.jsx";
 import { CheckIcon, IkonLapisan } from "../Icons.jsx";
-import { ContohLapisan } from "./bersama.jsx";
+import { ContohLapisan, ContohPersil } from "./bersama.jsx";
 
 /**
  * Tombol "Lapisan" di bilah alat Peta Sensus: nyalakan / matikan persil BPN
- * dan lapisan dari GIS (batas blok, ...). Komputer: panel di bawah tombol. HP:
+ * (dan pilih kecamatannya) serta lapisan dari GIS (batas blok, ...). Komputer: panel di bawah tombol. HP:
  * lembar dari bawah layar, seperti CustomSelect. Pilihannya tersimpan per
  * browser (lib/persilBpn.js, lib/lapisanPeta.js).
  *
@@ -61,7 +61,7 @@ export default function PilihLapisan({ lapisan, persil, admin = false }) {
           onClick={() => persil.ubahNyala(!persil.nyala)}
         >
           <span className="fk-ind fk-ind-check">{persil.nyala && <CheckIcon />}</span>
-          <ContohLapisan warna={WARNA_PERSIL} />
+          <ContohPersil warna={persil.kecamatan.map((k) => k.warna.peta)} />
           <span className="fk-lapisan-teks">
             <span className="fk-lapisan-nama">Persil BPN</span>
             <span className="fk-hint-kecil">
@@ -69,6 +69,25 @@ export default function PilihLapisan({ lapisan, persil, admin = false }) {
             </span>
           </span>
         </button>
+      )}
+      {persil.ada && persil.nyala && persil.kecamatan.length > 1 && (
+        <div className="fk-persil-kec-daftar" role="group" aria-label="Kecamatan persil yang tampil">
+          {persil.kecamatan.map((k) => (
+            <button
+              type="button"
+              key={k.nama}
+              role="checkbox"
+              aria-checked={k.tampil}
+              className={"fk-persil-kec" + (k.tampil ? " is-on" : "")}
+              onClick={() => persil.ubahKecamatan(k.nama, !k.tampil)}
+            >
+              <span className="fk-ind fk-ind-check">{k.tampil && <CheckIcon />}</span>
+              <ContohLapisan warna={k.warna.peta} />
+              <span className="fk-persil-kec-nama">{k.nama || "(tanpa kecamatan)"}</span>
+              <span className="fk-hint-kecil">{k.jumlah.toLocaleString("id-ID")}</span>
+            </button>
+          ))}
+        </div>
       )}
       {daftar.length === 0 && !persil.ada && (
         <div className="fk-select-empty">

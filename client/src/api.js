@@ -654,7 +654,8 @@ export const hapusLapisan = (id) => request(`/lapisan/${id}`, { method: "DELETE"
 export const ringkasanPersil = () => request("/persil");
 
 /**
- * Bidang di satu petak peta (FeatureCollection). Alamatnya memuat versi persil,
+ * Bidang di satu petak peta, ringkas: { kecamatan: [nama], bidang: [[id, indeks
+ * kecamatan, poligon-poligon]] }. Alamatnya memuat versi persil,
  * jadi browser boleh menyimpan jawabannya - petak yang pernah dibuka tidak
  * diunduh ulang selama isi persil tidak berubah.
  */
@@ -677,6 +678,12 @@ export function persilDiTitik(lat, lon) {
   }
   return persilTitikCache.get(kunci);
 }
+
+/**
+ * Bidang di titik yang diketuk di peta, beserta bentuknya untuk disorot:
+ * { ada, persil: { ...keterangan, batas, fitur } | null }. Tidak disimpan.
+ */
+export const bidangDiTitik = (lat, lon) => request(`/persil/titik?lat=${lat}&lon=${lon}&bentuk=1`);
 
 /** Lupakan jawaban persilDiTitik yang tersimpan - setelah persil diimpor / dihapus. */
 export const lupakanPersilTitik = () => persilTitikCache.clear();

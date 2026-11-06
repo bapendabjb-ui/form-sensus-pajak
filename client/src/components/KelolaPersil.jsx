@@ -4,6 +4,8 @@ import { useToast } from "./Toast.jsx";
 import { bukaShapefile, kelompokkanBerkas } from "../lib/shapefile.js";
 import { formatUkuran } from "../lib/lapisanPeta.js";
 import { formatWaktu } from "../lib/format.js";
+import { warnaKecamatan } from "../lib/persilBpn.js";
+import { ContohLapisan } from "./peta/bersama.jsx";
 
 /**
  * Pengelolaan persil BPN - khusus admin, dibuka dari tombol Lapisan di Peta
@@ -106,6 +108,7 @@ export default function KelolaPersil({ ringkasan, onBerubah }) {
   const [menghapus, setMenghapus] = useState(false);
 
   const daftarKec = useMemo(() => perKecamatan(ringkasan?.wilayah), [ringkasan]);
+  const warna = useMemo(() => warnaKecamatan(daftarKec.map((k) => k.kecamatan)), [daftarKec]);
   const siap = kelompok.filter((g) => g.kurang.length === 0);
   const sibuk = Boolean(proses) || menghapus;
 
@@ -328,6 +331,7 @@ export default function KelolaPersil({ ringkasan, onBerubah }) {
             {daftarKec.map((k) => (
               <div className="fk-lapisan-baris" key={k.kecamatan}>
                 <div className="fk-lapisan-baris-atas">
+                  <ContohLapisan warna={warna[k.kecamatan]?.peta || "#64748B"} />
                   <span className="fk-lapisan-teks">
                     <span className="fk-lapisan-nama">Kec. {k.kecamatan}</span>
                     <span className="fk-hint-kecil">

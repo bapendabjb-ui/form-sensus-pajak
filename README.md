@@ -131,7 +131,7 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── admin.js            status login admin untuk komponen dalam
 │       │   ├── konfigurasi.js      batas aplikasi dari server (petugasMaks dll.)
 │       │   ├── lapisanPeta.js      lapisan GIS di Peta Sensus: daftar, nyala/mati per browser, unduh isi
-│       │   ├── persilBpn.js        persil BPN di Peta Sensus: ringkasan, nyala/mati, pemuat petak
+│       │   ├── persilBpn.js        persil BPN di Peta Sensus: ringkasan, pilihan kecamatan, warna, ubin kanvas
 │       │   ├── shapefile.js        pembaca shapefile persil BPN di browser + tebakan sistem koordinat
 │       │   ├── useDragUrut.js      seret (drag & drop) untuk menyusun ulang daftar
 │       │   ├── useMobile.js        deteksi tata letak HP
@@ -486,6 +486,7 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `lapisanPeta.test.js`  | Lapisan GIS: berkas UTM / TM-3 ditolak, koordinat dibulatkan, batas ukuran isi                |
 | `persil.test.js`       | Persil BPN: bidang di luar Banjarbaru / bentuk rusak ditolak, petak & kunci wilayah, titik di bidang berlubang / bertumpuk, pencarian NIB |
 | `shapefile.test.js`    | Pembaca shapefile di browser (`client/src/lib/shapefile.js`): TM-3 / UTM ke derajat, .prj salah / tidak ada, CRS campur, bidang nyasar & rusak, lubang |
+| `persilBpn.test.js`    | Warna persil per kecamatan (`client/src/lib/persilBpn.js`): lima kecamatan Banjarbaru berbeda, warna mengikuti nama bukan urutan, cadangan untuk kecamatan lain |
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) menjalankan lint, tes,
 build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
@@ -851,9 +852,11 @@ pejabat) bisa melihat lapisan beserta atributnya. Buang dulu kolom data pribadi 
 
 Peta pendaftaran tanah BPN (shapefile persil per kecamatan) bisa dimasukkan ke aplikasi. Hasilnya:
 
-- **Peta Sensus:** batas bidang tergambar mulai **zoom 17** (lebih jauh dari itu bidang rumah hanya
-  jadi arsiran), di peta Google maupun cadangan. Mengetuk bidang membuka NIB, tipe hak, luas peta,
-  kelurahan, dan atribut lain. Nyala / mati lewat **Lapisan → Persil BPN** (tersimpan per browser).
+- **Peta Sensus:** batas bidang tergambar mulai **zoom 15**, di peta Google maupun cadangan, dengan
+  **warna per kecamatan** (tabel di bawah). Mengetuk bidang menyorotnya dan membuka NIB, tipe hak,
+  luas peta, kelurahan, dan atribut lain. **Lapisan → Persil BPN** menyalakan / mematikannya, dan
+  centang di bawahnya memilih kecamatan mana yang tampil (tersimpan per browser). Legenda menyebut
+  kecamatan yang tampil; di HP diringkas jadi satu contoh warna.
 - **Cari NIB** di bilah alat peta: NIB 5 digit (kembar di kelurahan lain → pilih kelurahannya) atau
   NIB lengkap 13 digit (kode wilayah + NIB, mis. `17.11.74.02.03612`). Peta menuju bidangnya dan
   menyorotnya.
@@ -862,6 +865,22 @@ Peta pendaftaran tanah BPN (shapefile persil per kecamatan) bisa dimasukkan ke a
   tanpa sinyal atau bila belum ada persil.
 - **Ekspor:** setiap pertanyaan Lokasi mendapat tiga kolom tambahan, *(NIB BPN)*, *(Tipe hak BPN)*,
   dan *(Luas peta BPN m²)*, di CSV, Excel, GeoJSON, dan KML. Tanpa persil tersimpan, kolom itu tidak ada.
+
+| Kecamatan | Peta jalan | Satelit |
+| --- | --- | --- |
+| Banjarbaru Selatan | biru `#2a78d6` | `#3987e5` |
+| Banjarbaru Utara | magenta `#e87ba4` | `#d55181` |
+| Cempaka | kuning `#eda100` | `#c98500` |
+| Landasan Ulin | hijau `#008300` | `#008300` |
+| Liang Anggang | ungu `#6250d6` | `#9085e9` |
+
+Warnanya dari palet kategori baku (satelit memakai langkah warna untuk latar gelap), tanpa teal dan
+amber milik titik sensus, dan dipasangkan supaya kecamatan yang **bertetangga** tetap terbedakan:
+diuji dengan validator palet pada 8 pasangan kecamatan yang bersentuhan (hanya Liang Anggang yang
+tidak bersentuhan dengan kedua Banjarbaru) - selisih ΔE ≥ 19 bagi penglihatan normal dan ≥ 6,9 bagi
+buta warna, dibantu nama kecamatan di legenda, balon, dan centang. Warna mengikuti nama kecamatan,
+jadi menyembunyikan satu kecamatan tidak mengubah warna yang lain. Kecamatan lain (data di luar
+Banjarbaru) mendapat oranye, merah, lalu abu-abu (`warnaKecamatan` di `client/src/lib/persilBpn.js`).
 
 **Mengimpor (admin):** **Lapisan → Kelola persil BPN…** → *Pilih berkas shapefile* → pilih `.shp`
 dan `.dbf` (beserta `.prj` / `.cpg` bila ada), boleh semua kecamatan sekaligus → **Impor**. Berkas
@@ -888,12 +907,16 @@ dan bidang yang dilewati beserta NIB-nya: yang tidak jatuh di Banjarbaru dengan 
 pun (1 bidang di data Cempaka), dan yang bentuknya rusak, hanya garis / titik walau luasnya
 tercatat (43 bidang di data 2026). Bidang yang rusak itu perlu diperbaiki di sumbernya (BPN).
 
-**Penyimpanan & pemuatan.** Tiap bidang disimpan dengan geometri GeoJSON dan kotak pembatasnya,
-ditandai petak ±550 m sudut barat dayanya (`sel_lat`, `sel_lon`). Peta mengunduh hanya petak yang
-terlihat (maks. 30 petak, ±60 disimpan di memori); satu bidang yang menyentuh beberapa petak
-digambar sekali. Petak terpadat Banjarbaru ±1.400 bidang: ±590 KB, ±70 KB setelah gzip, ±80 ms.
-Bidang yang lebih besar dari satu petak (`besar`, ±750 bidang) dicari tanpa petak. Bidang di sebuah
-titik (halaman data, ekspor) memakai indeks yang sama lalu diuji titik-di-poligon, termasuk lubang.
+**Penyimpanan & penggambaran.** Tiap bidang disimpan dengan geometri GeoJSON dan kotak pembatasnya,
+ditandai petak data ±550 m sudut barat dayanya (`sel_lat`, `sel_lon`). Bidang **tidak** dijadikan
+objek peta satu per satu (Google / Leaflet tersendat di puluhan ribu objek): persil digambar ke
+**ubin kanvas 256 px** seperti ubin peta biasa - `OverlayMapType` di Google, `L.GridLayer` di
+Leaflet. Tiap ubin digambar dari petak data yang menyentuhnya; petak data diunduh sekali (isi
+ringkas: id, kecamatan, poligon) lalu disimpan di memori (±200 petak) dan di cache browser. Petak
+terpadat Banjarbaru ±1.400 bidang: ±290 KB, ±55 KB setelah gzip, ±60 ms. Keterangan bidang (NIB,
+luas, ...) baru diambil saat bidangnya diketuk. Bidang yang lebih besar dari satu petak (`besar`,
+±750 bidang) dicari tanpa petak. Bidang di sebuah titik (ketukan, halaman data, ekspor) memakai
+indeks yang sama lalu diuji titik-di-poligon, termasuk lubang.
 
 **Hak akses.** Melihat persil sama dengan lapisan GIS (siapa pun yang boleh membuka Peta Sensus);
 impor dan hapus khusus admin. Folder `Data NIB BPN/` (shapefile asli) diabaikan Git.
@@ -1367,8 +1390,8 @@ Kedua `GET` dibatasi 600 permintaan per 10 menit per IP.
 | Method | Endpoint | Keterangan |
 | ------ | -------- | ---------- |
 | `GET`  | `/persil` | `{ jumlah, versi, wilayah: [{ kunci, kodeWilayah, kecamatan, kelurahan, jumlah, diimpor, oleh }] }` |
-| `GET`  | `/persil/petak/:i/:j?v=<versi>` | FeatureCollection bidang di petak ±550 m itu (`i` = bujur, `j` = lintang, `floor(derajat / 0.005)`); boleh disimpan browser sehari karena alamatnya memuat versi. 6.000 per 10 menit per IP |
-| `GET`  | `/persil/titik?lat=&lon=` | `{ ada, persil }`: bidang tempat titik itu berada (yang terkecil bila bertumpuk), atau `null` |
+| `GET`  | `/persil/petak/:i/:j?v=<versi>` | Bidang di petak ±550 m itu, ringkas: `{ kecamatan: [nama], bidang: [[id, indeks kecamatan, poligon-poligon]] }` (`i` = bujur, `j` = lintang, `floor(derajat / 0.005)`); boleh disimpan browser sehari karena alamatnya memuat versi. 6.000 per 10 menit per IP |
+| `GET`  | `/persil/titik?lat=&lon=[&bentuk=1]` | `{ ada, persil }`: bidang tempat titik itu berada (yang terkecil bila bertumpuk), atau `null`. `bentuk=1` menambah `batas` dan `fitur` GeoJSON (bidang yang diketuk di peta) |
 | `GET`  | `/persil/cari?q=` | Bidang ber-NIB itu (maks. 20) + `batas` dan `fitur` GeoJSON. NIB 5 digit (dengan / tanpa nol depan) atau lengkap 13 digit; tanda baca diabaikan |
 | `POST` | `/persil/impor` | 🔒 Mulai impor → `{ token, kirimMaks }`; sisa impor tak selesai > 6 jam dibuang |
 | `POST` | `/persil/impor/:token` | 🔒 `{ sumber, fitur: [...] }` (≤ 3.000 bidang, < 2 MB) → `{ diterima, ditolak: { alasan: jumlah } }` |

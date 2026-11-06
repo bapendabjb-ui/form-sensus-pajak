@@ -8,9 +8,10 @@ import {
   PenahanPeta,
   WARNA_STATUS,
   ContohLapisan,
+  ContohPersil,
 } from "./peta/bersama.jsx";
 import { IkonLayarPenuh, IkonTutupPenuh } from "./Icons.jsx";
-import { WARNA_PERSIL, PERSIL_ZOOM_MIN } from "../lib/persilBpn.js";
+import { PERSIL_ZOOM_MIN, warnaDi } from "../lib/persilBpn.js";
 
 const SebaranGoogle = lazy(() => import("./peta/SebaranGoogle.jsx"));
 const SebaranLeaflet = lazy(() => import("./peta/SebaranLeaflet.jsx"));
@@ -110,6 +111,10 @@ export default function PetaSebaran({
 
   const labelPenuh = penuh ? "Tutup layar penuh" : "Layar penuh";
 
+  // Legenda persil: kecamatan yang tampil, warnanya mengikuti jenis peta (jalan / satelit).
+  const kecTampil = persil ? persil.kecamatan.filter((k) => !persil.tersembunyi.includes(k)) : [];
+  const warnaKec = (k) => warnaDi(persil.warna, k, jenis);
+
   return (
     <div className={"fk-peta-wadah is-sebaran" + (penuh ? " is-penuh" : "")}>
       <div className="fk-peta-alat">
@@ -142,9 +147,17 @@ export default function PetaSebaran({
               <IkonTitik warna={WARNA_STATUS.selesai} dicek /> Sudah dicek
             </span>
           )}
-          {persil && (
-            <span className="fk-legenda">
-              <ContohLapisan warna={WARNA_PERSIL} /> Persil BPN
+          {kecTampil.length > 0 && (
+            <span className="fk-legenda-persil">
+              <span className="fk-legenda">
+                <ContohPersil warna={kecTampil.map(warnaKec)} /> Persil BPN
+                <span className="fk-legenda-persil-titik">:</span>
+              </span>
+              {kecTampil.map((k) => (
+                <span className="fk-legenda fk-legenda-kec" key={k}>
+                  <ContohLapisan warna={warnaKec(k)} /> {k || "(tanpa kecamatan)"}
+                </span>
+              ))}
             </span>
           )}
           {lapisan.map((l) => (

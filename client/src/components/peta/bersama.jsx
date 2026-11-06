@@ -271,6 +271,15 @@ export const gayaLapisan = (warna) => ({ garis: warna, tebal: 2, isi: warna, isi
 /** Titik lapisan: lingkaran kecil berbingkai putih, lebih kecil dari titik sensus. */
 export const TITIK_LAPISAN_RADIUS = 5;
 
+/** Contoh warna persil BPN: satu kotak berisi warna kecamatan-kecamatannya berjajar. */
+export function ContohPersil({ warna = [] }) {
+  const n = warna.length;
+  const latar = n
+    ? `linear-gradient(90deg, ${warna.map((w, i) => `${w} ${(i / n) * 100}% ${((i + 1) / n) * 100}%`).join(", ")})`
+    : "#64748B";
+  return <span className="fk-persil-contoh" style={{ background: latar }} aria-hidden="true" />;
+}
+
 /** Contoh warna lapisan di legenda dan daftar lapisan. */
 export function ContohLapisan({ warna }) {
   return <span className="fk-lapisan-contoh" style={{ "--warna": warna }} aria-hidden="true" />;

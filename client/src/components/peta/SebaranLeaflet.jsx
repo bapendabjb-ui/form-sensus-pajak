@@ -18,7 +18,15 @@ import {
   gayaLapisan,
   TITIK_LAPISAN_RADIUS,
 } from "./bersama.jsx";
-import { WARNA_PERSIL, PERSIL_ZOOM_MIN, PemuatPersil, statusPersil } from "../../lib/persilBpn.js";
+import * as api from "../../api.js";
+import {
+  PERSIL_ZOOM_MIN,
+  gambarUbinPersil,
+  siapkanUbin,
+  dengarPetak,
+  statusPersil,
+  warnaDi,
+} from "../../lib/persilBpn.js";
 
 /**
  * Mesin cadangan Peta Sensus (Leaflet + OpenStreetMap / Esri): banyak titik
@@ -47,6 +55,15 @@ const ikonTitik = (t) => {
   });
 };
 
+/*
+ * Ketukan pada lapisan GIS membuka balonnya sendiri; ketukan yang sama juga
+ * sampai ke peta dan tidak boleh ikut mencari persil.
+ */
+let ketukLapisan = 0;
+const tandaiKetuk = () => {
+  ketukLapisan = Date.now();
+};
+
 /**
  * Satu lapisan GIS sebagai L.GeoJSON. Digambar di kanvas, bukan SVG: ribuan
  * bidang persil sebagai elemen SVG membuat geser dan zoom tersendat.
@@ -61,55 +78,37 @@ function buatLapisanGis(l, kanvas) {
         ? { color: "#fff", weight: 1.5, opacity: 1, fillColor: g.isi, fillOpacity: 0.95 }
         : { color: g.garis, weight: g.tebal, opacity: 0.9, fillColor: g.isi, fillOpacity: g.isiTembus },
     pointToLayer: (_f, latlng) => L.circleMarker(latlng, { renderer: kanvas, radius: TITIK_LAPISAN_RADIUS }),
-    onEachFeature: (f, layer) => layer.bindPopup(() => isiBalonLapisan(l.nama, f.properties), { maxWidth: 320 }),
+    onEachFeature: (f, layer) => {
+      layer.bindPopup(() => isiBalonLapisan(l.nama, f.properties), { maxWidth: 320 });
+      layer.on("click", tandaiKetuk);
+    },
   });
 }
 
 /** Kunci gambar sebuah lapisan: berganti bila isi, nama, atau warnanya berganti. */
 const kunciLapisan = (l) => `${l.versi}|${l.warna}|${l.nama}`;
 
-const GAYA_PERSIL = { color: WARNA_PERSIL, weight: 1, opacity: 0.85, fillColor: WARNA_PERSIL, fillOpacity: 0.04 };
-const GAYA_SOROT = { color: WARNA_PERSIL, weight: 4, opacity: 1, fillColor: WARNA_PERSIL, fillOpacity: 0.22 };
+/** Bidang yang disorot (hasil cari NIB / diketuk): garis tebal berwarna kecamatannya. */
+const gayaSorot = (warna) => ({ color: warna, weight: 4, opacity: 1, fillColor: warna, fillOpacity: 0.22 });
 
-/** Lapisan persil BPN: bidang petak yang terlihat (dimuat PemuatPersil), digambar di kanvas. */
-function buatLapisanPersil(kanvas, onStatus) {
-  const grup = L.layerGroup();
-  const fitur = new Map(); // id bidang -> L.GeoJSON
-  const pemuat = new PemuatPersil({
-    tambah: (f) => {
-      const layer = L.geoJSON(f, {
-        renderer: kanvas,
-        style: GAYA_PERSIL,
-        onEachFeature: (ft, l) => l.bindPopup(() => isiBalonPersil(ft.properties), { maxWidth: 320 }),
-      });
-      fitur.set(f.id, layer);
-      grup.addLayer(layer);
-    },
-    buang: (id) => {
-      const layer = fitur.get(id);
-      if (!layer) return;
-      grup.removeLayer(layer);
-      fitur.delete(id);
-    },
-    onStatus,
-  });
-  return { grup, pemuat, tampak: false, sorot: null };
-}
-
-/** Sesuaikan persil dengan pandangan peta dan pilihan pemakai (`cfg` null = mati). */
-function perbaruiPersil(m, lp, cfg) {
-  if (!cfg) {
-    lp.tampak = false;
-  } else {
-    lp.pemuat.atur(cfg);
-    const b = m.getBounds();
-    lp.tampak =
-      m.getZoom() >= PERSIL_ZOOM_MIN &&
-      lp.pemuat.tampilkan({ barat: b.getWest(), selatan: b.getSouth(), timur: b.getEast(), utara: b.getNorth() });
-  }
-  if (lp.tampak && !m.hasLayer(lp.grup)) lp.grup.addTo(m);
-  else if (!lp.tampak && m.hasLayer(lp.grup)) lp.grup.remove();
-}
+/**
+ * Persil BPN sebagai ubin kanvas (lib/persilBpn.js gambarUbinPersil). `cfg`
+ * dan `jenis` dibaca saat ubin dibuat; berganti -> redraw().
+ */
+const LapisanUbinPersil = L.GridLayer.extend({
+  createTile(koordinat, selesai) {
+    const ubin = siapkanUbin(L.DomUtil.create("canvas", "fk-persil-ubin"));
+    if (!this.cfg) {
+      Promise.resolve().then(() => selesai(null, ubin));
+      return ubin;
+    }
+    gambarUbinPersil(ubin, koordinat, this.cfg, this.jenis, () => !this._map).then(
+      () => selesai(null, ubin),
+      (e) => selesai(e, ubin)
+    );
+    return ubin;
+  },
+});
 
 export default function SebaranLeaflet({
   titik = [],
@@ -135,26 +134,74 @@ export default function SebaranLeaflet({
   cekRef.current = onCek;
   const pandangRef = useRef(Symbol("belum"));
 
-  // Persil BPN. Pendengar peta dipasang sekali, jadi mereka membaca pilihan
-  // terbaru lewat ref.
+  // Persil BPN: { ubin: LapisanUbinPersil, kunci, sorot: L.GeoJSON | null }.
+  // Pendengar peta dipasang sekali, jadi mereka membaca pilihan terbaru lewat ref.
   const lapisanPersil = useRef(null);
   const persilRef = useRef(persil);
   persilRef.current = persil;
+  const jenisRef = useRef(jenis);
+  jenisRef.current = jenis;
   const statusRef = useRef(onStatusPersil);
   statusRef.current = onStatusPersil;
+  const ketukKe = useRef(0);
+
   const laporPersil = () => {
+    if (peta.current) statusRef.current?.(statusPersil({ aktif: Boolean(persilRef.current), zoom: peta.current.getZoom() }));
+  };
+
+  const hapusSorot = () => {
     const lp = lapisanPersil.current;
-    if (lp) statusRef.current?.(statusPersil({ aktif: Boolean(persilRef.current), tampak: lp.tampak, pemuat: lp.pemuat }));
+    if (lp?.sorot) {
+      lp.sorot.remove();
+      lp.sorot = null;
+    }
   };
-  const laporRef = useRef(laporPersil);
-  laporRef.current = laporPersil;
-  const segarkanPersil = () => {
-    if (!peta.current || !lapisanPersil.current) return;
-    perbaruiPersil(peta.current, lapisanPersil.current, persilRef.current);
-    laporPersil();
+
+  /** Sorot satu bidang (hasil cari NIB / diketuk) dan buka balonnya; `rapatkan` = peta menuju bidangnya. */
+  const tampilkanSorot = (b, { posisi = null, rapatkan = false } = {}) => {
+    const m = peta.current;
+    const lp = lapisanPersil.current;
+    if (!m || !lp) return;
+    hapusSorot();
+    const warna = warnaDi(persilRef.current?.warna, b.fitur.properties.kecamatan, jenisRef.current);
+    // Tidak menangkap ketukan: ketukan pada bidangnya sampai ke peta dan menyorotnya lagi.
+    const layer = L.geoJSON(b.fitur, { renderer: kanvas.current, style: gayaSorot(warna), interactive: false }).addTo(m);
+    lp.sorot = layer;
+    const [barat, selatan, timur, utara] = b.batas;
+    if (rapatkan) {
+      m.fitBounds(
+        [
+          [selatan, barat],
+          [utara, timur],
+        ],
+        { padding: [60, 60], maxZoom: 19 }
+      );
+    }
+    const isi = isiBalonPersil(b.fitur.properties);
+    const pusat = posisi || [(selatan + utara) / 2, (barat + timur) / 2];
+    const balon = L.popup({ maxWidth: 320 }).setLatLng(pusat).setContent(isi).openOn(m);
+    // Balonnya ditutup = sorotnya hilang.
+    balon.on("remove", () => lp.sorot === layer && hapusSorot());
   };
-  const segarkanRef = useRef(segarkanPersil);
-  segarkanRef.current = segarkanPersil;
+
+  /** Ketukan di peta: bidang persil di titik itu (bila persil menyala dan sudah tergambar). */
+  const ketukPeta = async (e) => {
+    const m = peta.current;
+    const cfg = persilRef.current;
+    if (!m || !cfg || m.getZoom() < PERSIL_ZOOM_MIN || Date.now() - ketukLapisan < 400) return;
+    const ke = ++ketukKe.current;
+    try {
+      const { persil: b } = await api.bidangDiTitik(e.latlng.lat, e.latlng.lng);
+      const kini = persilRef.current;
+      if (ke !== ketukKe.current || !b || !kini || kini.tersembunyi.includes(b.kecamatan)) return;
+      tampilkanSorot(b, { posisi: e.latlng });
+    } catch {
+      // Tanpa sinyal: ketukan di peta tidak berbuat apa-apa.
+    }
+  };
+
+  const panggilan = useRef({});
+  panggilan.current = { laporPersil, hapusSorot, tampilkanSorot, ketukPeta };
 
   // Buat peta sekali.
   useEffect(() => {
@@ -177,9 +224,11 @@ export default function SebaranLeaflet({
       },
     }).addTo(m);
 
-    lapisanPersil.current = buatLapisanPersil(kanvas.current, () => laporRef.current());
-    // moveend juga terpicu setelah zoom.
-    m.on("moveend", () => segarkanRef.current());
+    // Di atas peta dasar (zIndex 1), di bawah lapisan GIS dan titik sensus.
+    const ubinPersil = new LapisanUbinPersil({ minZoom: PERSIL_ZOOM_MIN, maxZoom: 22, zIndex: 5, updateWhenZooming: false });
+    lapisanPersil.current = { ubin: ubinPersil, kunci: "", sorot: null };
+    m.on("zoomend", () => panggilan.current.laporPersil());
+    m.on("click", (e) => panggilan.current.ketukPeta(e));
 
     const t = setTimeout(() => m.invalidateSize(), 60);
     // Ukuran wadah berubah tanpa jendela berubah (mis. layar penuh): Leaflet
@@ -222,35 +271,30 @@ export default function SebaranLeaflet({
     }
   }, [lapisan, lapisanGis]);
 
-  // Persil dinyalakan / dimatikan, atau isinya berganti versi.
-  useEffect(() => {
-    segarkanRef.current();
-  }, [persil]);
-
-  // Bidang hasil cari NIB: sorot, rapatkan pandangan ke sana, buka balonnya.
+  // Persil: pasang / gambar ulang / lepas lapisan ubinnya saat pilihan, isi, atau jenis peta berganti.
   useEffect(() => {
     const m = peta.current;
     const lp = lapisanPersil.current;
     if (!m || !lp) return;
-    if (lp.sorot) {
-      lp.sorot.remove();
-      lp.sorot = null;
+    const kunciBaru = persil ? `${persil.kunci}|${jenis}` : "";
+    if (kunciBaru !== lp.kunci) {
+      lp.kunci = kunciBaru;
+      lp.ubin.cfg = persil;
+      lp.ubin.jenis = jenis;
+      if (!persil) lp.ubin.remove();
+      else if (!m.hasLayer(lp.ubin)) lp.ubin.addTo(m);
+      else lp.ubin.redraw();
     }
-    if (!sorot) return;
-    lp.sorot = L.geoJSON(sorot.fitur, { renderer: kanvas.current, style: GAYA_SOROT }).addTo(m);
-    lp.sorot.bindPopup(() => isiBalonPersil(sorot.fitur.properties), { maxWidth: 320 });
-    const [barat, selatan, timur, utara] = sorot.batas;
-    m.fitBounds(
-      [
-        [selatan, barat],
-        [utara, timur],
-      ],
-      { padding: [60, 60], maxZoom: 19 }
-    );
-    L.popup({ maxWidth: 320 })
-      .setLatLng([(selatan + utara) / 2, (barat + timur) / 2])
-      .setContent(isiBalonPersil(sorot.fitur.properties))
-      .openOn(m);
+    if (!persil) panggilan.current.hapusSorot();
+    panggilan.current.laporPersil();
+  }, [persil, jenis]);
+
+  // Petak data mulai / selesai dimuat: perbarui keterangan di atas peta.
+  useEffect(() => dengarPetak(() => panggilan.current.laporPersil()), []);
+
+  // Bidang hasil cari NIB: sorot, rapatkan pandangan ke sana, buka balonnya.
+  useEffect(() => {
+    if (sorot) panggilan.current.tampilkanSorot(sorot, { rapatkan: true });
   }, [sorot]);
 
   // Ganti lapisan peta jalan / satelit. Sumber ubin dipilih di lib/ubinPeta.js:
