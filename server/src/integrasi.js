@@ -24,11 +24,18 @@
  *   - tabel bidang_nop: NOP yang ditambahkan langsung pada bidang dari Peta Sensus
  *     (tab NOP di panel bidang) - peta mulai dari bidang.
  * Pasangan yang sama di kedua sumber dihitung sekali.
+ *
+ * Lapisan Terintegrasi (susunTerpadu) adalah hasil pemadanannya: bidang yang
+ * punya beberapa NOP, atau yang NOP-nya juga tercatat di bidang lain,
+ * dipadankan petugas / admin (tabel padanan_bidang) - NOP mana yang benar untuk
+ * bidang itu, dan apa yang terjadi dengan NOP lainnya. Bidang 1 NIB = 1 NOP
+ * padan dengan sendirinya.
  */
 
 const prisma = require("./prisma");
 const { kunciBidang, STATUS_TANAH, PANJANG_NOP } = require("./answers");
-const { formatNop, nibLengkap } = require("./format");
+const { formatNop, nibLengkap, formatWaktuID } = require("./format");
+const { simpanSementara } = require("./simpanSementara");
 
 const POLA = {
   campuran: "Campuran: beberapa NIB dan beberapa NOP",
@@ -55,8 +62,39 @@ const LABEL_STATUS_BIDANG = {
   tanpa_nop: "NIB tanpa NOP",
 };
 
-/** Keterangan NOP dari peta paling panjang. */
+/** Keterangan NOP dari peta / catatan padanan paling panjang. */
 const KETERANGAN_MAKS = 200;
+
+/** Status bidang di lapisan Terintegrasi (hasil pemadanan). */
+const STATUS_TERPADU = ["padan", "tinjau", "pecah", "tanpa_nop"];
+
+const LABEL_STATUS_TERPADU = {
+  padan: "Padan: 1 NIB = 1 NOP",
+  tinjau: "Perlu dipadankan",
+  pecah: "Perlu dipecah",
+  tanpa_nop: "Belum ber-NOP",
+};
+
+/** Kenapa sebuah bidang perlu dipadankan. */
+const ALASAN_TINJAU = {
+  berubah: "Ada NOP baru sejak dipadankan",
+  banyak_nop: "Beberapa NOP di satu bidang",
+  bentrok: "NOP yang sama dipadankan ke beberapa bidang",
+  sudah_dipadankan: "NOP-nya sudah dipadankan ke bidang lain",
+  nop_bidang_lain: "NOP-nya juga tercatat di bidang lain",
+};
+
+/** Apa yang terjadi dengan tiap NOP dalam keputusan pemadanan. */
+const TINDAK_PADANAN = {
+  utama: "NOP bidang ini",
+  ganda: "Terdaftar dua kali",
+  gabung: "Digabung ke NOP bidang ini",
+  salah_bidang: "Milik bidang lain",
+  sah: "Sah, bidang perlu dipecah",
+};
+
+/** NOP paling banyak dalam satu keputusan pemadanan. */
+const PADANAN_MAKS_NOP = 50;
 
 /** "kode|nib" -> { kode, nib }, atau null. */
 function pisahKunci(k) {
@@ -259,15 +297,64 @@ async function statusBidangPeta() {
   const hasil = Object.fromEntries(STATUS_BIDANG.map((s) => [s, []]));
   if (!sensus.length && !peta.length) return hasil;
   const a = analisis([...sensus, ...peta]);
-  const persil = await prisma.$queryRaw`
-    SELECT p.id AS id, p.kode_wilayah AS kode, p.nib AS nib
-    FROM persil p
-    JOIN (SELECT kode_wilayah, nib FROM entri_nib UNION SELECT kode_wilayah, nib FROM bidang_nop) b
-      ON b.kode_wilayah = p.kode_wilayah AND b.nib = p.nib
-    WHERE p.aktif = 1`;
-  for (const p of persil) hasil[a.statusBidang(kunciBidang(p.kode, p.nib))].push(Number(p.id));
+  for (const p of await persilAktifTercatat()) hasil[a.statusBidang(kunciBidang(p.kode, p.nib))].push(Number(p.id));
   for (const s of STATUS_BIDANG) hasil[s] = selisihUrut(hasil[s]);
   return hasil;
+}
+
+/** Id persil aktif yang bidangnya tercatat (sensus atau peta): [{ id, kode, nib }]. */
+const persilAktifTercatat = () => prisma.$queryRaw`
+  SELECT p.id AS id, p.kode_wilayah AS kode, p.nib AS nib
+  FROM persil p
+  JOIN (SELECT kode_wilayah, nib FROM entri_nib UNION SELECT kode_wilayah, nib FROM bidang_nop) b
+    ON b.kode_wilayah = p.kode_wilayah AND b.nib = p.nib
+  WHERE p.aktif = 1`;
+
+/** Seluruh keputusan pemadanan (rapikanKeputusan). */
+async function bacaKeputusan() {
+  return (await prisma.padananBidang.findMany({ orderBy: { id: "asc" } })).map(rapikanKeputusan);
+}
+
+/** Lapisan Terintegrasi seluruh bidang tercatat (susunTerpadu) dari database. */
+async function bacaTerpadu() {
+  const [sensus, peta, keputusan] = await Promise.all([bacaBidangTercatat(), bacaNopPeta(), bacaKeputusan()]);
+  return susunTerpadu([...sensus, ...peta], keputusan);
+}
+
+/** bacaTerpadu yang dipakai bersama sampai ada data yang berubah (peta, tab NOP, antrean). */
+const terpaduSementara = simpanSementara({ umurMs: 60 * 1000, susun: bacaTerpadu });
+
+/**
+ * Status bidang persil di lapisan Terintegrasi, seperti statusBidangPeta:
+ * { padan: [id], tinjau: [id], pecah: [id], tanpa_nop: [id] } sebagai selisih berurutan.
+ */
+async function statusTerpaduPeta() {
+  const terpadu = await terpaduSementara();
+  const hasil = Object.fromEntries(STATUS_TERPADU.map((s) => [s, []]));
+  if (!terpadu.size) return hasil;
+  for (const p of await persilAktifTercatat()) {
+    const t = terpadu.get(kunciBidang(p.kode, p.nib));
+    if (t) hasil[t.status].push(Number(p.id));
+  }
+  for (const s of STATUS_TERPADU) hasil[s] = selisihUrut(hasil[s]);
+  return hasil;
+}
+
+/**
+ * NOP yang sekarang tercatat di satu bidang (kedua sumber). `kecuali` = data yang
+ * sedang dibuka di formulir: NOP-nya dikirim formulir itu sendiri.
+ */
+async function nopSekarang(kunci, { kecuali = null } = {}) {
+  const k = pisahKunci(kunci);
+  if (!k) return new Set();
+  const [a, b] = await Promise.all([
+    prisma.entriNib.findMany({
+      where: { kodeWilayah: k.kode, nib: k.nib, nop: { not: "" }, ...(kecuali ? { entriId: { not: kecuali } } : {}) },
+      select: { nop: true },
+    }),
+    prisma.bidangNop.findMany({ where: { kodeWilayah: k.kode, nib: k.nib }, select: { nop: true } }),
+  ]);
+  return new Set([...a, ...b].map((r) => r.nop).filter(nopSah));
 }
 
 /** Pilihan Prisma: data beserta jawaban yang dibaca integrasi. */
@@ -340,14 +427,38 @@ async function petaBidang(kunci) {
  *     tanpaNop: [data sensus yang mencatat bidang ini tanpa NOP] }
  * `bidangLain` = berapa bidang lain yang juga tercatat untuk NOP itu (kedua sumber).
  *
+ * Ditambah `padan`: status bidang di lapisan Terintegrasi beserta keputusan
+ * pemadanannya - { status, nop, alasan, berlaku, keputusan: { hasil, nopUtama,
+ * rincian, catatan, oleh, waktu } | null }, atau null bila bidangnya belum tercatat.
+ *
  * @param {object|null} pengguna  src/auth.js bacaPengguna - menentukan bisaHapus
  * @param {number|null} kecuali    id data yang sedang dibuka di formulir: NOP-nya
  *                                 ditampilkan formulir itu sendiri, bukan sebagai data sensus
+ * @param {boolean} segar          baca ulang lapisan Terintegrasi (sesudah menulis) -
+ *                                 simpanan bersama baru usang sesudah responsnya terkirim
  */
-async function nopBidang(kunci, pengguna = null, { kecuali = null } = {}) {
+async function nopBidang(kunci, pengguna = null, { kecuali = null, segar = false } = {}) {
   const daftar = [...new Set(kunci)].filter((k) => pisahKunci(k));
   if (!daftar.length) return {};
-  const [sensus, peta] = await Promise.all([sensusBidang(daftar, { maks: 20, kecuali }), petaBidang(daftar)]);
+  const [sensus, peta, terpadu, keputusan] = await Promise.all([
+    sensusBidang(daftar, { maks: 20, kecuali }),
+    petaBidang(daftar),
+    segar ? bacaTerpadu() : terpaduSementara(),
+    prisma.padananBidang.findMany({ where: { OR: syaratKunci(daftar) } }),
+  ]);
+  const kepPerKunci = new Map(keputusan.map((r) => [kunciBidang(r.kodeWilayah, r.nib), rapikanKeputusan(r)]));
+  const padan = (k) => {
+    const t = terpadu.get(k);
+    const d = kepPerKunci.get(k) || null;
+    if (!t && !d) return null;
+    return {
+      status: t?.status || "",
+      nop: t?.nop || "",
+      alasan: t?.alasan || "",
+      berlaku: t ? t.berlaku : null,
+      keputusan: d && { hasil: d.hasil, nopUtama: d.nopUtama, rincian: d.rincian, catatan: d.catatan, oleh: d.oleh, waktu: d.waktu },
+    };
+  };
   const semuaNop = new Set();
   for (const k of daftar) {
     for (const s of sensus[k] || []) if (s.nop) semuaNop.add(s.nop);
@@ -365,7 +476,12 @@ async function nopBidang(kunci, pengguna = null, { kecuali = null } = {}) {
       kunciPerNop.get(r.nop).add(kunciBidang(r.kodeWilayah, r.nib));
     }
   }
-  return Object.fromEntries(daftar.map((k) => [k, susunNopBidang(k, { sensus: sensus[k] || [], peta: peta[k] || [], kunciPerNop, pengguna })]));
+  return Object.fromEntries(
+    daftar.map((k) => [
+      k,
+      { ...susunNopBidang(k, { sensus: sensus[k] || [], peta: peta[k] || [], kunciPerNop, pengguna }), padan: padan(k) },
+    ])
+  );
 }
 
 /**
@@ -425,6 +541,172 @@ function bacaKirimanNop(body = {}) {
   if (keterangan.length > KETERANGAN_MAKS) throw new Error(`Keterangan paling panjang ${KETERANGAN_MAKS} huruf.`);
   return { kode: k.kode, nib: k.nib, nop, keterangan };
 }
+
+/* ---------- pemadanan: lapisan Terintegrasi ---------- */
+
+const rapiTeks = (v) => String(v ?? "").replace(/\s+/g, " ").trim();
+
+/**
+ * Baca kiriman keputusan pemadanan satu bidang:
+ *   { kunci, rincian: [{ nop, tindak, luasPbb?, luasBeda? }], catatan? }
+ * `rincian` harus menyebut setiap NOP yang sekarang tercatat di bidang itu
+ * (`sekarang`), supaya NOP yang baru ditambahkan orang lain tidak terlewat.
+ * Hasilnya disimpulkan dari tindak tiap NOP:
+ *   satu "utama", sisanya ganda / gabung / salah_bidang  -> "padan"
+ *   tanpa "utama", ada yang "sah"                       -> "pecah"
+ *   semuanya salah_bidang                               -> "tanpa"
+ * Melempar pesan yang bisa ditampilkan bila tidak sah.
+ *
+ * @param {object} body
+ * @param {Set<string>} sekarang  NOP yang sekarang tercatat di bidang itu
+ * @returns {{ kode, nib, hasil, nopUtama, rincian, catatan }}
+ */
+function bacaKirimanPadanan(body = {}, sekarang = new Set()) {
+  const k = pisahKunci(body.kunci);
+  if (!k || !/^\d*$/.test(k.kode) || k.nib.length > 30 || k.kode.length > 20) {
+    throw new Error("Bidang tidak dikenal. Buka bidangnya lagi.");
+  }
+  const masuk = Array.isArray(body.rincian) ? body.rincian : [];
+  if (!masuk.length) throw new Error("Pilih dulu NOP untuk bidang ini.");
+  if (masuk.length > PADANAN_MAKS_NOP) throw new Error(`Paling banyak ${PADANAN_MAKS_NOP} NOP per bidang.`);
+  const rincian = [];
+  const dilihat = new Set();
+  for (const r of masuk) {
+    const nop = String(r?.nop ?? "").replace(/\D/g, "");
+    if (nop.length !== PANJANG_NOP) throw new Error(`NOP PBB harus ${PANJANG_NOP} digit.`);
+    if (dilihat.has(nop)) continue;
+    dilihat.add(nop);
+    const tindak = Object.hasOwn(TINDAK_PADANAN, r.tindak) ? r.tindak : "";
+    if (!tindak) throw new Error(`Pilih dulu NOP ${formatNop(nop)} ini kenapa.`);
+    const luas = r.luasPbb === null || r.luasPbb === undefined || r.luasPbb === "" ? NaN : Number(r.luasPbb);
+    rincian.push({
+      nop,
+      tindak,
+      luasPbb: Number.isFinite(luas) && luas >= 0 ? bulat2(luas) : null,
+      // Luas hanya berarti untuk NOP yang tetap dipakai.
+      luasBeda: r.luasBeda === true && (tindak === "utama" || tindak === "sah"),
+    });
+  }
+  for (const n of sekarang) {
+    if (!dilihat.has(n)) throw new Error(`Ada NOP baru di bidang ini (${formatNop(n)}). Buka lagi bidangnya, lalu padankan ulang.`);
+  }
+  const utama = rincian.filter((r) => r.tindak === "utama");
+  const sah = rincian.filter((r) => r.tindak === "sah");
+  let hasil;
+  if (utama.length > 1) throw new Error("Pilih satu NOP saja untuk bidang ini.");
+  if (utama.length === 1) {
+    if (sah.length) throw new Error("Pilih satu NOP untuk bidang ini, atau tandai semua NOP benar.");
+    hasil = "padan";
+  } else if (sah.length) hasil = "pecah";
+  else if (rincian.every((r) => r.tindak === "salah_bidang")) hasil = "tanpa";
+  else throw new Error("Pilih NOP mana yang benar untuk bidang ini.");
+  const catatan = rapiTeks(body.catatan);
+  if (catatan.length > KETERANGAN_MAKS) throw new Error(`Catatan paling panjang ${KETERANGAN_MAKS} huruf.`);
+  return { kode: k.kode, nib: k.nib, hasil, nopUtama: utama[0]?.nop || "", rincian, catatan };
+}
+
+/**
+ * Keputusan pemadanan masih berlaku untuk NOP yang sekarang tercatat di bidang itu?
+ * Tidak lagi bila ada NOP yang belum disebut di keputusannya, atau NOP yang
+ * dipilih sudah tidak tercatat di bidang itu. NOP yang dihapus sesudahnya tidak
+ * membatalkan keputusan.
+ *
+ * @param {{ hasil, nopUtama, rincian }} d
+ * @param {Set<string>} sekarang
+ */
+function keputusanBerlaku(d, sekarang) {
+  if (!d || !sekarang.size) return false;
+  const disebut = new Set((d.rincian || []).map((r) => r.nop));
+  for (const n of sekarang) if (!disebut.has(n)) return false;
+  if (d.hasil === "padan") return sekarang.has(d.nopUtama);
+  if (d.hasil === "pecah") return d.rincian.some((r) => r.tindak === "sah" && sekarang.has(r.nop));
+  return d.hasil === "tanpa";
+}
+
+/** NOP yang tetap dipakai bidang ini menurut keputusannya. */
+function nopTerpakai(d, sekarang) {
+  if (d.hasil === "padan") return new Set([d.nopUtama]);
+  if (d.hasil === "pecah") return new Set(d.rincian.filter((r) => r.tindak === "sah" && sekarang.has(r.nop)).map((r) => r.nop));
+  return new Set();
+}
+
+/**
+ * Lapisan Terintegrasi (murni): status setiap bidang tercatat sesudah pemadanan.
+ *   padan      satu NOP untuk bidang ini, dan NOP itu tidak dipakai bidang lain -
+ *              dengan sendirinya (1 NIB = 1 NOP), atau sudah dipadankan
+ *   tinjau     perlu dipadankan (alasan: ALASAN_TINJAU)
+ *   pecah      semua NOP-nya sah: sertifikat / NOP perlu dipecah
+ *   tanpa_nop  belum ber-NOP (tidak pernah, atau NOP-nya ternyata milik bidang lain)
+ *
+ * Keputusan yang masih berlaku mengalahkan catatan yang belum dipadankan: NOP
+ * yang sudah dipadankan ke bidang A tidak lagi membuat A "perlu dipadankan"
+ * hanya karena NOP itu juga tercatat di bidang B - B yang perlu dipadankan.
+ *
+ * @param {{ kunci: string, nop: string }[]} pasangan  kedua sumber (nop "" = tanpa NOP)
+ * @param {{ kunci, hasil, nopUtama, rincian }[]} keputusan  padanan_bidang
+ * @returns {Map<string, { status, nop, alasan, berlaku: boolean | null, daftarNop: string[] }>}
+ *   nop = NOP bidang ini bila padan; berlaku = null bila belum pernah dipadankan
+ */
+function susunTerpadu(pasangan, keputusan = []) {
+  const a = analisis(pasangan);
+  const semua = new Set(pasangan.map((p) => p.kunci));
+  const kep = new Map(keputusan.map((d) => [d.kunci, d]));
+  const berlaku = new Map();
+  const pemegang = new Map(); // nop -> bidang yang memakainya
+  const klaim = new Map(); // nop -> bidang yang memadankannya (keputusan "padan" yang berlaku)
+  const tambah = (m, n, k) => (m.get(n) || m.set(n, new Set()).get(n)).add(k);
+
+  for (const k of semua) {
+    const sekarang = a.nopDi(k);
+    const d = kep.get(k);
+    const sah = d ? keputusanBerlaku(d, sekarang) : null;
+    berlaku.set(k, sah);
+    for (const n of sah ? nopTerpakai(d, sekarang) : sekarang) tambah(pemegang, n, k);
+    if (sah && d.hasil === "padan") tambah(klaim, d.nopUtama, k);
+  }
+
+  const hasil = new Map();
+  for (const k of semua) {
+    const sekarang = a.nopDi(k);
+    const d = kep.get(k);
+    const sah = berlaku.get(k);
+    let status = "tinjau";
+    let nop = "";
+    let alasan = "";
+    if (sah) {
+      if (d.hasil === "pecah") status = "pecah";
+      else if (d.hasil === "tanpa") status = "tanpa_nop";
+      else if (klaim.get(d.nopUtama).size > 1) alasan = "bentrok";
+      else {
+        status = "padan";
+        nop = d.nopUtama;
+      }
+    } else if (sekarang.size === 0) status = "tanpa_nop";
+    else if (d) alasan = "berubah";
+    else if (sekarang.size > 1) alasan = "banyak_nop";
+    else {
+      const n = [...sekarang][0];
+      const lain = [...(pemegang.get(n) || [])].some((j) => j !== k);
+      if (!lain) {
+        status = "padan";
+        nop = n;
+      } else alasan = klaim.has(n) ? "sudah_dipadankan" : "nop_bidang_lain";
+    }
+    hasil.set(k, { status, nop, alasan, berlaku: sah, daftarNop: [...sekarang].sort() });
+  }
+  return hasil;
+}
+
+/** Baris padanan_bidang -> keputusan yang dibaca susunTerpadu dan tab NOP. */
+const rapikanKeputusan = (r) => ({
+  kunci: kunciBidang(r.kodeWilayah, r.nib),
+  hasil: r.hasil,
+  nopUtama: r.nopUtama,
+  rincian: Array.isArray(r.rincian) ? r.rincian : [],
+  catatan: r.catatan || "",
+  oleh: r.olehNama || "",
+  waktu: r.updatedAt,
+});
 
 /* ---------- laporan ---------- */
 
@@ -760,14 +1042,19 @@ async function persilTercatat({ geometri = false } = {}) {
 const SUMBER_PASANGAN = (p) =>
   p.sensus.length && p.peta.length ? "Data sensus + peta" : p.peta.length ? "Peta" : "Data sensus";
 
-/** Tabel Excel pasangan NIB-NOP (murni): { header, baris }. */
-function tabelPasangan(pasangan, persil = new Map(), { baseUrl = "" } = {}) {
+/**
+ * Tabel Excel pasangan NIB-NOP (murni): { header, baris }.
+ * terpadu / keputusan: lapisan Terintegrasi (susunTerpadu) dan keputusan pemadanan per kunci.
+ */
+function tabelPasangan(pasangan, persil = new Map(), { baseUrl = "", terpadu = new Map(), keputusan = new Map() } = {}) {
   const teks = (s) => ({ teks: s === null || s === undefined ? "" : String(s) });
   const bulat = (n) => ({ teks: String(n), angka: n, format: "0" });
   const header = [
     "NIB",
     "NOP",
     "Status bidang",
+    "Status terintegrasi",
+    "Hasil padanan",
     "Sumber",
     "Kertas kerja",
     "Keterangan (peta)",
@@ -784,10 +1071,15 @@ function tabelPasangan(pasangan, persil = new Map(), { baseUrl = "" } = {}) {
     header,
     baris: pasangan.map((p) => {
       const b = persil.get(p.kunci) || {};
+      const t = terpadu.get(p.kunci);
+      const d = t?.berlaku ? keputusan.get(p.kunci) : null;
+      const tindak = d && p.nop ? d.rincian.find((r) => r.nop === p.nop)?.tindak : "";
       return [
         teks(nibDariKunci(p.kunci)),
         teks(p.nop && formatNop(p.nop)),
         teks(LABEL_STATUS_BIDANG[p.status]),
+        teks(t ? LABEL_STATUS_TERPADU[t.status] : ""),
+        teks(tindak ? TINDAK_PADANAN[tindak] : ""),
         teks(SUMBER_PASANGAN(p)),
         teks([...new Set(p.sensus.map((s) => s.nomor))].join("; ")),
         teks([...new Set(p.peta.map((x) => x.keterangan).filter(Boolean))].join("; ")),
@@ -808,11 +1100,14 @@ function tabelPasangan(pasangan, persil = new Map(), { baseUrl = "" } = {}) {
  * Lapisan NOP PBB sebagai GeoJSON (teks, murni): satu Feature per bidang BPN
  * yang tercatat, dengan NOP-nya - peta PBB per bidang untuk QGIS / SISMIOP.
  * Tanpa data pribadi wajib pajak (nama, alamat), hanya NIB, NOP, dan statusnya.
+ * Lapisan Terintegrasi ikut di atribut status_terpadu dan nop_padan (NOP bidang
+ * ini sesudah dipadankan), jadi satu berkas bisa diwarnai menurut keduanya.
  *
  * @param {object[]} pasangan  susunPasangan
  * @param {Map} persil         persilTercatat({ geometri: true })
+ * @param {Map} terpadu        susunTerpadu
  */
-function teksGeojsonPbb(pasangan, persil) {
+function teksGeojsonPbb(pasangan, persil, terpadu = new Map()) {
   const perBidang = new Map();
   for (const p of pasangan) {
     if (!perBidang.has(p.kunci)) perBidang.set(p.kunci, []);
@@ -826,6 +1121,7 @@ function teksGeojsonPbb(pasangan, persil) {
     const nop = daftar.map((p) => p.nop).filter(Boolean);
     const sumber = new Set(daftar.map(SUMBER_PASANGAN));
     const status = daftar[0].status;
+    const t = terpadu.get(kunci);
     const properti = {
       nib: nibLengkap(k.kode, k.nib),
       kode_wilayah: k.kode,
@@ -835,6 +1131,9 @@ function teksGeojsonPbb(pasangan, persil) {
       jumlah_nop: nop.length,
       status,
       keterangan_status: LABEL_STATUS_BIDANG[status] || "",
+      status_terpadu: t?.status || "",
+      keterangan_terpadu: t ? LABEL_STATUS_TERPADU[t.status] : "",
+      nop_padan: t?.nop ? formatNop(t.nop) : "",
       sumber: sumber.size > 1 ? "Data sensus + peta" : [...sumber][0],
       tipe_hak: b.tipeHak,
       luas_peta: b.luasPeta,
@@ -844,6 +1143,136 @@ function teksGeojsonPbb(pasangan, persil) {
     fitur.push(`{"type":"Feature","geometry":${b.geometri},"properties":${JSON.stringify(properti)}}`);
   }
   return `{"type":"FeatureCollection","name":"peta_bidang_pbb","features":[\n${fitur.join(",\n")}\n]}\n`;
+}
+
+/* ---------- pemadanan: antrean dan tindak lanjut ---------- */
+
+/** Urutan alasan di antrean: keputusan yang usang dan bentrok lebih dulu. */
+const URUTAN_ALASAN = Object.keys(ALASAN_TINJAU);
+
+/**
+ * Jumlah bidang per status Terintegrasi dan antrean bidang yang perlu dipadankan (murni):
+ *   ringkas : { padan, tinjau, pecah, tanpa_nop }
+ *   baris   : [{ kunci, nib, nop: string[], alasan, luas, tipeHak, kelurahan, kecamatan, diPeta }]
+ *
+ * @param {Map} terpadu  susunTerpadu
+ * @param {Map} persil   persilTercatat()
+ */
+function susunAntrean(terpadu, persil = new Map()) {
+  const ringkas = Object.fromEntries(STATUS_TERPADU.map((s) => [s, 0]));
+  const baris = [];
+  for (const [kunci, t] of terpadu) {
+    ringkas[t.status] += 1;
+    if (t.status !== "tinjau") continue;
+    const b = persil.get(kunci);
+    baris.push({
+      kunci,
+      nib: nibDariKunci(kunci),
+      nop: t.daftarNop,
+      alasan: t.alasan,
+      luas: b ? b.luasPeta : null,
+      tipeHak: b?.tipeHak || "",
+      kelurahan: b?.kelurahan || "",
+      kecamatan: b?.kecamatan || "",
+      diPeta: Boolean(b),
+    });
+  }
+  const urut = new Map(URUTAN_ALASAN.map((a, i) => [a, i]));
+  baris.sort(
+    (x, y) =>
+      urut.get(x.alasan) - urut.get(y.alasan) ||
+      x.kecamatan.localeCompare(y.kecamatan) ||
+      x.kelurahan.localeCompare(y.kelurahan) ||
+      x.kunci.localeCompare(y.kunci)
+  );
+  return { ringkas, baris };
+}
+
+/** Jenis tindak lanjut pemadanan dan siapa yang mengerjakannya. */
+const JENIS_TINDAK = {
+  hapus_ganda: { label: "Hapus NOP ganda", untuk: "PBB (SISMIOP)" },
+  gabung: { label: "Gabungkan ke NOP bidang ini", untuk: "PBB (SISMIOP)" },
+  luas: { label: "Sesuaikan luas bumi PBB dengan BPN", untuk: "PBB (SISMIOP)" },
+  pecah_sertifikat: { label: "Pecah sertifikat sesuai NOP", untuk: "BPN" },
+  pecah_nop: { label: "Pecah NOP per bidang, atau gabung sertifikat", untuk: "PBB / BPN" },
+  cek_letak: { label: "Cek letak NOP: bukan di bidang ini", untuk: "Petugas lapangan" },
+};
+const URUTAN_JENIS = Object.keys(JENIS_TINDAK);
+
+/**
+ * Tindak lanjut dari keputusan pemadanan yang masih berlaku (murni) - bahan
+ * pemutakhiran SISMIOP dan usulan ke BPN:
+ * [{ jenis, nop: string[], kunci, nopUtama, luasPbb, catatan, oleh, waktu }]
+ *
+ * @param {object[]} keputusan  bacaKeputusan
+ * @param {Map} terpadu         susunTerpadu
+ */
+function susunTindakLanjut(keputusan, terpadu) {
+  const baris = [];
+  for (const d of keputusan) {
+    const t = terpadu.get(d.kunci);
+    if (!t || !t.berlaku) continue;
+    const umum = { kunci: d.kunci, nopUtama: d.nopUtama, catatan: d.catatan, oleh: d.oleh, waktu: d.waktu, luasPbb: null };
+    const sekarang = new Set(t.daftarNop);
+    const sah = d.rincian.filter((r) => r.tindak === "sah" && sekarang.has(r.nop));
+    if (d.hasil === "pecah") baris.push({ ...umum, jenis: sah.length > 1 ? "pecah_sertifikat" : "pecah_nop", nop: sah.map((r) => r.nop) });
+    for (const r of d.rincian) {
+      if (r.tindak === "ganda") baris.push({ ...umum, jenis: "hapus_ganda", nop: [r.nop], luasPbb: r.luasPbb });
+      else if (r.tindak === "gabung") baris.push({ ...umum, jenis: "gabung", nop: [r.nop], luasPbb: r.luasPbb });
+      else if (r.tindak === "salah_bidang") baris.push({ ...umum, jenis: "cek_letak", nop: [r.nop], luasPbb: r.luasPbb });
+      if (r.luasBeda && (r.tindak === "utama" || r.tindak === "sah")) baris.push({ ...umum, jenis: "luas", nop: [r.nop], luasPbb: r.luasPbb });
+    }
+  }
+  const urut = new Map(URUTAN_JENIS.map((j, i) => [j, i]));
+  return baris.sort((x, y) => urut.get(x.jenis) - urut.get(y.jenis) || x.kunci.localeCompare(y.kunci) || x.nop.join().localeCompare(y.nop.join()));
+}
+
+/** Tabel Excel tindak lanjut pemadanan (murni): { header, baris }. */
+function tabelTindakLanjut(baris, persil = new Map(), { baseUrl = "", timezone = "Asia/Makassar" } = {}) {
+  const teks = (s) => ({ teks: s === null || s === undefined ? "" : String(s) });
+  const angka = (n) => (Number.isFinite(n) ? { teks: String(n), angka: n } : teks(""));
+  const header = [
+    "Tindak lanjut",
+    "Untuk",
+    "NOP",
+    "NOP bidang ini",
+    "NIB",
+    "Luas PBB (m²)",
+    "Luas peta BPN (m²)",
+    "Selisih luas (m²)",
+    "Tipe hak",
+    "Kelurahan (BPN)",
+    "Kecamatan (BPN)",
+    "Catatan",
+    "Dipadankan oleh",
+    "Waktu",
+    "Tautan peta",
+  ];
+  return {
+    header,
+    baris: baris.map((b) => {
+      const p = persil.get(b.kunci) || {};
+      const nib = nibDariKunci(b.kunci);
+      const luasBpn = Number.isFinite(p.luasPeta) ? p.luasPeta : null;
+      return [
+        teks(JENIS_TINDAK[b.jenis].label),
+        teks(JENIS_TINDAK[b.jenis].untuk),
+        teks(b.nop.map(formatNop).join("; ")),
+        teks(b.nopUtama && formatNop(b.nopUtama)),
+        teks(nib),
+        angka(b.luasPbb),
+        angka(luasBpn),
+        angka(Number.isFinite(b.luasPbb) && luasBpn !== null ? bulat2(b.luasPbb - luasBpn) : NaN),
+        teks(p.tipeHak),
+        teks(p.kelurahan),
+        teks(p.kecamatan),
+        teks(b.catatan),
+        teks(b.oleh),
+        teks(b.waktu ? formatWaktuID(b.waktu, timezone) : ""),
+        teks(`${baseUrl}/peta?nib=${encodeURIComponent(nib)}`),
+      ];
+    }),
+  };
 }
 
 /**
@@ -921,6 +1350,11 @@ module.exports = {
   POLA,
   URUTAN_POLA,
   STATUS_BIDANG,
+  STATUS_TERPADU,
+  LABEL_STATUS_TERPADU,
+  ALASAN_TINJAU,
+  TINDAK_PADANAN,
+  JENIS_TINDAK,
   // murni - diuji di server/test/integrasi.test.js
   analisis,
   selisihUrut,
@@ -937,6 +1371,12 @@ module.exports = {
   tabelPasangan,
   teksGeojsonPbb,
   pisahKunci,
+  bacaKirimanPadanan,
+  keputusanBerlaku,
+  susunTerpadu,
+  susunAntrean,
+  susunTindakLanjut,
+  tabelTindakLanjut,
   LABEL_STATUS_BIDANG,
   // database
   lengkapiBidang,
@@ -947,4 +1387,9 @@ module.exports = {
   susunLaporan,
   bacaPasangan,
   persilTercatat,
+  bacaKeputusan,
+  bacaTerpadu,
+  terpaduSementara,
+  statusTerpaduPeta,
+  nopSekarang,
 };

@@ -27,6 +27,13 @@ import { ContohLapisan, ContohPersil } from "./bersama.jsx";
 
 const JUDUL_KELOLA = { lapisan: "Kelola lapisan peta", persil: "Kelola persil BPN" };
 
+/** Satu kalimat tiap mode warna bidang. */
+const ARTI_MODE = {
+  kecamatan: "Bidang BPN apa adanya, per kecamatan.",
+  status: "Semua NOP yang tercatat di tiap bidang, sebelum dipadankan.",
+  terpadu: "Hasil pemadanan: satu NOP untuk tiap bidang.",
+};
+
 export default function PilihLapisan({ lapisan, persil, admin = false }) {
   const { daftar, menyala, ubahNyala, status, muatUlang } = lapisan;
   const [buka, setBuka] = useState(false);
@@ -75,8 +82,9 @@ export default function PilihLapisan({ lapisan, persil, admin = false }) {
           <span className="fk-hint-kecil">Warna bidang</span>
           <div className="fk-peta-jenis">
             {[
-              ["kecamatan", "Kecamatan"],
+              ["kecamatan", "BPN"],
               ["status", "NOP PBB"],
+              ["terpadu", "Terintegrasi"],
             ].map(([k, label]) => (
               <button
                 type="button"
@@ -90,11 +98,7 @@ export default function PilihLapisan({ lapisan, persil, admin = false }) {
               </button>
             ))}
           </div>
-          {persil.mode === "status" && (
-            <span className="fk-hint-kecil">
-              Lapisan NOP PBB: bidang menurut NOP-nya, dari data sensus dan dari tab NOP saat bidang diketuk.
-            </span>
-          )}
+          <span className="fk-hint-kecil">{ARTI_MODE[persil.mode]}</span>
           {persil.statusGalat && <span className="fk-err">{persil.statusGalat}</span>}
         </div>
       )}

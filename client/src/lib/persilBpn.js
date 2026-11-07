@@ -93,23 +93,45 @@ export const warnaDi = (warna, kecamatan, jenis) =>
 /* ---------- warna status sensus (integrasi NIB-NOP) ---------- */
 
 /*
- * Mode warna "NOP PBB" (lapisan NOP PBB): bidang diwarnai menurut hubungannya
- * dengan NOP - dari data sensus dan dari tab NOP di panel bidang
- * (server/src/integrasi.js statusBidangPeta), bukan kecamatannya.
- * Tiga slot pertama palet kategori - satu-satunya tiga yang tetap terbedakan
- * berpasangan di peta (divalidasi --pairs all, terang dan gelap/satelit).
- * Bidang yang belum tercatat abu-abu tipis supaya yang sudah tercatat menonjol.
+ * Tiga mode warna bidang (lapisan):
+ *   "kecamatan" BPN          - bentuk dan NIB asli BPN, warna per kecamatan
+ *   "status"    NOP PBB      - hubungan bidang dengan NOP apa adanya, dari data sensus
+ *                              dan tab NOP (server/src/integrasi.js statusBidangPeta)
+ *   "terpadu"   Terintegrasi - hasil pemadanan: tiap bidang 1 NOP (susunTerpadu)
+ * Warna status: tiga slot pertama palet kategori ditambah ungu tua untuk
+ * "perlu dipecah" - keempatnya tetap terbedakan berpasangan di peta, juga bagi
+ * buta warna (divalidasi --pairs all, terang dan gelap/satelit). Warna yang sama
+ * berarti hal yang sama di kedua lapisan. Bidang yang belum tercatat abu-abu
+ * tipis supaya yang sudah tercatat menonjol.
  */
+const W_PADAN = BIRU;
+const W_TINJAU = { peta: "#eb6834", satelit: "#d95926" };
+const W_TANPA = { peta: "#1baf7a", satelit: "#199e70" };
+const W_PECAH = { peta: "#9b3f99", satelit: "#b04fae" };
+
 export const STATUS_BIDANG = [
-  { kunci: "cocok", label: "1 NIB = 1 NOP", warna: BIRU },
-  { kunci: "tinjau", label: "Perlu ditinjau: beberapa NIB / NOP", warna: { peta: "#eb6834", satelit: "#d95926" } },
-  { kunci: "tanpa_nop", label: "NIB tanpa NOP", warna: { peta: "#1baf7a", satelit: "#199e70" } },
+  { kunci: "cocok", label: "1 NIB = 1 NOP", warna: W_PADAN },
+  { kunci: "tinjau", label: "Beberapa NIB / NOP", warna: W_TINJAU },
+  { kunci: "tanpa_nop", label: "NIB tanpa NOP", warna: W_TANPA },
+];
+
+/** Lapisan Terintegrasi - sama dengan server/src/integrasi.js STATUS_TERPADU. */
+export const STATUS_TERPADU = [
+  { kunci: "padan", label: "Padan", warna: W_PADAN },
+  { kunci: "tinjau", label: "Perlu dipadankan", warna: W_TINJAU },
+  { kunci: "pecah", label: "Perlu dipecah", warna: W_PECAH },
+  { kunci: "tanpa_nop", label: "Belum ber-NOP", warna: W_TANPA },
 ];
 const BELUM = { kunci: "belum", label: "Belum tercatat", warna: ABU };
 
-/** Warna sebuah status bidang ("belum" untuk yang tidak tercatat). */
+const WARNA_STATUS_SEMUA = new Map([...STATUS_BIDANG, ...STATUS_TERPADU].map((s) => [s.kunci, s.warna]));
+
+/** Warna sebuah status bidang, dari lapisan mana pun ("belum" untuk yang tidak tercatat). */
 export const warnaStatusBidang = (status, jenis) =>
-  ((STATUS_BIDANG.find((s) => s.kunci === status) || BELUM).warna)[jenis === "satelit" ? "satelit" : "peta"];
+  (WARNA_STATUS_SEMUA.get(status) || BELUM.warna)[jenis === "satelit" ? "satelit" : "peta"];
+
+/** Daftar status sebuah mode warna ("status" | "terpadu"), untuk legenda. */
+export const daftarStatusMode = (mode) => (mode === "terpadu" ? STATUS_TERPADU : STATUS_BIDANG);
 
 export const LABEL_BELUM = BELUM.label;
 
@@ -135,9 +157,9 @@ export const warnaSorotBidang = (cfg, b, jenis) =>
     : warnaDi(cfg?.warna, b.fitur?.properties?.kecamatan ?? b.kecamatan, jenis);
 
 /** Kiriman /api/integrasi/bidang (id sebagai selisih berurutan) -> Map(id persil -> status). */
-export function petaStatusBidang(isi) {
+export function petaStatusBidang(isi, daftar = STATUS_BIDANG) {
   const peta = new Map();
-  for (const { kunci } of STATUS_BIDANG) {
+  for (const { kunci } of daftar) {
     let id = 0;
     for (const d of Array.isArray(isi?.[kunci]) ? isi[kunci] : []) {
       id += d;
@@ -183,13 +205,14 @@ function simpan(kunci, nilai) {
  *   kecamatan: { nama, jumlah, warna: { peta, satelit }, tampil }[],  urut abjad
  *   ubahKecamatan: (nama: string, tampil: boolean) => void,
  *   muatUlang: () => Promise<void>,
- *   mode: "kecamatan" | "status",   mode warna bidang (per browser)
+ *   mode: "kecamatan" | "status" | "terpadu",   mode warna bidang (per browser): BPN | NOP PBB | Terintegrasi
  *   ubahMode: (mode) => void,
  *   statusGalat: string,            status sensus gagal dimuat
  *   peta: { versi, ukuranPetak, ukuranRingkas, sel, warna, kecamatan: string[], tersembunyi: string[],
- *           status: Map | null, kunci } | null
+ *           status: Map | null, modeStatus, kunci } | null
  *          untuk mesin peta; null = jangan digambar. `kunci` berganti setiap gambarnya harus diulang.
- *          `status` (mode "status"): Map(id persil -> status sensus), lihat STATUS_BIDANG.
+ *          `status` (mode "status" / "terpadu"): Map(id persil -> status), lihat STATUS_BIDANG /
+ *          STATUS_TERPADU; `modeStatus` = mode yang dipakai status itu.
  * }}
  *
  * `paksa` = pemilih bidang di formulir: persil selalu tampil, semua kecamatan,
@@ -202,11 +225,11 @@ export function usePersilBpn({ paksa = false } = {}) {
     const t = baca(KUNCI_TERSEMBUNYI, []);
     return Array.isArray(t) ? t.filter((x) => typeof x === "string") : [];
   });
-  const [modePilihan, setMode] = useState(() => (baca(KUNCI_MODE, "kecamatan") === "status" ? "status" : "kecamatan"));
+  const [modePilihan, setMode] = useState(() => modeSah(baca(KUNCI_MODE, "kecamatan")));
   const nyala = paksa || nyalaPilihan;
   const tersembunyi = paksa ? TANPA_SEMBUNYI : tersembunyiPilihan;
   const mode = paksa ? "kecamatan" : modePilihan;
-  // Status sensus tiap bidang: { peta: Map, ke: nomor muatan } - dimuat saat mode "status" dipilih.
+  // Status tiap bidang: { peta: Map, ke: nomor muatan, mode } - dimuat saat mode "status" / "terpadu" dipilih.
   const [status, setStatus] = useState(null);
   const [statusGalat, setStatusGalat] = useState("");
   // Naik setiap kabarkanStatusBerubah: status dimuat ulang.
@@ -253,7 +276,7 @@ export function usePersilBpn({ paksa = false } = {}) {
   }, []);
 
   const ubahMode = useCallback((m) => {
-    const baru = m === "status" ? "status" : "kecamatan";
+    const baru = modeSah(m);
     setMode(baru);
     simpan(KUNCI_MODE, baru);
   }, []);
@@ -261,15 +284,18 @@ export function usePersilBpn({ paksa = false } = {}) {
   const ada = Boolean(ringkasan && ringkasan.jumlah > 0);
   const versi = ringkasan?.versi;
 
-  // Status dimuat sekali tiap mode "status" dinyalakan / halaman dibuka / NOP
+  // Status dimuat sekali tiap mode status dinyalakan / halaman dibuka / NOP
   // bidang berubah: isinya berubah setiap petugas menyimpan data, jadi tidak disimpan lama.
   useEffect(() => {
-    if (mode !== "status" || !ada) return undefined;
+    if (mode === "kecamatan" || !ada) return undefined;
     let batal = false;
     setStatusGalat("");
     api
-      .statusBidangSensus()
-      .then((isi) => !batal && setStatus((s) => ({ peta: petaStatusBidang(isi), ke: (s?.ke || 0) + 1 })))
+      .statusBidangSensus(mode)
+      .then(
+        (isi) =>
+          !batal && setStatus((s) => ({ peta: petaStatusBidang(isi, daftarStatusMode(mode)), ke: (s?.ke || 0) + 1, mode }))
+      )
       .catch((e) => !batal && setStatusGalat(e.message || "Status NOP bidang gagal dimuat."));
     return () => {
       batal = true;
@@ -293,7 +319,7 @@ export function usePersilBpn({ paksa = false } = {}) {
     if (!ada || !nyala) return null;
     const sembunyi = kecamatan.filter((k) => !k.tampil).map((k) => k.nama);
     // Mode status yang datanya belum tiba digambar dengan warna kecamatan dulu.
-    const pakaiStatus = mode === "status" && status ? status : null;
+    const pakaiStatus = mode !== "kecamatan" && status?.mode === mode ? status : null;
     return {
       versi,
       ukuranPetak: ukuran.petak,
@@ -304,7 +330,8 @@ export function usePersilBpn({ paksa = false } = {}) {
       kecamatan: kecamatan.map((k) => k.nama),
       tersembunyi: sembunyi,
       status: pakaiStatus ? pakaiStatus.peta : null,
-      kunci: `${versi}|${ukuran.petak}|${ukuran.ringkas}|${sembunyi.join(",")}|${pakaiStatus ? `s${pakaiStatus.ke}` : "k"}`,
+      modeStatus: pakaiStatus ? mode : "",
+      kunci: `${versi}|${ukuran.petak}|${ukuran.ringkas}|${sembunyi.join(",")}|${pakaiStatus ? `${mode}${pakaiStatus.ke}` : "k"}`,
     };
   }, [ada, nyala, versi, ukuran, kecamatan, ringkasan, mode, status]);
 
@@ -312,6 +339,9 @@ export function usePersilBpn({ paksa = false } = {}) {
 }
 
 const TANPA_SEMBUNYI = [];
+
+/** Mode warna yang dikenal; selain itu "kecamatan". */
+const modeSah = (m) => (m === "status" || m === "terpadu" ? m : "kecamatan");
 
 /* ---------- petak data ---------- */
 

@@ -712,8 +712,12 @@ export const hapusPersil = (isi) => request("/persil/hapus", { method: "POST", b
 
 /* ---------- integrasi NIB-NOP (server/src/integrasi.js) ---------- */
 
-/** Status sensus tiap bidang persil: { cocok: [id], tinjau: [id], tanpa_nop: [id] }, id sebagai selisih berurutan. */
-export const statusBidangSensus = () => request("/integrasi/bidang");
+/**
+ * Status tiap bidang persil, id sebagai selisih berurutan:
+ *   lapisan NOP PBB   : { cocok: [id], tinjau: [id], tanpa_nop: [id] }
+ *   "terpadu"         : { padan: [id], tinjau: [id], pecah: [id], tanpa_nop: [id] } (lapisan Terintegrasi)
+ */
+export const statusBidangSensus = (lapisan = "") => request(`/integrasi/bidang${lapisan === "terpadu" ? "?lapisan=terpadu" : ""}`);
 
 /**
  * Data lain dan NOP dari peta yang sudah tercatat di bidang-bidang ini (kunci "kode|nib"):
@@ -762,8 +766,28 @@ export const hapusNopBidang = (id, kecuali = null) =>
 /** Unduh pasangan NIB-NOP dari data sensus dan peta (.xlsx). Khusus admin. */
 export const unduhPasanganNibNop = () => unduhBerkas("/integrasi/unduh-pasangan", "pasangan-nib-nop.xlsx");
 
-/** Unduh lapisan NOP PBB (.geojson, untuk QGIS). Khusus admin. */
+/** Unduh lapisan NOP PBB dan Terintegrasi (.geojson, untuk QGIS). Khusus admin. */
 export const unduhPetaBidangPbb = () => unduhBerkas("/integrasi/unduh-geojson", "peta-bidang-pbb.geojson");
+
+/* ---------- pemadanan NIB-NOP (lapisan Terintegrasi) ---------- */
+
+/**
+ * Simpan keputusan pemadanan satu bidang (petugas / admin):
+ * rincian = [{ nop, tindak: "utama" | "ganda" | "gabung" | "salah_bidang" | "sah", luasPbb, luasBeda }].
+ * Balasan: isi tab NOP terbaru (dengan `padan`).
+ */
+export const simpanPadanan = ({ kunci, rincian, catatan = "", kecuali = null }) =>
+  request("/integrasi/padanan", { method: "PUT", body: { kunci, rincian, catatan, ...(kecuali ? { kecuali } : {}) } });
+
+/** Batalkan padanan satu bidang. Balasan: isi tab NOP terbaru. */
+export const hapusPadanan = (kunci, kecuali = null) =>
+  request(`/integrasi/padanan?kunci=${encodeURIComponent(kunci)}${kecuali ? `&kecuali=${kecuali}` : ""}`, { method: "DELETE" });
+
+/** Antrean pemadanan: { ringkas: { padan, tinjau, pecah, tanpa_nop }, alasan, data: { baris, total, mulai, lebih } }. */
+export const antreanPadanan = (mulai = 0) => request(`/integrasi/padanan${mulai ? `?mulai=${mulai}` : ""}`);
+
+/** Unduh tindak lanjut hasil pemadanan (.xlsx). Khusus admin. */
+export const unduhTindakLanjut = () => unduhBerkas("/integrasi/unduh-tindak-lanjut", "tindak-lanjut-padanan.xlsx");
 
 /* ---------- cek NOP ke EPBB ---------- */
 

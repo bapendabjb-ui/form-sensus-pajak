@@ -450,6 +450,32 @@ model BidangNop {
   @@map("bidang_nop")
 }
 
+/// Keputusan pemadanan satu bidang BPN dengan NOP-nya (lapisan Terintegrasi,
+/// src/integrasi.js susunTerpadu). Satu baris per bidang; diputuskan ulang = ditimpa.
+/// Keputusan tidak berlaku lagi bila sesudahnya ada NOP baru di bidang itu.
+model PadananBidang {
+  id          Int      @id @default(autoincrement())
+  kodeWilayah String   @default("") @map("kode_wilayah") @db.VarChar(20)
+  nib         String   @db.VarChar(30)
+  /// "padan" (satu NOP untuk bidang ini) | "pecah" (semua NOP sah, menunggu dipecah) | "tanpa" (NOP-nya bukan untuk bidang ini)
+  hasil       String   @db.VarChar(10)
+  /// NOP bidang ini (hasil "padan"), 18 digit; kosong untuk hasil lain.
+  nopUtama    String   @default("") @map("nop_utama") @db.VarChar(18)
+  /// Setiap NOP di bidang saat diputuskan: [{ nop, tindak, luasPbb, luasBeda }]
+  /// tindak: utama | ganda | gabung | salah_bidang | sah. luasBeda: luas PBB perlu disesuaikan ke BPN.
+  rincian     Json
+  catatan     String   @default("") @db.VarChar(200)
+  /// Yang memutuskan: peran ("admin" | "petugas"), id akunnya, dan namanya saat itu.
+  olehPeran   String   @default("") @map("oleh_peran") @db.VarChar(10)
+  olehId      Int?     @map("oleh_id")
+  olehNama    String   @default("") @map("oleh_nama") @db.VarChar(150)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([kodeWilayah, nib], map: "padanan_bidang_unik")
+  @@map("padanan_bidang")
+}
+
 /// Berkas foto yang diunggah. entri_id masih NULL selama foto baru diunggah
 /// dan entrinya belum disimpan; foto yatim dibersihkan otomatis.
 model Foto {

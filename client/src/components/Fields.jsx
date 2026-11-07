@@ -187,7 +187,8 @@ function useCekNopAktif() {
   return aktif;
 }
 
-function NopInput({ value, onChange, invalid, isiEpbb }) {
+/** ringkas: tanpa tautan "Cari NOP" (mis. menambah NOP lain ke bidang - NOP-nya sudah diketahui). */
+function NopInput({ value, onChange, invalid, isiEpbb, ringkas = false }) {
   const cekAktif = useCekNopAktif();
   // null | "lihat" (data NOP yang sudah diketik) | "cari" (cari NOP dari nama, NIK, letak)
   const [modal, setModal] = useState(null);
@@ -219,7 +220,7 @@ function NopInput({ value, onChange, invalid, isiEpbb }) {
           )
         }
       />
-      {cekAktif && (
+      {cekAktif && !ringkas && (
         <button type="button" className="fk-textbtn is-brand" onClick={() => setModal("cari")}>
           Cari NOP dari nama, NIK, atau letak objek
         </button>

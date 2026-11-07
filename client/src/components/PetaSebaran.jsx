@@ -12,7 +12,7 @@ import {
 } from "./peta/bersama.jsx";
 import PanelBidang from "./peta/PanelBidang.jsx";
 import { IkonLayarPenuh, IkonTutupPenuh } from "./Icons.jsx";
-import { PERSIL_ZOOM_MIN, warnaDi, STATUS_BIDANG, LABEL_BELUM, warnaStatusBidang } from "../lib/persilBpn.js";
+import { PERSIL_ZOOM_MIN, warnaDi, daftarStatusMode, LABEL_BELUM, warnaStatusBidang } from "../lib/persilBpn.js";
 
 const SebaranGoogle = lazy(() => import("./peta/SebaranGoogle.jsx"));
 const SebaranLeaflet = lazy(() => import("./peta/SebaranLeaflet.jsx"));
@@ -170,9 +170,10 @@ export default function PetaSebaran({
           {persil?.status && (
             <span className="fk-legenda-persil">
               <span className="fk-legenda">
-                NOP PBB<span className="fk-legenda-persil-titik">:</span>
+                {persil.modeStatus === "terpadu" ? "Terintegrasi" : "NOP PBB"}
+                <span className="fk-legenda-persil-titik">:</span>
               </span>
-              {[...STATUS_BIDANG, { kunci: "belum", label: LABEL_BELUM }].map((s) => (
+              {[...daftarStatusMode(persil.modeStatus), { kunci: "belum", label: LABEL_BELUM }].map((s) => (
                 <span className="fk-legenda fk-legenda-status" key={s.kunci}>
                   <ContohLapisan warna={warnaStatusBidang(s.kunci, jenis)} /> {s.label}
                   {s.kunci !== "belum" && (

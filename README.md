@@ -131,7 +131,8 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── admin.js            status login admin untuk komponen dalam
 │       │   ├── konfigurasi.js      batas aplikasi dari server (petugasMaks dll.)
 │       │   ├── lapisanPeta.js      lapisan GIS di Peta Sensus: daftar, nyala/mati per browser, unduh isi
-│       │   ├── persilBpn.js        persil BPN di Peta Sensus: ringkasan, pilihan kecamatan, warna (kecamatan / NOP PBB), ubin kanvas
+│       │   ├── persilBpn.js        persil BPN di Peta Sensus: ringkasan, pilihan kecamatan, warna (BPN / NOP PBB / Terintegrasi), ubin kanvas
+│       │   ├── padanan.js          pemadanan NIB-NOP di layar: pilihan -> keputusan, petunjuk luas, baris status
 │       │   ├── titipanBidang.js    bidang + NOP dari tab NOP Peta Sensus yang diisikan ke formulir PBB berikutnya
 │       │   ├── nib.js              jawaban Bidang Tanah BPN (NIB): bentuk, tampilan, NIB dari sertifikat
 │       │   ├── useLokasiSaya.js    tombol "Lokasi saya" peta pemilih (Lokasi & Bidang): mengikuti GPS 30 detik sampai peta digeser
@@ -158,8 +159,9 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── NibInput.jsx        pertanyaan Bidang Tanah BPN: usulan dari titik, pilih di peta, ketik NIB sertifikat
 │       │   ├── PetaBidang.jsx      peta pemilih bidang BPN (mesin peta/BidangGoogle & BidangLeaflet)
 │       │   ├── PitaTitipan.jsx     pengingat di kertas kerja: bidang dari peta akan terisi di formulir PBB
-│       │   ├── NopBidang.jsx       NOP di satu bidang (tab NOP peta & kotak bidang formulir): daftar, tambah, hapus
-│       │   ├── peta/PanelBidang.jsx panel bidang Peta Sensus (kiri atas): tab NIB & tab NOP (tambah / hapus NOP)
+│       │   ├── NopBidang.jsx       NOP di satu bidang (tab NOP peta & kotak bidang formulir): status padanan, daftar, tambah, hapus
+│       │   ├── PadankanBidang.jsx  jendela Padankan: NOP mana yang benar untuk bidang ini, NOP lainnya kenapa
+│       │   ├── peta/PanelBidang.jsx panel bidang Peta Sensus (kiri atas): tab NIB & tab NOP (padankan / tambah / hapus NOP)
 │       │   ├── peta/               mesin peta Google & Leaflet, bersama.jsx, PilihLapisan.jsx (tombol Lapisan), CariNib.jsx
 │       │   ├── Fields.jsx          semua tipe input pengisian (termasuk NIK, NPWP, NOP, NIB, RT & RW)
 │       │   └── Toast.jsx, Ui.jsx
@@ -499,6 +501,8 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `persilBpn.test.js`    | Warna persil per kecamatan (`client/src/lib/persilBpn.js`): lima kecamatan Banjarbaru berbeda, warna mengikuti nama bukan urutan, cadangan untuk kecamatan lain; isi ringkas (zoom 13–16) bolak-balik server → browser kembali ke tempatnya, beserta id tiap bidang; bidang yang diketuk di bawah panel keterangan digeser ke arah terpendek |
 | `integrasi.test.js`    | Integrasi NIB-NOP: bentuk jawaban Bidang Tanah BPN, NIB sertifikat 13 digit, pola tiap data (1 NIB = 1 NOP, beberapa NIB / NOP, campuran, tanpa NOP / NIB), status bidang di peta, kolom ekspor & daftar kerja Excel |
 | `nopBidang.test.js`    | Lapisan NOP PBB: NOP dari tab NOP digabung dengan data sensus (pasangan sama sekali, pola dari keduanya), isi tab NOP, siapa boleh menghapus, kiriman NOP ditolak bila tidak sah, Excel pasangan NIB-NOP, GeoJSON tanpa data pribadi |
+| `padanan.test.js`      | Pemadanan (lapisan Terintegrasi): 1 NIB = 1 NOP padan sendiri, beberapa NOP perlu dipadankan, NOP ganda tidak lagi membuat bidang lain perlu dipadankan, NOP yang dipadankan ke bidang lain / bentrok, perlu dipecah, NOP baru membatalkan keputusan, kiriman keputusan ditolak bila tidak lengkap, antrean, tindak lanjut Excel, kolom Terintegrasi di Excel pasangan & GeoJSON |
+| `padananLayar.test.js` | Pemadanan di layar (`client/src/lib/padanan.js`): petunjuk dari luas (terdaftar dua kali / tanah dibagi / luas belum diperbarui), pilihan layar diterima server, keputusan tersimpan dipulihkan saat **Ubah**, baris status kotak NOP |
 | `titikBidang.test.js`  | Koordinat objek dari bidang NIB: titik selalu di dalam bidang (persegi, bentuk U, berlubang, MultiPolygon), asal "bidang" disimpan & diekspor, tidak dianggap GPS kasar / di kantor |
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) menjalankan lint, tes,
@@ -522,6 +526,7 @@ build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
 | `rincian_tarif`         | Bentuk ternormalisasi jawaban "rincian tarif" per entri, untuk pelaporan    |
 | `entri_nib`             | Bentuk ternormalisasi jawaban "Bidang Tanah BPN": satu baris per bidang per data (`kode_wilayah`, `nib`, `sumber`, `luas_peta`) bersama `nop` data itu, ditulis ulang setiap data disimpan - sumber pencocokan NIB-NOP |
 | `bidang_nop`            | NOP yang dicatat langsung pada bidang dari Peta Sensus (tab NOP): `kode_wilayah`, `nib`, `nop`, `keterangan`, siapa yang menambahkan (`oleh_peran`, `oleh_id`, `oleh_nama`). Unik per (bidang, NOP). Tidak terikat kertas kerja, jadi tidak ikut terhapus saat reset kertas kerja |
+| `padanan_bidang`        | Keputusan pemadanan satu bidang (lapisan Terintegrasi): `kode_wilayah`, `nib` (unik), `hasil` (`padan` / `pecah` / `tanpa`), `nop_utama`, `rincian` JSON - setiap NOP saat diputuskan dengan `tindak` (`utama` / `ganda` / `gabung` / `salah_bidang` / `sah`), `luasPbb`, `luasBeda` - `catatan`, siapa yang memutuskan. Diputuskan ulang = ditimpa. Tidak ikut terhapus saat reset kertas kerja |
 | `foto`                  | Berkas foto: `berkas` (path relatif), `entri_id`, `pertanyaan_id`, `mime`   |
 | `pengajuan_hapus`       | Pengajuan hapus dari petugas: `jenis` (`kertas_kerja`/`entri`), tautan sasaran, salinan `nomor_kk` & `judul`, `alasan`, `pengaju`, `status` (`menunggu`/`disetujui`/`ditolak`), `diputuskan_at`, `diputuskan_oleh` |
 | `nomor_counter`         | Tepat 1 baris (`id = 1`) untuk penomoran                                    |
@@ -542,6 +547,9 @@ Perilaku relasi:
   yang sudah tersimpan tidak hilang saat admin menambah atau mengurutkan ulang pertanyaan.
 
 ### Migrasi dari versi sebelumnya
+
+Migrasi `20261109100000_padanan_bidang` hanya menambah tabel `padanan_bidang` (keputusan
+pemadanan NIB-NOP, lihat [Integrasi NIB dan NOP](#integrasi-nib-dan-nop)); tidak ada data lama yang berubah.
 
 Migrasi `20261108100000_nop_per_bidang` hanya menambah tabel `bidang_nop` (NOP per bidang dari
 Peta Sensus, lihat [Integrasi NIB dan NOP](#integrasi-nib-dan-nop)); tidak ada data lama yang berubah.
@@ -1157,11 +1165,20 @@ Pasangan NIB-NOP dicatat dari dua arah, lalu dibaca bersama sebagai **lapisan NO
 | **Tab NOP di Peta Sensus** | bidang ber-NIB | tambah NOP-nya | pemetaan cepat tanpa formulir, mis. dari daftar SISMIOP |
 
 Pasangan yang sama di kedua sumber dihitung sekali. NOP berbeda di bidang yang sama (dari formulir
-dan dari peta) membuat bidang itu **perlu ditinjau**.
+dan dari peta) membuat bidang itu **perlu dipadankan**: petugas atau admin memilih NOP yang benar untuk
+bidang itu (**Padankan**, lihat [Pemadanan](#pemadanan-lapisan-terintegrasi)).
+
+Peta Sensus punya tiga lapisan bidang (**Lapisan → Warna bidang**), dengan bentuk bidang yang sama:
+
+| Lapisan | Isinya |
+| --- | --- |
+| **BPN** | Bidang dan NIB asli BPN, warna per kecamatan |
+| **NOP PBB** | Semua NOP yang tercatat di tiap bidang apa adanya, termasuk 1 NIB dengan beberapa NOP |
+| **Terintegrasi** | Hasil pemadanan: satu NOP untuk tiap bidang |
 
 **Memasang.** Admin menambah pertanyaan bertipe **Bidang Tanah BPN (NIB)** ke formulir PBB yang juga
 punya pertanyaan **NOP PBB** (Formulir → Tambah pertanyaan). Letakkan Bidang Tanah BPN di atas
-supaya petugas memilih bidang dulu, lalu mengetik NOP-nya di isian **NOP objek ini** (lihat di bawah).
+supaya petugas memilih bidang dulu, lalu mengetik NOP-nya di isian **NOP objek** (lihat di bawah).
 Atur juga **Isi dari EPBB** pada pertanyaan data wajib pajak (nama, alamat, luas) supaya terisi dari NOP. Data lama formulir itu langsung terhitung
 "NOP tanpa NIB" sampai petugas melengkapinya.
 
@@ -1182,10 +1199,11 @@ diketahui**. Bila pertanyaannya wajib, salah satu harus terisi: bidang atau alas
 - Tipe hak, luas peta, kelurahan, dan kecamatan setiap bidang disalin server dari tabel `persil` saat
   data disimpan, bukan dari kiriman browser. NIB yang sudah dicatat tidak hilang walau persil
   diimpor ulang (bidang yang dipecah BPN mendapat NIB baru).
-- Setiap bidang terpilih punya kotak **NOP di bidang ini** (`components/NopBidang.jsx`, sama dengan tab
-  NOP di Peta Sensus): *NOP formulir ini* (dari pertanyaan NOP PBB, tersimpan bersama formulirnya),
-  NOP dari data sensus lain (tombol **Buka**), dan NOP dari peta. Bila bidang itu berisi beberapa NOP
-  tampil *perlu ditinjau* - petugas tahu sebelum menyimpan.
+- Kartu setiap bidang terpilih (`components/NopBidang.jsx`, sama dengan tab NOP di Peta Sensus)
+  menyebut **NOP lain di bidang ini** - dari formulir lain dan dari peta. Bila bidang itu berisi lebih
+  dari satu NOP (termasuk NOP formulir ini), tampil baris **Perlu dipadankan** dengan tombol
+  **Padankan** - petugas yang tahu keadaan lapangan bisa langsung memadankannya. Bidang yang sudah
+  dipadankan tampil **Sudah dipadankan** (**Ubah**).
 - **Koordinat objek terisi otomatis dari bidang.** Bila pertanyaan Lokasi (koordinat objek) masih kosong,
   memilih bidang mengisinya dengan titik di dalam bidang pertama yang ada di peta BPN, bertanda
   **Dari bidang NIB** (`sumber: "bidang"`; titik berat bidang, atau tengah potongan terlebar bila
@@ -1194,16 +1212,17 @@ diketahui**. Bila pertanyaannya wajib, salah satu harus terisi: bidang atau alas
   dipilih / digeser petugas di peta, atau sudah dicek admin tidak pernah ditimpa, dan membuka data lama
   tidak mengubah apa pun. Seperti titik yang dipilih di peta, titik dari bidang tidak diperiksa sebagai
   GPS kasar / GPS di kantor. Petugas tetap bisa menggesernya ke bangunan yang tepat.
-- Begitu ada bidang terpilih, di bawahnya tampil isian **NOP objek ini** - pertanyaan NOP PBB yang
-  sama (keduanya selalu sama isinya), lengkap dengan **Lihat** / **Cari NOP** EPBB dan **Isi ke
-  Formulir** yang mengisi data wajib pajak dari EPBB. Petugas cukup memilih bidang, mengetik NOP, lalu
-  Isi ke Formulir. Selama NOP objek ini kosong, kotak bidang meminta mengisinya dulu.
-- **+ Tambah NOP lain ke bidang ini** di kotak itu (petugas / admin yang login) menambah NOP lain ke bidang
-  tersebut, mis. 1 NIB untuk 2 NOP, tanpa membuat data baru. NOP itu **langsung tersimpan** ke lapisan
-  NOP PBB saat **Simpan NOP** ditekan - tidak menunggu tombol Simpan formulir - dan bisa dihapus lagi
-  oleh admin atau penambahnya. NIB dari sertifikat yang tidak ada di peta BPN tidak bisa ditambah NOP
-  di sini; NOP-nya cukup diisi di pertanyaan NOP PBB. NOP lain yang belum punya data sensus mendapat
-  tombol **Isi formulir PBB untuk NOP ini**: formulir baru dengan bidang dan NOP itu terisi.
+- Begitu ada bidang terpilih, pertanyaan NOP PBB **pindah ke kotak bidang** sebagai isian **NOP objek**
+  (di dalam kartu bila hanya satu bidang, di bawah daftar bila beberapa) dan tidak lagi tampil di
+  tempat asalnya - NOP tidak ditulis dua kali. Isiannya lengkap dengan **Lihat** / **Cari NOP** EPBB dan
+  **Isi ke Formulir** yang mengisi data wajib pajak dari EPBB; pesan wajib diisi juga tampil di sana.
+  Petugas cukup memilih bidang, mengetik NOP, lalu Isi ke Formulir. Tanpa bidang, pertanyaan NOP PBB
+  tampil di tempatnya seperti biasa.
+- **+ Tambah NOP lain** di kartu bidang (petugas / admin yang login, sesudah NOP objek terisi) menambah
+  NOP lain ke bidang tersebut, mis. 1 NIB untuk 2 NOP, tanpa membuat data baru. NOP itu **langsung
+  tersimpan** saat **Simpan** ditekan - tidak menunggu tombol Simpan formulir - dan bisa dihapus lagi
+  oleh admin atau penambahnya. NIB dari sertifikat yang tidak ada di peta BPN tidak bisa ditambah NOP.
+- Kotak **Ketik NIB dari sertifikat** tertutup sendiri begitu bidangnya dipilih.
 - Ekspor: setiap pertanyaan Bidang Tanah BPN menjadi kolom *(NIB)*, *(Jumlah bidang)*, *(Luas peta BPN m²)*,
   *(Tipe hak BPN)*, *(Kelurahan BPN)*, dan *(Keterangan)* (alasan tanpa NIB / NIB yang tidak ada di peta).
 
@@ -1224,55 +1243,107 @@ Data yang disensus dua kali dengan NOP dan NIB yang sama tetap dihitung 1 NIB = 
 dua tab; tab terakhir yang dipilih diingat per perangkat:
 
 - **NIB** - NIB, tipe hak, luas peta, kelurahan, kecamatan, dan atribut berkas BPN.
-- **NOP** (dengan jumlahnya) - setiap NOP di bidang itu beserta asalnya: *Data sensus* (nomor kertas kerja,
-  judul data, tombol **Buka**) dan/atau *Dari peta* (siapa, kapan, keterangan). Peringatan bila ada
-  beberapa NOP di bidang itu, dan bila NOP-nya juga tercatat di bidang lain.
-  - **Tambah NOP** (petugas atau admin yang login): NOP 18 digit (tombol **Lihat** / **Cari NOP** EPBB
-    tersedia bila cek NOP aktif), keterangan opsional (mis. *sebagian bidang*, *rumah susun*), lalu
-    **Simpan NOP**. Bidangnya harus ada di peta BPN yang aktif; pasangan yang sudah ada ditolak. Warna
-    lapisan langsung diperbarui.
+- **NOP** (dengan jumlahnya) - baris status padanan di atas (**Padan**, **Perlu dipadankan** dengan
+  tombol **Padankan**, **Sudah dipadankan** dengan **Ubah**, **Perlu dipecah**), lalu setiap NOP di
+  bidang itu beserta asalnya: *Formulir KK ...* (judul data, tombol **Buka**) dan/atau *Ditambah ...*
+  (siapa, kapan). NOP hasil padanan bertanda *NOP bidang ini*; NOP yang juga tercatat di bidang lain
+  disebut.
+  - **+ Tambah NOP** (petugas atau admin yang login): NOP 18 digit (tombol **Lihat** EPBB tersedia bila
+    cek NOP aktif), lalu **Simpan**. Bidangnya harus ada di peta BPN yang aktif; pasangan yang sudah ada
+    ditolak. Warna lapisan langsung diperbarui.
   - **Hapus** hanya untuk admin, atau petugas yang menambahkannya sendiri. NOP dari data sensus tidak bisa
     dihapus di sini - ubah lewat formulirnya.
-  - **Isi formulir PBB untuk bidang ini**: bidang (dan NOP yang diketik, atau satu-satunya NOP bidang itu)
-    dititipkan; petugas memilih kertas kerja lalu **Tambah data** → formulir PBB seperti biasa, dan
+  - **Isi formulir PBB untuk bidang ini**: bidang (dan NOP yang diketik, NOP hasil padanan, atau
+    satu-satunya NOP bidang itu) dititipkan; petugas memilih kertas kerja lalu **Tambah data** → formulir PBB seperti biasa, dan
     pertanyaan Bidang Tanah BPN serta NOP PBB terisi otomatis - begitu juga pertanyaan yang diatur
     **Isi dari EPBB** (nama WP, alamat, luas), langsung dari data EPBB NOP itu bila cek NOP aktif. Pita di
     halaman kertas kerja mengingatkannya (bisa **Batal**); titipan hilang saat tab browser ditutup atau
     setelah satu jam.
 
-**Halaman Integrasi NIB** (sidebar; di HP dari kartu di Dashboard): jumlah per pola (ketuk untuk
-menyaring), daftar data per pola beserta *NOP lain di bidang yang sama* dan *bidang lain milik NOP ini*,
+**Halaman Integrasi NIB** (sidebar; di HP dari kartu di Dashboard): panel **Pemadanan** (jumlah bidang
+per status Terintegrasi, antrean *Perlu dipadankan* yang membuka tab NOP bidangnya di Peta Sensus, dan
+**Unduh tindak lanjut (Excel)** untuk admin), jumlah per pola (ketuk untuk menyaring), daftar data per pola beserta *NOP lain di bidang yang sama* dan *bidang lain milik NOP ini*,
 luas peta BPN dibanding luas tanah isian, pencarian NOP / NIB / nama, dan **cakupan per kelurahan**
 (berapa bidang BPN yang sudah tercatat, dari sensus maupun peta). NOP dari peta yang pasangannya belum
 ada di data sensus tampil sebagai baris *Dari peta* (satu per NOP); mengetuknya membuka Peta Sensus di
 bidangnya (`/peta?nib=...`). Admin bisa **Unduh Excel** daftar kerjanya, disaring sama dengan layarnya,
 lengkap dengan selisih luas, sumber, dan tautan ke tiap data.
 
-**Lapisan NOP PBB** (panel di halaman Integrasi, khusus admin):
+**Lapisan NOP PBB dan Terintegrasi** (panel di halaman Integrasi, khusus admin):
 
 - **Unduh peta (GeoJSON)** - satu Feature per bidang BPN yang tercatat, koordinat EPSG:4326, untuk QGIS
   (Layer → Add Layer → Add Vector Layer). Kolom: `nib`, `kode_wilayah`, `nomor_bidang`, `nop` (bila
   tepat satu), `daftar_nop`, `jumlah_nop`, `status` (`cocok` / `tinjau` / `tanpa_nop`),
-  `keterangan_status`, `sumber`, `tipe_hak`, `luas_peta`, `kelurahan`, `kecamatan`. Tanpa nama atau
-  alamat wajib pajak. Inilah peta PBB per bidang.
-- **Pasangan NIB-NOP (Excel)** - satu baris per pasangan (bidang tanpa NOP juga), dengan status, sumber,
-  nomor kertas kerja, keterangan dan penambah dari peta, jumlah NOP di bidang itu, jumlah bidang NOP itu,
-  dan data BPN-nya.
+  `keterangan_status`, `status_terpadu` (`padan` / `tinjau` / `pecah` / `tanpa_nop`),
+  `keterangan_terpadu`, `nop_padan` (NOP bidang ini sesudah dipadankan), `sumber`, `tipe_hak`,
+  `luas_peta`, `kelurahan`, `kecamatan`. Tanpa nama atau alamat wajib pajak. Satu berkas bisa
+  diwarnai menurut lapisan NOP PBB (`status`) atau Terintegrasi (`status_terpadu`): inilah peta PBB per bidang.
+- **Pasangan NIB-NOP (Excel)** - satu baris per pasangan (bidang tanpa NOP juga), dengan status, status
+  terintegrasi, hasil padanan NOP itu, sumber, nomor kertas kerja, keterangan dan penambah dari peta,
+  jumlah NOP di bidang itu, jumlah bidang NOP itu, dan data BPN-nya.
 
-**Peta Sensus → Lapisan → Warna bidang → NOP PBB** mewarnai setiap bidang BPN menurut pasangan NIB-NOP
-dari kedua sumber:
+**Peta Sensus → Lapisan → Warna bidang** memilih lapisannya: **BPN** (warna per kecamatan),
+**NOP PBB**, atau **Terintegrasi**. Warna yang sama berarti hal yang sama di kedua lapisan status:
 
-| Warna (peta jalan / satelit) | Status |
+| Warna (peta jalan / satelit) | NOP PBB | Terintegrasi |
+| --- | --- | --- |
+| biru `#2a78d6` / `#3987e5` | 1 NIB = 1 NOP | Padan (dengan sendirinya, atau sudah dipadankan) |
+| oranye `#eb6834` / `#d95926` | Beberapa NIB / NOP | Perlu dipadankan |
+| ungu tua `#9b3f99` / `#b04fae` | - | Perlu dipecah: semua NOP-nya benar |
+| toska `#1baf7a` / `#199e70` | NIB tanpa NOP | Belum ber-NOP |
+| abu-abu tipis | Belum tercatat | Belum tercatat |
+
+Biru, oranye, dan toska adalah tiga slot pertama palet kategori; ungu tua dipilih supaya keempatnya
+tetap terbedakan berpasangan di peta, juga bagi buta warna (divalidasi untuk semua pasangan, peta jalan
+dan satelit). Legenda menyebut jumlah bidang per status. Pilihan warnanya tersimpan per browser; datanya dimuat saat mode ini dipilih,
+halaman dibuka, atau NOP ditambah / dihapus / dipadankan. Untuk menggambarnya, isi ringkas peta (zoom 13–16) membawa id setiap bidang.
+
+#### Pemadanan (lapisan Terintegrasi)
+
+Bidang yang berisi beberapa NOP, atau yang NOP-nya juga tercatat di bidang lain, **perlu dipadankan**:
+petugas atau admin memutuskan NOP mana yang benar untuk bidang itu. Tombol **Padankan** ada di tab NOP
+Peta Sensus dan di kartu bidang formulir PBB (`client/src/components/PadankanBidang.jsx`, aturannya
+`server/src/integrasi.js` susunTerpadu). Bidang 1 NIB = 1 NOP padan dengan sendirinya.
+
+Jendela Padankan menjejerkan setiap NOP dengan nama wajib pajak, luas tanah, dan letak objeknya dari
+EPBB (bila cek NOP aktif), ditandai *beda dengan BPN* bila luasnya berbeda lebih dari 10% dari luas peta
+BPN, lalu memberi satu kalimat petunjuk (`client/src/lib/padanan.js` petunjukLuas):
+
+| Luas EPBB dibanding luas peta BPN | Petunjuk |
 | --- | --- |
-| biru `#2a78d6` / `#3987e5` | 1 NIB = 1 NOP |
-| oranye `#eb6834` / `#d95926` | Perlu ditinjau: bidangnya berisi beberapa NOP, atau NOP-nya menempati beberapa bidang |
-| toska `#1baf7a` / `#199e70` | NIB tanpa NOP |
-| abu-abu tipis | Belum tercatat (belum ada di data sensus maupun tab NOP) |
+| Luas beberapa NOP hampir sama dengan bidangnya | Kemungkinan NOP-nya terdaftar dua kali |
+| Jumlah luas NOP-nya pas dengan bidangnya | Kemungkinan tanahnya sudah dibagi |
+| Tidak cocok | Mungkin luas PBB belum diperbarui dari BPN, atau ada NOP milik bidang lain |
 
-Ketiga warnanya adalah tiga slot pertama palet kategori, satu-satunya tiga yang tetap terbedakan
-berpasangan di peta (divalidasi untuk semua pasangan, peta jalan dan satelit). Legenda menyebut jumlah
-bidang per status. Pilihan warnanya tersimpan per browser; datanya dimuat saat mode ini dipilih,
-halaman dibuka, atau NOP ditambah / dihapus dari tab NOP. Untuk menggambarnya, isi ringkas peta (zoom 13–16) membawa id setiap bidang.
+Petugas memilih **NOP mana yang benar untuk bidang ini**, lalu untuk setiap NOP lainnya **kenapa**:
+
+| Pilihan | Artinya | Tindak lanjut |
+| --- | --- | --- |
+| *Terdaftar dua kali* | Objek yang sama didaftar dua kali | Hapus NOP ganda (SISMIOP) |
+| *Digabung ke NOP ini* | Tanah dibagi di PBB tanpa perlu, pemiliknya sama | Gabungkan ke NOP bidang ini (SISMIOP) |
+| *Milik bidang lain* | Salah tunjuk | Cek letak NOP-nya; tambahkan di bidang yang benar |
+| **Semua benar, sertifikatnya perlu dipecah** | Tanah sudah dibagi di PBB, sertifikat belum | Bidang ditandai *Perlu dipecah* (BPN) |
+| **Benar, tapi NOP ini juga mencakup bidang lain** (satu NOP) | Satu NOP untuk beberapa sertifikat | Pecah NOP per bidang, atau gabung sertifikat |
+| **Bukan, NOP ini milik bidang lain** (satu NOP) | NOP-nya salah bidang | Bidang menjadi *Belum ber-NOP* |
+
+Bila luas PBB NOP yang dipilih berbeda dari BPN, tampil centang **Luas PBB perlu disesuaikan**
+(bawaannya tercentang) - kemungkinan luas PBB belum diperbarui dari BPN. Catatan boleh diisi.
+
+- Keputusan tersimpan per bidang (`padanan_bidang`) dengan nama yang memutuskan. Petugas dan admin
+  boleh memadankan dan mengubah padanan siapa pun (**Ubah** memulihkan pilihan sebelumnya), atau
+  **Batalkan padanan**.
+- Bila sesudahnya ada **NOP baru** di bidang itu, keputusannya tidak berlaku lagi: bidang kembali
+  *Perlu dipadankan lagi*. NOP yang dihapus sesudahnya tidak membatalkan keputusan.
+- Keputusan yang berlaku mengalahkan catatan yang belum dipadankan: NOP yang ditandai *Terdaftar dua
+  kali* di bidang A tidak lagi membuat bidang B (yang juga mencatat NOP itu) perlu dipadankan. NOP yang
+  sudah dipadankan ke bidang A membuat bidang B yang mencatatnya *Perlu dipadankan* (NOP-nya sudah
+  dipadankan ke bidang lain); NOP yang dipadankan ke dua bidang sekaligus membuat keduanya bentrok.
+- Lapisan NOP PBB tidak berubah oleh pemadanan: ia tetap menampilkan data apa adanya.
+- EPBB / SISMIOP tidak diubah aplikasi. **Unduh tindak lanjut (Excel)** (admin, halaman Integrasi NIB)
+  mendaftar pekerjaannya dari keputusan yang masih berlaku: hapus NOP ganda, gabungkan NOP, sesuaikan
+  luas bumi PBB dengan BPN (beserta selisihnya), pecah sertifikat, pecah NOP, dan cek letak NOP - dengan
+  kolom *Untuk* (PBB / BPN / petugas lapangan), NIB, luas, wilayah, catatan, yang memutuskan, waktu, dan
+  tautan peta.
 
 ---
 
@@ -1592,14 +1663,18 @@ memintanya dengan `&f=2` supaya isi bentuk lama di cache tidak terpakai).
 | Method | Endpoint | Keterangan |
 | ------ | -------- | ---------- |
 | `GET`  | `/integrasi?pola=&cari=&mulai=` | `{ pola: { kunci: label }, ringkas: { formulir, data, peta, pola, bidang, bidangDiPeta, bidangCocok, nop }, cakupan: [{ kunci, kecamatan, kelurahan, bidangBpn, tersensus }], data: { baris, total, mulai, lebih } }` - 50 baris per halaman. Baris `jenis: "sensus"` (satu per data) atau `jenis: "peta"` (NOP dari peta yang belum ada di data sensus) |
-| `GET`  | `/integrasi/bidang` | Status bidang untuk Peta Sensus: `{ cocok: [id], tinjau: [id], tanpa_nop: [id] }`, id persil sebagai selisih berurutan |
+| `GET`  | `/integrasi/bidang` | Status bidang untuk Peta Sensus: `{ cocok: [id], tinjau: [id], tanpa_nop: [id] }`, id persil sebagai selisih berurutan. `?lapisan=terpadu`: lapisan Terintegrasi `{ padan, tinjau, pecah, tanpa_nop }` |
 | `GET`  | `/integrasi/cek?kunci=&kecuali=` | `kunci` = daftar kunci bidang (kode wilayah, garis tegak, NIB) dipisah koma, `kecuali` = id data yang sedang dibuka. Data lain dan NOP dari peta di bidang itu: `{ [kunci]: [{ sumber: "sensus", entriId, kkId, nomor, nop, judul } \| { sumber: "peta", nop, oleh }] }` (peringatan di layar isi data) |
-| `GET`  | `/integrasi/nop-bidang?kunci=&kecuali=` | Isi tab NOP satu bidang (`kecuali` = id data yang sedang dibuka di formulir, tidak disebut sebagai data sensus): `{ nop: [{ nop, sensus: [{ entriId, kkId, nomor, judul }], peta: [{ id, keterangan, oleh, waktu, bisaHapus }], bidangLain }], tanpaNop: [...] }` |
+| `GET`  | `/integrasi/nop-bidang?kunci=&kecuali=` | Isi tab NOP satu bidang (`kecuali` = id data yang sedang dibuka di formulir, tidak disebut sebagai data sensus): `{ nop: [{ nop, sensus: [{ entriId, kkId, nomor, judul }], peta: [{ id, keterangan, oleh, waktu, bisaHapus }], bidangLain }], tanpaNop: [...], padan: { status, nop, alasan, berlaku, keputusan: { hasil, nopUtama, rincian, catatan, oleh, waktu } \| null } \| null }` |
 | `POST` | `/integrasi/nop-bidang` | Petugas / admin yang login: `{ kunci, nop, keterangan, kecuali? }` → **201** isi tab NOP terbaru. **400** NOP / bidang / keterangan tidak sah · **401** belum login · **403** pejabat · **404** bidang tidak ada di peta BPN aktif · **409** pasangan sudah ada |
 | `DELETE` | `/integrasi/nop-bidang/:id?kecuali=` | Admin, atau petugas yang menambahkannya → isi tab NOP terbaru. **403** bukan miliknya · **404** sudah dihapus |
+| `GET`  | `/integrasi/padanan?mulai=` | Antrean pemadanan: `{ ringkas: { padan, tinjau, pecah, tanpa_nop }, alasan, data: { baris: [{ kunci, nib, nop, alasan, luas, tipeHak, kelurahan, kecamatan, diPeta }], total, mulai, lebih } }` |
+| `PUT`  | `/integrasi/padanan` | Petugas / admin: `{ kunci, rincian: [{ nop, tindak, luasPbb, luasBeda }], catatan, kecuali? }` → isi tab NOP terbaru. `rincian` harus menyebut setiap NOP yang sekarang tercatat di bidang itu. **400** tidak lengkap / tidak sah · **401** belum login · **403** pejabat |
+| `DELETE` | `/integrasi/padanan?kunci=&kecuali=` | Petugas / admin: batalkan padanan bidang itu → isi tab NOP terbaru |
+| `GET`  | `/integrasi/unduh-tindak-lanjut` | 🔒 Tindak lanjut hasil pemadanan (.xlsx) |
 | `GET`  | `/integrasi/unduh?pola=&cari=` | 🔒 Daftar kerja (.xlsx) |
 | `GET`  | `/integrasi/unduh-pasangan` | 🔒 Pasangan NIB-NOP kedua sumber (.xlsx) |
-| `GET`  | `/integrasi/unduh-geojson` | 🔒 Lapisan NOP PBB (`application/geo+json`, EPSG:4326) |
+| `GET`  | `/integrasi/unduh-geojson` | 🔒 Lapisan NOP PBB dan Terintegrasi (`application/geo+json`, EPSG:4326) |
 
 Laporan dan status bidang disusun dari seluruh data lalu disimpan di memori sampai ada data yang
 berubah (paling lama 60 detik); dibatasi 1.200 per 10 menit per IP.

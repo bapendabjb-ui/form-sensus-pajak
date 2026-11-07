@@ -30,7 +30,7 @@ import { formatWaktu, urlPeta, formatNop } from "../../lib/format.js";
 import { bersihkanDrafLama, useKonfigurasi } from "../../lib/konfigurasi.js";
 import { kembali, pasangPenjaga } from "../../lib/router.js";
 import { bacaTitipan, hapusTitipan } from "../../lib/titipanBidang.js";
-import { nibLengkap } from "../../lib/nib.js";
+import { nibLengkap, nibDari } from "../../lib/nib.js";
 import { urlKk, susunTataLetak } from "./bersama.js";
 
 const UMUR_FOTO_DRAF_MS = 20 * 3600 * 1000; // unggahan yang tak disimpan dibersihkan server setelah 24 jam
@@ -495,6 +495,10 @@ export function IsiData({ kkId, formulirId, entriId }) {
   const lokasiKosong = !nilaiLokasi || typeof nilaiLokasi.lat !== "number";
   const lokasiDariBidang = !lokasiKosong && nilaiLokasi.sumber === "bidang";
   const nopIni = qNop && /^\d{18}$/.test(answers[qNop.id] || "") ? answers[qNop.id] : "";
+  // Begitu ada bidang NIB terpilih, pertanyaan NOP PBB diisi di kotak bidang ("NOP objek"),
+  // tidak di tempat asalnya - NOP tidak ditulis dua kali.
+  const qNib = formulir.pertanyaan.find((q) => q.tipe === "nib");
+  const nopDiBidang = Boolean(qNop && qNib && nibDari(answers[qNib.id]).bidang.length > 0);
   const konteksNib = {
     entriId: entriId || null,
     titik: titikNib ? { lat: titikNib.lat, lon: titikNib.lon } : null,
@@ -504,6 +508,8 @@ export function IsiData({ kkId, formulirId, entriId }) {
     // cek / cari NOP EPBB dan "Isi ke Formulir". Tidak ada bila formulirnya tanpa pertanyaan NOP.
     nopObjek: qNop
       ? {
+          qid: qNop.id,
+          galat: errors[qNop.id] || "",
           value: answers[qNop.id] ?? "",
           onChange: (v) => setAnswer(qNop.id, v),
           isiEpbb,
@@ -523,7 +529,9 @@ export function IsiData({ kkId, formulirId, entriId }) {
         : null,
   };
 
-  const kolomIsian = (q) => (
+  const kolomIsian = (q) => {
+    if (nopDiBidang && q.id === qNop.id) return null;
+    return (
     <div className="fk-field" key={q.id} data-qid={q.id}>
       <label className="fk-q-name">
         {q.label || "(Pertanyaan Tanpa Judul)"}
@@ -555,7 +563,8 @@ export function IsiData({ kkId, formulirId, entriId }) {
         <TombolDicek dicek={koordinatDicek} onUbah={ubahKoordinatDicek} label="Koordinat objek sudah dicek" />
       )}
     </div>
-  );
+    );
+  };
 
   return (
     <div ref={wadah} className={"fk-fill" + (adaKolom ? " is-dua-kolom" : "")}>

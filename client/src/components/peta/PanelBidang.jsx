@@ -11,9 +11,9 @@ import { titipBidang } from "../../lib/titipanBidang.js";
  * Panel bidang persil yang diketuk / dicari di Peta Sensus: tetap di kiri atas
  * peta, tidak ikut bergeser. Dua tab:
  *   NIB - keterangan BPN (NIB, tipe hak, luas peta, kelurahan, atribut berkas)
- *   NOP - NOP PBB yang tercatat di bidang ini, dari data sensus (formulir) dan
- *         dari peta; petugas / admin bisa menambah NOP langsung di sini, atau
- *         memulai formulir PBB untuk bidang ini.
+ *   NOP - status padanan (lapisan Terintegrasi) dan NOP PBB yang tercatat di
+ *         bidang ini, dari formulir dan dari peta; petugas / admin bisa memadankan,
+ *         menambah NOP langsung di sini, atau memulai formulir PBB untuk bidang ini.
  * Mesin peta menyorot bidangnya dan menjaganya tidak tertutup panel (geserPanel).
  *
  * bidang   : bidang dari server (/persil/titik?bentuk=1, /persil/cari) - kunci, nib,
@@ -30,6 +30,15 @@ const bacaTab = () => {
     return "nib";
   }
 };
+
+/** Tab yang terbuka saat bidang berikutnya diketuk / dicari ("nib" | "nop"), mis. dari antrean pemadanan. */
+export function ingatTabBidang(t) {
+  try {
+    localStorage.setItem(KUNCI_TAB, t === "nop" ? "nop" : "nib");
+  } catch {
+    /* penyimpanan tidak tersedia */
+  }
+}
 
 /** Atribut berkas BPN yang tampil di tab NIB; sisanya cukup disebut jumlahnya. */
 const ATRIBUT_MAKS = 12;
@@ -49,11 +58,7 @@ export default function PanelBidang({ bidang: masuk, onTutup, panelRef }) {
 
   const pilihTab = (t) => {
     setTab(t);
-    try {
-      localStorage.setItem(KUNCI_TAB, t);
-    } catch {
-      /* penyimpanan tidak tersedia */
-    }
+    ingatTabBidang(t);
   };
 
   return (
@@ -112,7 +117,8 @@ function TabNop({ bidang, isi, setIsi }) {
   const hanyaLihat = useHanyaLihat();
   // Formulir PBB untuk bidang ini: dititipkan, lalu petugas memilih kertas kerja & formulirnya.
   const isiFormulir = (nopDiketik) => {
-    const nopTitip = nopDiketik || (isi.nop.length === 1 ? isi.nop[0].nop : "");
+    // NOP yang sedang diketik, NOP hasil padanan, atau satu-satunya NOP bidang ini.
+    const nopTitip = nopDiketik || isi.padan?.nop || (isi.nop.length === 1 ? isi.nop[0].nop : "");
     titipBidang({ bidang: bidangDariPersil(bidang), nop: nopTitip });
     navigate("/kertas-kerja");
   };
@@ -122,7 +128,7 @@ function TabNop({ bidang, isi, setIsi }) {
         bidang={bidang}
         isi={isi}
         setIsi={setIsi}
-        titip={bidangDariPersil(bidang)}
+        luasBpn={Number.isFinite(bidang.fitur?.properties?.luasPeta) ? bidang.fitur.properties.luasPeta : Number.isFinite(bidang.luasPeta) ? bidang.luasPeta : null}
         bawah={(nopDiketik) =>
           !hanyaLihat && (
             <button type="button" className="fk-textbtn is-brand fk-tabnop-formulir" onClick={() => isiFormulir(nopDiketik)}>

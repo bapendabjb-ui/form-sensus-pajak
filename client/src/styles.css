@@ -1358,3 +1358,43 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 /* "NOP objek ini" di pertanyaan Bidang Tanah BPN: pertanyaan NOP PBB yang sama (NibInput.jsx). */
 .fk-nib-nopobjek{display:flex; flex-direction:column; gap:6px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--surface);}
 .fk-tabnop-isi{align-self:flex-start; padding:2px 0;}
+
+/* Pemadanan NIB-NOP (lapisan Terintegrasi): baris status di kotak NOP bidang (NopBidang.jsx)
+   dan jendela Padankan (PadankanBidang.jsx). */
+.fk-padan-status{display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:10px; border:1px solid var(--line-soft); background:#F6F8FA;}
+.fk-padan-status.is-tinjau{background:#FDF1EA; border-color:#F4C9B3;}
+.fk-padan-status.is-pecah{background:#F7EEF7; border-color:#DFC1DE;}
+.fk-padan-titik{width:10px; height:10px; border-radius:50%; flex:none;}
+.fk-padan-status-teks{display:flex; flex-direction:column; min-width:0; flex:1; font-size:12.5px; color:var(--muted); line-height:1.35;}
+.fk-padan-status-teks b{font-size:13px; color:var(--ink);}
+.fk-padan-status .fk-mini{flex:none;}
+.fk-mini.is-brand{border-color:var(--brand); background:var(--brand); color:#fff; font-weight:600;}
+.fk-mini.is-brand:hover{background:var(--brand-dark); color:#fff;}
+.fk-tabnop-baris{display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px;}
+.fk-tabnop-label.is-padan{background:var(--brand-tint); color:var(--brand-dark);}
+.fk-tabnop-tambah-btn{padding:4px 0;}
+
+.fk-padan{display:flex; flex-direction:column; gap:10px; padding-bottom:4px;}
+.fk-padan-bidang{margin:0; font-size:14px; font-weight:600; color:var(--ink);}
+.fk-padan-bidang span{font-weight:400; color:var(--muted);}
+.fk-padan-petunjuk{margin:0; padding:9px 11px; border-radius:9px; background:#F6F8FA; color:var(--ink); font-size:13px; line-height:1.45;}
+.fk-padan-tanya{font-size:13px; font-weight:600; color:var(--ink);}
+.fk-padan-opsi{align-items:flex-start;}
+.fk-padan-opsi .fk-ind{margin-top:2px;}
+.fk-padan-opsi-isi{display:flex; flex-direction:column; gap:2px; min-width:0;}
+.fk-padan-nop{font-variant-numeric:tabular-nums;}
+.fk-padan-sub{font-size:12.5px; color:var(--muted); overflow-wrap:anywhere;}
+.fk-padan-beda{display:inline-block; margin-left:6px; padding:0 6px; border-radius:5px; background:#FDF1EA; color:#9A3D12; font-size:11px; font-weight:600;}
+.fk-padan-lain{display:flex; flex-direction:column; gap:6px; padding-top:4px;}
+.fk-padan-tindak{display:flex; flex-wrap:wrap; align-self:stretch;}
+.fk-padan-tindak button{flex:1 1 auto;}
+.fk-padan-aksi{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:2px;}
+.fk-padan-hapus{margin-left:auto; color:var(--danger);}
+/* Ringkasan lapisan Terintegrasi di halaman Integrasi NIB. */
+.fk-padan-ringkas{display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:8px; margin-bottom:12px;}
+.fk-padan-ringkas-item{display:grid; grid-template-columns:auto 1fr; align-items:center; gap:2px 8px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--surface);}
+.fk-padan-ringkas-angka{font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700; color:var(--ink); line-height:1.1;}
+.fk-padan-ringkas-label{grid-column:2; font-size:12.5px; color:var(--muted);}
+/* NOP objek di dalam kartu bidang (satu bidang terpilih). */
+.fk-nib-nopobjek.is-dalam{margin-top:8px; padding:8px 0 0; border:0; border-top:1px dashed var(--line); border-radius:0; background:transparent;}
+.fk-nib-nopobjek.is-dalam + .fk-nopbidang{border-top:0; padding-top:0;}

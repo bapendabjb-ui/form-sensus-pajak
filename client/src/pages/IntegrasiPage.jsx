@@ -5,8 +5,9 @@ import { useToast } from "../components/Toast.jsx";
 import { useAdmin } from "../lib/admin.js";
 import { navigate } from "../lib/router.js";
 import { formatNop } from "../lib/format.js";
-import { formatLuas } from "../lib/persilBpn.js";
+import { formatLuas, STATUS_TERPADU, warnaStatusBidang } from "../lib/persilBpn.js";
 import { STATUS_TANAH } from "../lib/nib.js";
+import { ingatTabBidang } from "../components/peta/PanelBidang.jsx";
 
 /**
  * Integrasi NIB BPN dengan NOP PBB: pola hubungan seluruh pasangan NIB-NOP -
@@ -15,6 +16,10 @@ import { STATUS_TANAH } from "../lib/nib.js";
  * pola yang bisa diunduh admin sebagai Excel untuk ditindaklanjuti di SISMIOP
  * (gabung / pecah NOP, objek baru). Admin juga bisa mengunduh lapisan NOP PBB
  * (GeoJSON untuk QGIS, dan Excel pasangan NIB-NOP).
+ *
+ * Panel Pemadanan: jumlah bidang per status lapisan Terintegrasi, antrean
+ * bidang yang perlu dipadankan (membuka tab NOP bidangnya di Peta Sensus), dan
+ * unduhan tindak lanjut hasil pemadanan (admin).
  */
 
 /** Kelas pita pola: cocok = selesai, perlu ditinjau = kuning, belum lengkap = merah. */
@@ -52,7 +57,9 @@ export default function IntegrasiPage() {
   const [cariKirim, setCariKirim] = useState("");
   const [loading, setLoading] = useState(true);
   const [lagi, setLagi] = useState(false);
-  const [unduh, setUnduh] = useState(""); // "" | "daftar" | "pasangan" | "geojson"
+  const [unduh, setUnduh] = useState(""); // "" | "daftar" | "pasangan" | "geojson" | "tindak"
+  const [antrean, setAntrean] = useState(null);
+  const [antreanLagi, setAntreanLagi] = useState(false);
   const [error, setError] = useState("");
   const ke = useRef(0);
 
@@ -75,6 +82,25 @@ export default function IntegrasiPage() {
   useEffect(() => {
     muat();
   }, [muat]);
+
+  useEffect(() => {
+    api
+      .antreanPadanan()
+      .then(setAntrean)
+      .catch(() => setAntrean(null));
+  }, []);
+
+  const lihatAntreanLagi = async () => {
+    setAntreanLagi(true);
+    try {
+      const hasil = await api.antreanPadanan(antrean.data.baris.length);
+      setAntrean((a) => ({ ...hasil, data: { ...hasil.data, baris: [...a.data.baris, ...hasil.data.baris] } }));
+    } catch (e) {
+      toast(e.message, true);
+    } finally {
+      setAntreanLagi(false);
+    }
+  };
 
   // Kata kunci dikirim setelah petugas berhenti mengetik.
   useEffect(() => {
@@ -100,6 +126,7 @@ export default function IntegrasiPage() {
     try {
       if (jenis === "daftar") await api.unduhIntegrasi({ pola, cari: cariKirim });
       else if (jenis === "pasangan") await api.unduhPasanganNibNop();
+      else if (jenis === "tindak") await api.unduhTindakLanjut();
       else await api.unduhPetaBidangPbb();
     } catch (e) {
       toast(e.message, true);
@@ -166,6 +193,44 @@ export default function IntegrasiPage() {
           </div>
         ))}
       </div>
+
+      {antrean && ringkas.bidang > 0 && (
+        <Panel title="Pemadanan" sub="Lapisan Terintegrasi: satu NOP untuk tiap bidang.">
+          <div className="fk-padan-ringkas">
+            {STATUS_TERPADU.map((s) => (
+              <div className="fk-padan-ringkas-item" key={s.kunci}>
+                <span className="fk-padan-titik" style={{ background: warnaStatusBidang(s.kunci, "peta") }} aria-hidden="true" />
+                <span className="fk-padan-ringkas-angka">{angka(antrean.ringkas[s.kunci])}</span>
+                <span className="fk-padan-ringkas-label">{s.label}</span>
+              </div>
+            ))}
+          </div>
+          {antrean.data.total > 0 ? (
+            <>
+              <span className="fk-tabnop-judul">Perlu dipadankan</span>
+              <div className="fk-lib-list">
+                {antrean.data.baris.map((b) => (
+                  <BarisAntrean key={b.kunci} b={b} alasan={antrean.alasan} />
+                ))}
+              </div>
+              {antrean.data.lebih && (
+                <button type="button" className="fk-btn-ghost fk-integrasi-lagi" onClick={lihatAntreanLagi} disabled={antreanLagi}>
+                  {antreanLagi ? "Memuat..." : `Lihat lebih banyak (${angka(antrean.data.total - antrean.data.baris.length)} lagi)`}
+                </button>
+              )}
+            </>
+          ) : (
+            <p className="fk-hint">Tidak ada bidang yang perlu dipadankan.</p>
+          )}
+          {admin && (
+            <div className="fk-integrasi-alat">
+              <button type="button" className="fk-btn-ghost" onClick={() => unduhBerkas("tindak")} disabled={Boolean(unduh)}>
+                {unduh === "tindak" ? "Menyiapkan..." : "Unduh tindak lanjut (Excel)"}
+              </button>
+            </div>
+          )}
+        </Panel>
+      )}
 
       <Panel
         title="Pola hubungan"
@@ -237,8 +302,8 @@ export default function IntegrasiPage() {
 
       {admin && ringkas.bidang > 0 && (
         <Panel
-          title="Lapisan NOP PBB"
-          sub="Peta bidang PBB: setiap bidang BPN yang sudah tercatat beserta NOP dan statusnya, dari data sensus dan dari peta."
+          title="Lapisan NOP PBB dan Terintegrasi"
+          sub="Peta bidang PBB: setiap bidang BPN yang sudah tercatat beserta NOP, statusnya, dan NOP hasil padanannya."
         >
           <div className="fk-integrasi-alat">
             <button type="button" className="fk-btn-ghost" onClick={() => unduhBerkas("geojson")} disabled={Boolean(unduh)}>
@@ -249,8 +314,9 @@ export default function IntegrasiPage() {
             </button>
           </div>
           <p className="fk-hint">
-            GeoJSON dibuka di QGIS (Layer → Add Layer → Add Vector Layer), koordinat EPSG:4326. Isinya NIB, NOP, status,
-            tipe hak, luas peta, kelurahan, dan kecamatan - tanpa nama atau alamat wajib pajak.
+            GeoJSON dibuka di QGIS (Layer → Add Layer → Add Vector Layer), koordinat EPSG:4326. Isinya NIB, NOP, status
+            (status_terpadu dan nop_padan untuk lapisan Terintegrasi), tipe hak, luas peta, kelurahan, dan kecamatan - tanpa
+            nama atau alamat wajib pajak.
           </p>
         </Panel>
       )}
@@ -281,6 +347,34 @@ export default function IntegrasiPage() {
         </Panel>
       )}
     </>
+  );
+}
+
+/** Satu bidang di antrean pemadanan: membuka tab NOP bidang itu di Peta Sensus. */
+function BarisAntrean({ b, alasan }) {
+  const buka = () => {
+    ingatTabBidang("nop");
+    navigate(`/peta?nib=${encodeURIComponent(b.nib)}`);
+  };
+  const rinci = [
+    Number.isFinite(b.luas) && `luas peta ${formatLuas(b.luas)}`,
+    b.kelurahan && `Kel. ${b.kelurahan}`,
+    !b.diPeta && "tidak ada di peta BPN",
+  ].filter(Boolean);
+  return (
+    <button type="button" className="fk-lib-row fk-integrasi-baris" onClick={buka} disabled={!b.diPeta}>
+      <div className="fk-lib-main">
+        <div className="fk-integrasi-kepala">
+          <span className="fk-pill is-draft">{alasan[b.alasan] || "Perlu dipadankan"}</span>
+          <span className="fk-lib-title">NIB {b.nib}</span>
+        </div>
+        <div className="fk-lib-sub">NOP {b.nop.map(formatNop).join(", ")}</div>
+        {rinci.length > 0 && <div className="fk-lib-sub">{rinci.join(" · ")}</div>}
+      </div>
+      <span className="fk-baris-panah" aria-hidden="true">
+        ›
+      </span>
+    </button>
   );
 }
 
