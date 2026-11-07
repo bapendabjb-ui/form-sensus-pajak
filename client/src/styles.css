@@ -1355,3 +1355,6 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 
 /* Bidang dititipkan dari tab NOP Peta Sensus ("Isi formulir PBB"): components/PitaTitipan.jsx. */
 .fk-titipan{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; margin-bottom:12px; padding:11px 14px; border-radius:12px; background:var(--brand-tint); border:1px solid #BFE0DB; color:var(--brand-dark); font-size:13.5px;}
+/* "NOP objek ini" di pertanyaan Bidang Tanah BPN: pertanyaan NOP PBB yang sama (NibInput.jsx). */
+.fk-nib-nopobjek{display:flex; flex-direction:column; gap:6px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--surface);}
+.fk-tabnop-isi{align-self:flex-start; padding:2px 0;}

@@ -26,7 +26,7 @@ import { pantauPosisi, ambilPosisi } from "../../lib/rekamPosisi.js";
 import { nilaiTitik } from "../../lib/cekLokasi.js";
 import { TombolDicek, namaAdmin } from "../../components/LokasiObjek.jsx";
 import PersilDiTitik from "../../components/PersilDiTitik.jsx";
-import { formatWaktu, urlPeta } from "../../lib/format.js";
+import { formatWaktu, urlPeta, formatNop } from "../../lib/format.js";
 import { bersihkanDrafLama, useKonfigurasi } from "../../lib/konfigurasi.js";
 import { kembali, pasangPenjaga } from "../../lib/router.js";
 import { bacaTitipan, hapusTitipan } from "../../lib/titipanBidang.js";
@@ -102,6 +102,8 @@ export function IsiData({ kkId, formulirId, entriId }) {
   // bukti kunjungan (tidak ditampilkan). Dipantau sejak layar dibuka supaya
   // GPS sempat mengunci. Mengubah data tidak merekam posisi.
   const gpsRef = useRef({ status: "mencari", posisi: null, galat: "" });
+  // NOP yang dititipkan dari peta ke formulir baru ini: kolom bersumber EPBB ikut diisi.
+  const [nopTitipan, setNopTitipan] = useState(null);
 
   const urlKembali = urlKk(kkId);
   const kunciDraf = entriId ? `sensus-pajak:draf:data-${entriId}` : `sensus-pajak:draf:kk${kkId}-f${formulirId}`;
@@ -136,6 +138,7 @@ export function IsiData({ kkId, formulirId, entriId }) {
       }));
       hapusTitipan();
       berubah.current = true;
+      if (qNop) setNopTitipan(t.nop);
       toast(`Bidang NIB ${nibLengkap(t.bidang.kode, t.bidang.nib)}${qNop ? " dan NOP-nya" : ""} sudah terisi dari peta.`);
     },
     [toast]
@@ -313,6 +316,32 @@ export function IsiData({ kkId, formulirId, entriId }) {
 
   const isiEpbb = targetEpbb.length ? { target: targetEpbb, terapkan: terapkanEpbb } : null;
 
+  // Formulir baru dari titipan peta dengan NOP: isi kolom bersumber EPBB (nama WP, alamat,
+  // luas) sekaligus - formulirnya baru, jadi tidak ada isian petugas yang tertimpa. Bila cek
+  // NOP EPBB tidak aktif atau NOP-nya belum ada di EPBB, petugas mengisinya sendiri.
+  const terapkanRef = useRef(terapkanEpbb);
+  terapkanRef.current = terapkanEpbb;
+  useEffect(() => {
+    if (!nopTitipan || !formulir) return undefined;
+    if (!formulir.pertanyaan.some((q) => q.isiEpbb)) {
+      setNopTitipan(null);
+      return undefined;
+    }
+    let batal = false;
+    api
+      .cekNop(nopTitipan)
+      .then(async (d) => {
+        if (batal) return;
+        const n = await terapkanRef.current(d);
+        if (!batal && n > 0) toast(`${n} kolom diisi dari data EPBB NOP ${formatNop(nopTitipan)}.`);
+      })
+      .catch(() => {})
+      .finally(() => !batal && setNopTitipan(null));
+    return () => {
+      batal = true;
+    };
+  }, [nopTitipan, formulir, toast]);
+
   const fokusError = (errs) => {
     const qid = Object.keys(errs)[0];
     const el = qid && wadah.current?.querySelector(`[data-qid="${qid}"]`);
@@ -460,8 +489,19 @@ export function IsiData({ kkId, formulirId, entriId }) {
   const konteksNib = {
     entriId: entriId || null,
     titik: titikNib ? { lat: titikNib.lat, lon: titikNib.lon } : null,
-    // NOP data ini: dibandingkan dengan NOP yang sudah tercatat di bidang dari peta.
+    // NOP data ini: ditandai di daftar NOP tiap bidang.
     nop: nopIni,
+    // Isian "NOP objek ini" di pertanyaan NIB = pertanyaan NOP PBB yang sama, lengkap dengan
+    // cek / cari NOP EPBB dan "Isi ke Formulir". Tidak ada bila formulirnya tanpa pertanyaan NOP.
+    nopObjek: qNop
+      ? {
+          value: answers[qNop.id] ?? "",
+          onChange: (v) => setAnswer(qNop.id, v),
+          isiEpbb,
+          wajib: wajibBerlaku(qNop, longgar),
+          invalid: Boolean(errors[qNop.id]),
+        }
+      : null,
   };
 
   const kolomIsian = (q) => (

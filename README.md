@@ -1159,7 +1159,9 @@ Pasangan yang sama di kedua sumber dihitung sekali. NOP berbeda di bidang yang s
 dan dari peta) membuat bidang itu **perlu ditinjau**.
 
 **Memasang.** Admin menambah pertanyaan bertipe **Bidang Tanah BPN (NIB)** ke formulir PBB yang juga
-punya pertanyaan **NOP PBB** (Formulir → Tambah pertanyaan). Data lama formulir itu langsung terhitung
+punya pertanyaan **NOP PBB** (Formulir → Tambah pertanyaan). Letakkan Bidang Tanah BPN di atas
+supaya petugas memilih bidang dulu, lalu mengetik NOP-nya di isian **NOP objek ini** (lihat di bawah).
+Atur juga **Isi dari EPBB** pada pertanyaan data wajib pajak (nama, alamat, luas) supaya terisi dari NOP. Data lama formulir itu langsung terhitung
 "NOP tanpa NIB" sampai petugas melengkapinya.
 
 **Petugas mengisi** dengan salah satu atau gabungan cara ini:
@@ -1183,11 +1185,16 @@ diketahui**. Bila pertanyaannya wajib, salah satu harus terisi: bidang atau alas
   NOP di Peta Sensus): *NOP formulir ini* (dari pertanyaan NOP PBB, tersimpan bersama formulirnya),
   NOP dari data sensus lain (tombol **Buka**), dan NOP dari peta. Bila bidang itu berisi beberapa NOP
   tampil *perlu ditinjau* - petugas tahu sebelum menyimpan.
-- **+ Tambah NOP ke bidang ini** di kotak itu (petugas / admin yang login) menambah NOP lain ke bidang
+- Begitu ada bidang terpilih, di bawahnya tampil isian **NOP objek ini** - pertanyaan NOP PBB yang
+  sama (keduanya selalu sama isinya), lengkap dengan **Lihat** / **Cari NOP** EPBB dan **Isi ke
+  Formulir** yang mengisi data wajib pajak dari EPBB. Petugas cukup memilih bidang, mengetik NOP, lalu
+  Isi ke Formulir. Selama NOP objek ini kosong, kotak bidang meminta mengisinya dulu.
+- **+ Tambah NOP lain ke bidang ini** di kotak itu (petugas / admin yang login) menambah NOP lain ke bidang
   tersebut, mis. 1 NIB untuk 2 NOP, tanpa membuat data baru. NOP itu **langsung tersimpan** ke lapisan
   NOP PBB saat **Simpan NOP** ditekan - tidak menunggu tombol Simpan formulir - dan bisa dihapus lagi
   oleh admin atau penambahnya. NIB dari sertifikat yang tidak ada di peta BPN tidak bisa ditambah NOP
-  di sini; NOP-nya cukup diisi di pertanyaan NOP PBB.
+  di sini; NOP-nya cukup diisi di pertanyaan NOP PBB. NOP lain yang belum punya data sensus mendapat
+  tombol **Isi formulir PBB untuk NOP ini**: formulir baru dengan bidang dan NOP itu terisi.
 - Ekspor: setiap pertanyaan Bidang Tanah BPN menjadi kolom *(NIB)*, *(Jumlah bidang)*, *(Luas peta BPN m²)*,
   *(Tipe hak BPN)*, *(Kelurahan BPN)*, dan *(Keterangan)* (alasan tanpa NIB / NIB yang tidak ada di peta).
 
@@ -1219,8 +1226,10 @@ dua tab; tab terakhir yang dipilih diingat per perangkat:
     dihapus di sini - ubah lewat formulirnya.
   - **Isi formulir PBB untuk bidang ini**: bidang (dan NOP yang diketik, atau satu-satunya NOP bidang itu)
     dititipkan; petugas memilih kertas kerja lalu **Tambah data** → formulir PBB seperti biasa, dan
-    pertanyaan Bidang Tanah BPN serta NOP PBB terisi otomatis. Pita di halaman kertas kerja
-    mengingatkannya (bisa **Batal**); titipan hilang saat tab browser ditutup atau setelah satu jam.
+    pertanyaan Bidang Tanah BPN serta NOP PBB terisi otomatis - begitu juga pertanyaan yang diatur
+    **Isi dari EPBB** (nama WP, alamat, luas), langsung dari data EPBB NOP itu bila cek NOP aktif. Pita di
+    halaman kertas kerja mengingatkannya (bisa **Batal**); titipan hilang saat tab browser ditutup atau
+    setelah satu jam.
 
 **Halaman Integrasi NIB** (sidebar; di HP dari kartu di Dashboard): jumlah per pola (ketuk untuk
 menyaring), daftar data per pola beserta *NOP lain di bidang yang sama* dan *bidang lain milik NOP ini*,

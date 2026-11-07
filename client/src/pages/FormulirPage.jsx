@@ -219,8 +219,10 @@ function QuestionCard({ q, idx, total, gripProps, onPatch, onRemove, onMove, ada
             memilih satu atau beberapa bidang di peta persil BPN, memakai usulan dari titik Lokasi, atau
             mengetik NIB dari sertifikat (yang tidak ada di peta tetap bisa dicatat). Tanpa NIB, petugas
             memilih alasannya: tanah belum bersertifikat, atau NIB belum diketahui. Pasang bersama
-            pertanyaan <b>NOP PBB</b> di formulir yang sama; pola hubungan NIB–NOP seluruh data tampil di
-            halaman <b>Integrasi NIB</b>.
+            pertanyaan <b>NOP PBB</b> di formulir yang sama, sebaiknya pertanyaan ini di atasnya: setelah
+            bidang dipilih tampil isian <b>NOP objek ini</b> (pertanyaan NOP PBB yang sama, dengan Lihat /
+            Cari NOP EPBB dan Isi ke Formulir), dan NOP lain di bidang itu bisa ditambahkan langsung. Pola
+            hubungan NIB–NOP seluruh data tampil di halaman <b>Integrasi NIB</b>.
           </p>
         )}
 

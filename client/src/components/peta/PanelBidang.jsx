@@ -122,6 +122,7 @@ function TabNop({ bidang, isi, setIsi }) {
         bidang={bidang}
         isi={isi}
         setIsi={setIsi}
+        titip={bidangDariPersil(bidang)}
         bawah={(nopDiketik) =>
           !hanyaLihat && (
             <button type="button" className="fk-textbtn is-brand fk-tabnop-formulir" onClick={() => isiFormulir(nopDiketik)}>

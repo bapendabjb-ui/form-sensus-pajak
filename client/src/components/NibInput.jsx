@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../api.js";
 import { useToast } from "./Toast.jsx";
-import { ChoiceGroup } from "./Fields.jsx";
+import { ChoiceGroup, NopInput } from "./Fields.jsx";
 import NopBidang from "./NopBidang.jsx";
 import { usePersilBpn, formatLuas } from "../lib/persilBpn.js";
 import {
@@ -40,14 +40,21 @@ const bentukTersimpan = new Map();
  * peta. Petugas bisa langsung menambah NOP lain ke bidang itu - tersimpan ke
  * lapisan NOP PBB saat itu juga, sama dengan tab NOP di Peta Sensus.
  *
+ * Bila formulirnya punya pertanyaan NOP PBB, di bawah bidang terpilih tampil
+ * isian "NOP objek ini" - pertanyaan NOP PBB yang sama, dengan Lihat / Cari NOP
+ * EPBB dan "Isi ke Formulir" - supaya petugas cukup memilih bidang lalu mengetik
+ * NOP-nya, dan data wajib pajak terisi dari EPBB. NOP lain ke bidang yang sama
+ * baru bisa ditambah sesudah NOP objek ini terisi.
+ *
  * value   : { bidang: [...], status } - lib/nib.js
- * konteks : { entriId, titik: { lat, lon } | null, nop } - data yang sedang dibuka,
- *           titik pertanyaan Lokasi pertamanya, dan NOP-nya (pertanyaan NOP PBB)
+ * konteks : { entriId, titik: { lat, lon } | null, nop, nopObjek } - data yang sedang dibuka,
+ *           titik pertanyaan Lokasi pertamanya, NOP-nya (18 digit, atau ""), dan isian
+ *           pertanyaan NOP PBB { value, onChange, isiEpbb, wajib, invalid } | null
  */
 export default function NibInput({ value, onChange, invalid, konteks = {} }) {
   const toast = useToast();
   const v = useMemo(() => nibDari(value), [value]);
-  const { entriId = null, titik = null, nop: nopIni = "" } = konteks;
+  const { entriId = null, titik = null, nop: nopIni = "", nopObjek = null } = konteks;
   const persil = usePersilBpn({ paksa: true });
   const [petaBuka, setPetaBuka] = useState(false);
   const [ketikBuka, setKetikBuka] = useState(false);
@@ -213,6 +220,8 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
                       kecuali={entriId}
                       diPeta={b.diPeta !== false}
                       terlipat
+                      tahan={nopObjek && !nopIni ? "Isi dulu NOP objek ini di bawah. NOP lain di bidang ini bisa ditambahkan sesudahnya." : ""}
+                      titip={b}
                     />
                   )}
                 </div>
@@ -228,6 +237,19 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
         <span className="fk-hint-kecil">
           {v.bidang.length} bidang{luas !== null && ` · total luas peta ${formatLuas(luas)}`}
         </span>
+      )}
+
+      {nopObjek && v.bidang.length > 0 && (
+        <div className="fk-nib-nopobjek">
+          <span className="fk-tabnop-judul">
+            NOP objek ini{nopObjek.wajib && <span className="fk-star">*</span>}
+          </span>
+          <NopInput value={nopObjek.value} onChange={nopObjek.onChange} invalid={nopObjek.invalid} isiEpbb={nopObjek.isiEpbb} />
+          <span className="fk-hint-kecil">
+            Sama dengan pertanyaan NOP PBB formulir ini
+            {nopObjek.isiEpbb ? ". Lihat atau Cari NOP, lalu Isi ke Formulir untuk mengisi data wajib pajak dari EPBB." : "."}
+          </span>
+        </div>
       )}
 
       {tampilUsulan && (

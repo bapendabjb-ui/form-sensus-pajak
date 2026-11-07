@@ -8,6 +8,7 @@ import { navigate } from "../lib/router.js";
 import { formatNop, formatWaktu, hanyaDigit, PANJANG_NOP } from "../lib/format.js";
 import { nibLengkap } from "../lib/nib.js";
 import { kabarkanStatusBerubah } from "../lib/persilBpn.js";
+import { titipBidang } from "../lib/titipanBidang.js";
 
 /**
  * NOP PBB di satu bidang BPN (lapisan NOP PBB, server/src/integrasi.js
@@ -28,8 +29,23 @@ import { kabarkanStatusBerubah } from "../lib/persilBpn.js";
  * terlipat : isian tambah tersembunyi di balik tombol "+ Tambah NOP"
  * bawah    : (nopDiketik) => node - aksi tambahan di bawah isian (mis. Isi formulir PBB)
  * judul    : judul kecil di atas daftar (formulir), atau kosong (tab NOP sudah berjudul)
+ * tahan    : teks pengganti tombol tambah, mis. "isi dulu NOP objek ini" di formulir yang NOP-nya kosong
+ * titip    : jawaban NIB bidang ini (lib/nib.js) - NOP tanpa data sensus mendapat tombol
+ *            "Isi formulir PBB untuk NOP ini" (bidang + NOP dititipkan, data EPBB ikut terisi)
  */
-export default function NopBidang({ bidang, isi, setIsi, nopIni = "", kecuali = null, diPeta = true, terlipat = false, bawah = null, judul = "" }) {
+export default function NopBidang({
+  bidang,
+  isi,
+  setIsi,
+  nopIni = "",
+  kecuali = null,
+  diPeta = true,
+  terlipat = false,
+  bawah = null,
+  judul = "",
+  tahan = "",
+  titip = null,
+}) {
   const toast = useToast();
   const { konfirmasi } = useDialog();
   const sesi = useSesi();
@@ -86,6 +102,12 @@ export default function NopBidang({ bidang, isi, setIsi, nopIni = "", kecuali = 
 
   const bukaData = (d) => navigate(`/kertas-kerja/${d.kkId}/data/${d.entriId}`);
 
+  // NOP lain di bidang ini yang belum didata: formulir PBB baru untuk NOP itu.
+  const isiFormulirNop = (n) => {
+    titipBidang({ bidang: titip, nop: n });
+    navigate("/kertas-kerja");
+  };
+
   return (
     <div className="fk-nopbidang">
       {judul && <span className="fk-tabnop-judul">{judul}</span>}
@@ -130,6 +152,11 @@ export default function NopBidang({ bidang, isi, setIsi, nopIni = "", kecuali = 
                 </div>
               ))}
               {g.bidangLain > 0 && <span className="fk-balon-sub">NOP ini juga tercatat di {g.bidangLain} bidang lain.</span>}
+              {titip && !g.ini && g.sensus.length === 0 && !hanyaLihat && (
+                <button type="button" className="fk-textbtn is-brand fk-tabnop-isi" onClick={() => isiFormulirNop(g.nop)}>
+                  Isi formulir PBB untuk NOP ini
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -154,10 +181,12 @@ export default function NopBidang({ bidang, isi, setIsi, nopIni = "", kecuali = 
 
       {!diPeta ? (
         <span className="fk-hint-kecil">NIB ini tidak ada di peta BPN: NOP-nya cukup diisi di pertanyaan NOP PBB.</span>
+      ) : tahan ? (
+        <span className="fk-hint-kecil">{tahan}</span>
       ) : bisaTambah ? (
         buka ? (
           <div className="fk-tabnop-tambah">
-            <span className="fk-tabnop-judul">Tambah NOP ke bidang ini</span>
+            <span className="fk-tabnop-judul">{nopIni ? "Tambah NOP lain ke bidang ini" : "Tambah NOP ke bidang ini"}</span>
             <NopInput value={nop} onChange={setNop} invalid={Boolean(galat)} />
             <input
               className="fk-input"
@@ -187,7 +216,7 @@ export default function NopBidang({ bidang, isi, setIsi, nopIni = "", kecuali = 
           </div>
         ) : (
           <button type="button" className="fk-textbtn is-brand" onClick={() => setBuka(true)}>
-            + Tambah NOP ke bidang ini
+            {nopIni ? "+ Tambah NOP lain ke bidang ini" : "+ Tambah NOP ke bidang ini"}
           </button>
         )
       ) : (
