@@ -746,15 +746,18 @@ export function unduhIntegrasi({ pola = "", cari = "" } = {}) {
 /**
  * Isi tab NOP satu bidang: { nop: [{ nop, sensus: [{ entriId, kkId, nomor, judul }],
  * peta: [{ id, keterangan, oleh, waktu, bisaHapus }], bidangLain }], tanpaNop: [data] }.
+ * `kecuali` = id data yang sedang dibuka di formulir (tidak ikut disebut sebagai data sensus).
  */
-export const nopBidang = (kunci) => request(`/integrasi/nop-bidang?kunci=${encodeURIComponent(kunci)}`);
+export const nopBidang = (kunci, kecuali = null) =>
+  request(`/integrasi/nop-bidang?kunci=${encodeURIComponent(kunci)}${kecuali ? `&kecuali=${kecuali}` : ""}`);
 
-/** Tambah NOP pada bidang dari peta (petugas / admin). Balasan: isi tab NOP terbaru. */
-export const tambahNopBidang = ({ kunci, nop, keterangan = "" }) =>
-  request("/integrasi/nop-bidang", { method: "POST", body: { kunci, nop, keterangan } });
+/** Tambah NOP pada bidang (petugas / admin), langsung ke lapisan NOP PBB. Balasan: isi tab NOP terbaru. */
+export const tambahNopBidang = ({ kunci, nop, keterangan = "", kecuali = null }) =>
+  request("/integrasi/nop-bidang", { method: "POST", body: { kunci, nop, keterangan, ...(kecuali ? { kecuali } : {}) } });
 
-/** Hapus NOP dari peta (admin, atau petugas yang menambahkannya). Balasan: isi tab NOP terbaru. */
-export const hapusNopBidang = (id) => request(`/integrasi/nop-bidang/${id}`, { method: "DELETE" });
+/** Hapus NOP dari lapisan (admin, atau petugas yang menambahkannya). Balasan: isi tab NOP terbaru. */
+export const hapusNopBidang = (id, kecuali = null) =>
+  request(`/integrasi/nop-bidang/${id}${kecuali ? `?kecuali=${kecuali}` : ""}`, { method: "DELETE" });
 
 /** Unduh pasangan NIB-NOP dari data sensus dan peta (.xlsx). Khusus admin. */
 export const unduhPasanganNibNop = () => unduhBerkas("/integrasi/unduh-pasangan", "pasangan-nib-nop.xlsx");

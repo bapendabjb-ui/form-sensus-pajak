@@ -114,7 +114,13 @@ router.get(
 
 /* ---------- NOP per bidang dari Peta Sensus ---------- */
 
-/** GET /api/integrasi/nop-bidang?kunci=<kode|nib> -> isi tab NOP (integrasi.nopBidang). */
+/** `kecuali` (query / body): id data yang sedang dibuka di formulir, atau null. */
+const bacaKecuali = (v) => (v === undefined || v === null || v === "" ? null : parseId(v));
+
+/**
+ * GET /api/integrasi/nop-bidang?kunci=<kode|nib>&kecuali=<id data> -> isi tab NOP
+ * (integrasi.nopBidang). Dipakai juga kotak bidang di formulir PBB.
+ */
 router.get(
   "/nop-bidang",
   batasi,
@@ -122,13 +128,14 @@ router.get(
     const kunci = String(req.query.kunci || "");
     if (!integrasi.pisahKunci(kunci)) throw badRequest("Bidang tidak dikenal.");
     const pengguna = await bacaPengguna(req);
+    const kecuali = bacaKecuali(req.query.kecuali);
     res.setHeader("Cache-Control", "no-cache");
-    res.json((await integrasi.nopBidang([kunci], pengguna))[kunci]);
+    res.json((await integrasi.nopBidang([kunci], pengguna, { kecuali }))[kunci]);
   })
 );
 
 /**
- * POST /api/integrasi/nop-bidang { kunci, nop, keterangan } -> isi tab NOP terbaru.
+ * POST /api/integrasi/nop-bidang { kunci, nop, keterangan, kecuali? } -> isi tab NOP terbaru.
  * Bidangnya harus ada di peta BPN yang aktif. Pasangan yang sudah ada: 409.
  */
 router.post(
@@ -163,11 +170,12 @@ router.post(
       throw e;
     }
     const kunci = kunciBidang(isi.kode, isi.nib);
-    res.status(201).json((await integrasi.nopBidang([kunci], pengguna))[kunci]);
+    const kecuali = bacaKecuali(req.body?.kecuali);
+    res.status(201).json((await integrasi.nopBidang([kunci], pengguna, { kecuali }))[kunci]);
   })
 );
 
-/** DELETE /api/integrasi/nop-bidang/:id -> isi tab NOP terbaru. Admin, atau petugas yang menambahkannya. */
+/** DELETE /api/integrasi/nop-bidang/:id?kecuali= -> isi tab NOP terbaru. Admin, atau petugas yang menambahkannya. */
 router.delete(
   "/nop-bidang/:id",
   batasi,
@@ -182,7 +190,7 @@ router.delete(
     }
     await prisma.bidangNop.delete({ where: { id } });
     const kunci = kunciBidang(baris.kodeWilayah, baris.nib);
-    res.json((await integrasi.nopBidang([kunci], pengguna))[kunci]);
+    res.json((await integrasi.nopBidang([kunci], pengguna, { kecuali: bacaKecuali(req.query.kecuali) }))[kunci]);
   })
 );
 

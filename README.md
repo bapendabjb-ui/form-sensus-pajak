@@ -158,6 +158,7 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── NibInput.jsx        pertanyaan Bidang Tanah BPN: usulan dari titik, pilih di peta, ketik NIB sertifikat
 │       │   ├── PetaBidang.jsx      peta pemilih bidang BPN (mesin peta/BidangGoogle & BidangLeaflet)
 │       │   ├── PitaTitipan.jsx     pengingat di kertas kerja: bidang dari peta akan terisi di formulir PBB
+│       │   ├── NopBidang.jsx       NOP di satu bidang (tab NOP peta & kotak bidang formulir): daftar, tambah, hapus
 │       │   ├── peta/PanelBidang.jsx panel bidang Peta Sensus (kiri atas): tab NIB & tab NOP (tambah / hapus NOP)
 │       │   ├── peta/               mesin peta Google & Leaflet, bersama.jsx, PilihLapisan.jsx (tombol Lapisan), CariNib.jsx
 │       │   ├── Fields.jsx          semua tipe input pengisian (termasuk NIK, NPWP, NOP, NIB, RT & RW)
@@ -1178,10 +1179,15 @@ diketahui**. Bila pertanyaannya wajib, salah satu harus terisi: bidang atau alas
 - Tipe hak, luas peta, kelurahan, dan kecamatan setiap bidang disalin server dari tabel `persil` saat
   data disimpan, bukan dari kiriman browser. NIB yang sudah dicatat tidak hilang walau persil
   diimpor ulang (bidang yang dipecah BPN mendapat NIB baru).
-- Di bawah bidang yang juga dicatat di data lain tampil **Juga tercatat di data lain: NOP ... (KK ...)**,
-  dan bila bidang itu sudah punya NOP dari peta: **NOP formulir ini sudah tercatat di bidang ini dari
-  peta** (sama), atau **Bidang ini sudah punya NOP ... (dari peta), berbeda dengan NOP di formulir ini**.
-  Petugas tahu sebelum menyimpan.
+- Setiap bidang terpilih punya kotak **NOP di bidang ini** (`components/NopBidang.jsx`, sama dengan tab
+  NOP di Peta Sensus): *NOP formulir ini* (dari pertanyaan NOP PBB, tersimpan bersama formulirnya),
+  NOP dari data sensus lain (tombol **Buka**), dan NOP dari peta. Bila bidang itu berisi beberapa NOP
+  tampil *perlu ditinjau* - petugas tahu sebelum menyimpan.
+- **+ Tambah NOP ke bidang ini** di kotak itu (petugas / admin yang login) menambah NOP lain ke bidang
+  tersebut, mis. 1 NIB untuk 2 NOP, tanpa membuat data baru. NOP itu **langsung tersimpan** ke lapisan
+  NOP PBB saat **Simpan NOP** ditekan - tidak menunggu tombol Simpan formulir - dan bisa dihapus lagi
+  oleh admin atau penambahnya. NIB dari sertifikat yang tidak ada di peta BPN tidak bisa ditambah NOP
+  di sini; NOP-nya cukup diisi di pertanyaan NOP PBB.
 - Ekspor: setiap pertanyaan Bidang Tanah BPN menjadi kolom *(NIB)*, *(Jumlah bidang)*, *(Luas peta BPN m²)*,
   *(Tipe hak BPN)*, *(Kelurahan BPN)*, dan *(Keterangan)* (alasan tanpa NIB / NIB yang tidak ada di peta).
 
@@ -1570,9 +1576,9 @@ memintanya dengan `&f=2` supaya isi bentuk lama di cache tidak terpakai).
 | `GET`  | `/integrasi?pola=&cari=&mulai=` | `{ pola: { kunci: label }, ringkas: { formulir, data, peta, pola, bidang, bidangDiPeta, bidangCocok, nop }, cakupan: [{ kunci, kecamatan, kelurahan, bidangBpn, tersensus }], data: { baris, total, mulai, lebih } }` - 50 baris per halaman. Baris `jenis: "sensus"` (satu per data) atau `jenis: "peta"` (NOP dari peta yang belum ada di data sensus) |
 | `GET`  | `/integrasi/bidang` | Status bidang untuk Peta Sensus: `{ cocok: [id], tinjau: [id], tanpa_nop: [id] }`, id persil sebagai selisih berurutan |
 | `GET`  | `/integrasi/cek?kunci=&kecuali=` | `kunci` = daftar kunci bidang (kode wilayah, garis tegak, NIB) dipisah koma, `kecuali` = id data yang sedang dibuka. Data lain dan NOP dari peta di bidang itu: `{ [kunci]: [{ sumber: "sensus", entriId, kkId, nomor, nop, judul } \| { sumber: "peta", nop, oleh }] }` (peringatan di layar isi data) |
-| `GET`  | `/integrasi/nop-bidang?kunci=` | Isi tab NOP satu bidang: `{ nop: [{ nop, sensus: [{ entriId, kkId, nomor, judul }], peta: [{ id, keterangan, oleh, waktu, bisaHapus }], bidangLain }], tanpaNop: [...] }` |
-| `POST` | `/integrasi/nop-bidang` | Petugas / admin yang login: `{ kunci, nop, keterangan }` → **201** isi tab NOP terbaru. **400** NOP / bidang / keterangan tidak sah · **401** belum login · **403** pejabat · **404** bidang tidak ada di peta BPN aktif · **409** pasangan sudah ada |
-| `DELETE` | `/integrasi/nop-bidang/:id` | Admin, atau petugas yang menambahkannya → isi tab NOP terbaru. **403** bukan miliknya · **404** sudah dihapus |
+| `GET`  | `/integrasi/nop-bidang?kunci=&kecuali=` | Isi tab NOP satu bidang (`kecuali` = id data yang sedang dibuka di formulir, tidak disebut sebagai data sensus): `{ nop: [{ nop, sensus: [{ entriId, kkId, nomor, judul }], peta: [{ id, keterangan, oleh, waktu, bisaHapus }], bidangLain }], tanpaNop: [...] }` |
+| `POST` | `/integrasi/nop-bidang` | Petugas / admin yang login: `{ kunci, nop, keterangan, kecuali? }` → **201** isi tab NOP terbaru. **400** NOP / bidang / keterangan tidak sah · **401** belum login · **403** pejabat · **404** bidang tidak ada di peta BPN aktif · **409** pasangan sudah ada |
+| `DELETE` | `/integrasi/nop-bidang/:id?kecuali=` | Admin, atau petugas yang menambahkannya → isi tab NOP terbaru. **403** bukan miliknya · **404** sudah dihapus |
 | `GET`  | `/integrasi/unduh?pola=&cari=` | 🔒 Daftar kerja (.xlsx) |
 | `GET`  | `/integrasi/unduh-pasangan` | 🔒 Pasangan NIB-NOP kedua sumber (.xlsx) |
 | `GET`  | `/integrasi/unduh-geojson` | 🔒 Lapisan NOP PBB (`application/geo+json`, EPSG:4326) |

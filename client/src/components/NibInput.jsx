@@ -2,8 +2,8 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../api.js";
 import { useToast } from "./Toast.jsx";
 import { ChoiceGroup } from "./Fields.jsx";
+import NopBidang from "./NopBidang.jsx";
 import { usePersilBpn, formatLuas } from "../lib/persilBpn.js";
-import { formatNop } from "../lib/format.js";
 import {
   NIB_MAKS_BIDANG,
   STATUS_TANAH,
@@ -35,9 +35,14 @@ const bentukTersimpan = new Map();
  *      tetap bisa dicatat.
  * Tanpa NIB, petugas memilih alasannya (tanah belum bersertifikat, dsb.).
  *
+ * Di setiap bidang terpilih tampil NOP yang sudah tercatat di bidang itu
+ * (components/NopBidang.jsx): NOP formulir ini, data sensus lain, dan NOP dari
+ * peta. Petugas bisa langsung menambah NOP lain ke bidang itu - tersimpan ke
+ * lapisan NOP PBB saat itu juga, sama dengan tab NOP di Peta Sensus.
+ *
  * value   : { bidang: [...], status } - lib/nib.js
- * konteks : { entriId, titik: { lat, lon } | null } - data yang sedang dibuka dan
- *           titik pertanyaan Lokasi pertamanya
+ * konteks : { entriId, titik: { lat, lon } | null, nop } - data yang sedang dibuka,
+ *           titik pertanyaan Lokasi pertamanya, dan NOP-nya (pertanyaan NOP PBB)
  */
 export default function NibInput({ value, onChange, invalid, konteks = {} }) {
   const toast = useToast();
@@ -50,8 +55,8 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
   const [fokus, setFokus] = useState(null);
   // Bentuk bidang terpilih yang sudah diketahui (kunci -> Feature), untuk sorotan peta.
   const [bentuk, setBentuk] = useState(() => new Map());
-  // Data lain yang sudah mencatat bidang yang sama: { [kunci]: [...] }.
-  const [lain, setLain] = useState({});
+  // NOP yang sudah tercatat di tiap bidang terpilih, kecuali data ini: { [kunci]: isi } (api.nopBidang).
+  const [isiNop, setIsiNop] = useState({});
   const [usulan, setUsulan] = useState(null);
 
   const vRef = useRef(v);
@@ -81,18 +86,20 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
 
   const lepas = (kunci) => ubah(vRef.current.bidang.filter((b) => kunciBidang(b.kode, b.nib) !== kunci));
 
-  // Peringatan: bidang yang sama sudah dicatat di data lain.
+  // NOP di bidang-bidang terpilih: data sensus lain dan NOP dari peta.
   useEffect(() => {
     if (!kunciGabung) {
-      setLain({});
+      setIsiNop({});
       return undefined;
     }
     let batal = false;
     const t = setTimeout(() => {
-      api
-        .cekBidangSensus(kunciGabung.split(","), entriId)
-        .then((hasil) => !batal && setLain(hasil || {}))
-        .catch(() => {});
+      for (const k of kunciGabung.split(",")) {
+        api
+          .nopBidang(k, entriId)
+          .then((isi) => !batal && setIsiNop((m) => ({ ...m, [k]: isi })))
+          .catch(() => {});
+      }
     }, 400);
     return () => {
       batal = true;
@@ -185,10 +192,6 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
           {v.bidang.map((b) => {
             const k = kunciBidang(b.kode, b.nib);
             const rinci = [b.tipeHak, Number.isFinite(b.luas) && `luas peta ${formatLuas(b.luas)}`, b.kelurahan && `Kel. ${b.kelurahan}`].filter(Boolean);
-            const dataLain = (lain[k] || []).filter((d) => d.sumber !== "peta");
-            // NOP yang dicatat langsung pada bidang ini dari Peta Sensus (tab NOP).
-            const nopPeta = [...new Set((lain[k] || []).filter((d) => d.sumber === "peta").map((d) => d.nop))];
-            const nopPetaLain = nopPeta.filter((n) => n !== nopIni);
             return (
               <li className="fk-nib-item" key={k}>
                 <div className="fk-nib-isi">
@@ -200,22 +203,17 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
                   {b.diPeta === false && (
                     <div className="fk-nib-peringatan">Tidak ada di peta BPN. NIB tetap dicatat dari sertifikat.</div>
                   )}
-                  {nopIni && nopPeta.includes(nopIni) && (
-                    <div className="fk-nib-cocok">NOP formulir ini sudah tercatat di bidang ini dari peta.</div>
-                  )}
-                  {nopPetaLain.length > 0 && (
-                    <div className="fk-nib-peringatan">
-                      Bidang ini sudah punya NOP {nopPetaLain.map(formatNop).join(", ")} (dari peta)
-                      {nopIni ? ", berbeda dengan NOP di formulir ini." : "."}
-                    </div>
-                  )}
-                  {dataLain.length > 0 && (
-                    <div className="fk-nib-peringatan">
-                      Juga tercatat di data lain:{" "}
-                      {dataLain
-                        .map((d) => `${d.nop ? `NOP ${formatNop(d.nop)}` : "tanpa NOP"} (KK ${d.nomor}${d.judul ? `, ${d.judul}` : ""})`)
-                        .join("; ")}
-                    </div>
+                  {isiNop[k] && (
+                    <NopBidang
+                      judul="NOP di bidang ini"
+                      bidang={{ kunci: k, kode: b.kode, nib: b.nib }}
+                      isi={isiNop[k]}
+                      setIsi={(isi) => setIsiNop((m) => ({ ...m, [k]: isi }))}
+                      nopIni={nopIni}
+                      kecuali={entriId}
+                      diPeta={b.diPeta !== false}
+                      terlipat
+                    />
                   )}
                 </div>
                 <button type="button" className="fk-telepon-hapus" onClick={() => lepas(k)} aria-label={`Lepas bidang NIB ${nibLengkap(b.kode, b.nib)}`}>

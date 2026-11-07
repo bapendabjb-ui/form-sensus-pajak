@@ -341,11 +341,13 @@ async function petaBidang(kunci) {
  * `bidangLain` = berapa bidang lain yang juga tercatat untuk NOP itu (kedua sumber).
  *
  * @param {object|null} pengguna  src/auth.js bacaPengguna - menentukan bisaHapus
+ * @param {number|null} kecuali    id data yang sedang dibuka di formulir: NOP-nya
+ *                                 ditampilkan formulir itu sendiri, bukan sebagai data sensus
  */
-async function nopBidang(kunci, pengguna = null) {
+async function nopBidang(kunci, pengguna = null, { kecuali = null } = {}) {
   const daftar = [...new Set(kunci)].filter((k) => pisahKunci(k));
   if (!daftar.length) return {};
-  const [sensus, peta] = await Promise.all([sensusBidang(daftar, { maks: 20 }), petaBidang(daftar)]);
+  const [sensus, peta] = await Promise.all([sensusBidang(daftar, { maks: 20, kecuali }), petaBidang(daftar)]);
   const semuaNop = new Set();
   for (const k of daftar) {
     for (const s of sensus[k] || []) if (s.nop) semuaNop.add(s.nop);
