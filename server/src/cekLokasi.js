@@ -88,7 +88,7 @@ function ringkasLokasiEntri(e, jawabanLokasi) {
   return {
     gps: nilaiTitik(titikGps(e)),
     objek: adaTitik(jawabanLokasi)
-      ? nilaiTitik({ ...jawabanLokasi, manual: jawabanLokasi.sumber === "peta" || Boolean(dicek) })
+      ? nilaiTitik({ ...jawabanLokasi, manual: jawabanLokasi.sumber === "peta" || jawabanLokasi.sumber === "bidang" || Boolean(dicek) })
       : null,
     dicek,
   };

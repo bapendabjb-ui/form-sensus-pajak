@@ -376,7 +376,9 @@ export function IsiData({ kkId, formulirId, entriId }) {
     let rekam = null;
     if (!entriId) {
       const dariForm = titikDariFormulir(pertanyaan, answers);
-      const nilaiForm = dariForm ? nilaiTitik({ ...dariForm, manual: dariForm.sumber === "peta" }, aturanLokasi) : "baik";
+      const nilaiForm = dariForm
+        ? nilaiTitik({ ...dariForm, manual: dariForm.sumber === "peta" || dariForm.sumber === "bidang" }, aturanLokasi)
+        : "baik";
       if (nilaiForm !== "baik") {
         setMenyimpan(null);
         if (!(await konfirmasi(dialogLokasi(nilaiForm, dariForm, aturanLokasi)))) return;
@@ -485,6 +487,13 @@ export function IsiData({ kkId, formulirId, entriId }) {
   // peringatan bidang ganda) dan titik Lokasi objeknya (usulan bidang, pusat peta).
   const titikNib = titikDariFormulir(formulir.pertanyaan, answers);
   const qNop = formulir.pertanyaan.find((q) => q.tipe === "nop");
+  // Koordinat objek (pertanyaan Lokasi pertama) yang boleh diisi otomatis dari bidang NIB:
+  // hanya bila masih kosong atau memang berasal dari bidang - titik GPS / pilihan petugas
+  // di peta tidak ditimpa, begitu juga koordinat yang sudah dicek (dikunci) admin.
+  const qLokasi = formulir.pertanyaan.find((q) => q.tipe === "lokasi");
+  const nilaiLokasi = qLokasi ? answers[qLokasi.id] : null;
+  const lokasiKosong = !nilaiLokasi || typeof nilaiLokasi.lat !== "number";
+  const lokasiDariBidang = !lokasiKosong && nilaiLokasi.sumber === "bidang";
   const nopIni = qNop && /^\d{18}$/.test(answers[qNop.id] || "") ? answers[qNop.id] : "";
   const konteksNib = {
     entriId: entriId || null,
@@ -502,6 +511,16 @@ export function IsiData({ kkId, formulirId, entriId }) {
           invalid: Boolean(errors[qNop.id]),
         }
       : null,
+    titikOtomatis:
+      qLokasi && !koordinatDicek
+        ? {
+            boleh: lokasiKosong || lokasiDariBidang,
+            dariBidang: lokasiDariBidang,
+            atur: (t) =>
+              setAnswer(qLokasi.id, { lat: t.lat, lon: t.lon, akurasi: null, ketinggian: null, waktu: new Date().toISOString(), sumber: "bidang" }),
+            hapus: () => setAnswer(qLokasi.id, emptyValue("lokasi")),
+          }
+        : null,
   };
 
   const kolomIsian = (q) => (

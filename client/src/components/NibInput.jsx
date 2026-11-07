@@ -14,6 +14,7 @@ import {
   totalLuas,
   bacaNibLengkap,
   formatKetikanNib,
+  titikDalamBidang,
 } from "../lib/nib.js";
 
 // Peta cukup besar: unduh hanya saat petugas membukanya.
@@ -46,6 +47,11 @@ const bentukTersimpan = new Map();
  * NOP-nya, dan data wajib pajak terisi dari EPBB. NOP lain ke bidang yang sama
  * baru bisa ditambah sesudah NOP objek ini terisi.
  *
+ * Koordinat objek (pertanyaan Lokasi) yang masih kosong diisi otomatis dengan titik di
+ * dalam bidang pertama yang ada di peta BPN (konteks.titikOtomatis). Titik itu ikut pindah
+ * bila bidangnya diganti, dan dihapus bila bidangnya dilepas - selama petugas belum
+ * mengambil GPS atau menggeser titiknya sendiri.
+ *
  * value   : { bidang: [...], status } - lib/nib.js
  * konteks : { entriId, titik: { lat, lon } | null, nop, nopObjek } - data yang sedang dibuka,
  *           titik pertanyaan Lokasi pertamanya, NOP-nya (18 digit, atau ""), dan isian
@@ -54,7 +60,7 @@ const bentukTersimpan = new Map();
 export default function NibInput({ value, onChange, invalid, konteks = {} }) {
   const toast = useToast();
   const v = useMemo(() => nibDari(value), [value]);
-  const { entriId = null, titik = null, nop: nopIni = "", nopObjek = null } = konteks;
+  const { entriId = null, titik = null, nop: nopIni = "", nopObjek = null, titikOtomatis = null } = konteks;
   const persil = usePersilBpn({ paksa: true });
   const [petaBuka, setPetaBuka] = useState(false);
   const [ketikBuka, setKetikBuka] = useState(false);
@@ -113,6 +119,47 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
       clearTimeout(t);
     };
   }, [kunciGabung, entriId]);
+
+  // Koordinat objek otomatis dari bidang pertama yang ada di peta BPN. Membuka data lama tidak
+  // mengubah apa pun: hanya memilih / mengganti / melepas bidang yang memicunya.
+  const otomatisRef = useRef(titikOtomatis);
+  otomatisRef.current = titikOtomatis;
+  const bidangTitik = v.bidang.find((b) => b.diPeta !== false) || null;
+  const kunciTitik = bidangTitik ? kunciBidang(bidangTitik.kode, bidangTitik.nib) : "";
+  const awalTitik = useRef(true);
+  useEffect(() => {
+    const lewati = awalTitik.current && Boolean(entriId);
+    awalTitik.current = false;
+    const o = otomatisRef.current;
+    if (!o || lewati) return undefined;
+    if (!kunciTitik) {
+      if (o.dariBidang) o.hapus();
+      return undefined;
+    }
+    if (!o.boleh) return undefined;
+    let batal = false;
+    const pakai = (fitur) => {
+      const t = titikDalamBidang(fitur?.geometry);
+      if (!batal && t && otomatisRef.current?.boleh) otomatisRef.current.atur(t);
+    };
+    const ada = bentukTersimpan.get(kunciTitik);
+    if (ada) pakai(ada);
+    else {
+      const [kode, nib] = kunciTitik.split("|");
+      api
+        .cariPersil(nibLengkap(kode, nib))
+        .then((daftar) => {
+          const p = (daftar || []).find((x) => kunciBidang(x.kodeWilayah, x.nib) === kunciTitik);
+          if (!p) return;
+          bentukTersimpan.set(kunciTitik, p.fitur);
+          pakai(p.fitur);
+        })
+        .catch(() => {});
+    }
+    return () => {
+      batal = true;
+    };
+  }, [kunciTitik]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Usulan dari titik Lokasi, selama belum ada bidang yang dipilih.
   useEffect(() => {

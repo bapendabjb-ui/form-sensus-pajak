@@ -223,6 +223,10 @@ export default function LokasiInput({ value, onChange, invalid }) {
           <div className="fk-lokasi-meta">
             {value.sumber === "peta" ? (
               <span className="fk-lokasi-akurasi is-peta">Dipilih di peta</span>
+            ) : value.sumber === "bidang" ? (
+              <span className="fk-lokasi-akurasi is-peta" title="Titik di dalam bidang NIB yang dipilih. Geser di peta bila perlu.">
+                Dari bidang NIB
+              </span>
             ) : (
               <span className={"fk-lokasi-akurasi" + kelasAkurasi(value.akurasi)}>
                 {value.akurasi === null ? "akurasi tidak diketahui" : `±${Math.round(value.akurasi)} m`}

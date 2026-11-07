@@ -264,7 +264,8 @@ function normalizeNilai(tipe, raw) {
     }
 
     case "lokasi": {
-      // { lat, lon, akurasi, ketinggian, waktu, sumber } dari GPS perangkat petugas atau dipilih di peta.
+      // { lat, lon, akurasi, ketinggian, waktu, sumber } dari GPS perangkat petugas ("gps"), dipilih di
+      // peta ("peta"), atau diisi otomatis dari titik di dalam bidang NIB yang dipilih ("bidang").
       const obj = raw && typeof raw === "object" ? raw : {};
       const lat = toDesimal(obj.lat);
       const lon = toDesimal(obj.lon);
@@ -286,7 +287,7 @@ function normalizeNilai(tipe, raw) {
         akurasi: akurasi === null || akurasi < 0 ? null : bulat(akurasi, 1),
         ketinggian: ketinggian === null ? null : bulat(ketinggian, 1),
         waktu: stempel,
-        sumber: obj.sumber === "gps" || obj.sumber === "peta" ? obj.sumber : "",
+        sumber: ["gps", "peta", "bidang"].includes(obj.sumber) ? obj.sumber : "",
       };
     }
 

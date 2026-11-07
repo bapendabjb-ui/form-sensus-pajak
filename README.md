@@ -499,6 +499,7 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `persilBpn.test.js`    | Warna persil per kecamatan (`client/src/lib/persilBpn.js`): lima kecamatan Banjarbaru berbeda, warna mengikuti nama bukan urutan, cadangan untuk kecamatan lain; isi ringkas (zoom 13–16) bolak-balik server → browser kembali ke tempatnya, beserta id tiap bidang; bidang yang diketuk di bawah panel keterangan digeser ke arah terpendek |
 | `integrasi.test.js`    | Integrasi NIB-NOP: bentuk jawaban Bidang Tanah BPN, NIB sertifikat 13 digit, pola tiap data (1 NIB = 1 NOP, beberapa NIB / NOP, campuran, tanpa NOP / NIB), status bidang di peta, kolom ekspor & daftar kerja Excel |
 | `nopBidang.test.js`    | Lapisan NOP PBB: NOP dari tab NOP digabung dengan data sensus (pasangan sama sekali, pola dari keduanya), isi tab NOP, siapa boleh menghapus, kiriman NOP ditolak bila tidak sah, Excel pasangan NIB-NOP, GeoJSON tanpa data pribadi |
+| `titikBidang.test.js`  | Koordinat objek dari bidang NIB: titik selalu di dalam bidang (persegi, bentuk U, berlubang, MultiPolygon), asal "bidang" disimpan & diekspor, tidak dianggap GPS kasar / di kantor |
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) menjalankan lint, tes,
 build frontend, dan `prisma validate` pada setiap push ke `main` dan setiap PR.
@@ -1185,6 +1186,14 @@ diketahui**. Bila pertanyaannya wajib, salah satu harus terisi: bidang atau alas
   NOP di Peta Sensus): *NOP formulir ini* (dari pertanyaan NOP PBB, tersimpan bersama formulirnya),
   NOP dari data sensus lain (tombol **Buka**), dan NOP dari peta. Bila bidang itu berisi beberapa NOP
   tampil *perlu ditinjau* - petugas tahu sebelum menyimpan.
+- **Koordinat objek terisi otomatis dari bidang.** Bila pertanyaan Lokasi (koordinat objek) masih kosong,
+  memilih bidang mengisinya dengan titik di dalam bidang pertama yang ada di peta BPN, bertanda
+  **Dari bidang NIB** (`sumber: "bidang"`; titik berat bidang, atau tengah potongan terlebar bila
+  bidangnya berbentuk L / U / berlubang - `client/src/lib/nib.js` titikDalamBidang). Titik itu ikut
+  pindah bila bidangnya diganti dan dihapus bila bidangnya dilepas. Koordinat yang diambil dengan GPS,
+  dipilih / digeser petugas di peta, atau sudah dicek admin tidak pernah ditimpa, dan membuka data lama
+  tidak mengubah apa pun. Seperti titik yang dipilih di peta, titik dari bidang tidak diperiksa sebagai
+  GPS kasar / GPS di kantor. Petugas tetap bisa menggesernya ke bangunan yang tepat.
 - Begitu ada bidang terpilih, di bawahnya tampil isian **NOP objek ini** - pertanyaan NOP PBB yang
   sama (keduanya selalu sama isinya), lengkap dengan **Lihat** / **Cari NOP** EPBB dan **Isi ke
   Formulir** yang mengisi data wajib pajak dari EPBB. Petugas cukup memilih bidang, mengetik NOP, lalu

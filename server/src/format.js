@@ -140,9 +140,10 @@ function formatWaktuID(value, timeZone) {
   return f.format(d);
 }
 
-/** Asal titik lokasi: "dipilih di peta" / "±12 m" / "" bila akurasinya tidak diketahui. */
+/** Asal titik lokasi: "dipilih di peta" / "dari bidang NIB" / "±12 m" / "" bila akurasinya tidak diketahui. */
 function keteranganLokasi(v) {
   if (v.sumber === "peta") return "dipilih di peta";
+  if (v.sumber === "bidang") return "dari bidang NIB";
   return v.akurasi === null || v.akurasi === undefined ? "" : `±${Math.round(v.akurasi)} m`;
 }
 

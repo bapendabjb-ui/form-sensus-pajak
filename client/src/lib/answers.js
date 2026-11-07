@@ -79,7 +79,7 @@ const lokasiDari = (v) => {
     akurasi: angka(o.akurasi),
     ketinggian: angka(o.ketinggian),
     waktu: asString(o.waktu),
-    sumber: o.sumber === "gps" || o.sumber === "peta" ? o.sumber : "",
+    sumber: ["gps", "peta", "bidang"].includes(o.sumber) ? o.sumber : "",
   };
 };
 
