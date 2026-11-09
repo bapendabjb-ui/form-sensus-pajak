@@ -648,7 +648,8 @@ Tipe pertanyaan **Lokasi (GPS / peta)** menyimpan satu titik koordinat beserta a
 ### Memilih titik lewat peta
 
 Selain **Ambil lokasi**, petugas bisa menekan **Pilih di peta** (`PetaLokasi.jsx`) lalu
-mengetuk titik atau menggeser penanda. Tersedia peta jalan dan citra **satelit** — berguna untuk
+mengetuk titik atau menggeser penanda. Tombol **Pilih di peta** sengaja ada di depan **Ambil lokasi**:
+yang dicatat koordinat objek pajak, bukan posisi petugas saat sensus. Tersedia peta jalan dan citra **satelit** — berguna untuk
 menunjuk bangunan yang sinyal GPS-nya buruk. Petanya Google bila `GOOGLE_MAPS_API_KEY` diisi,
 dengan OpenStreetMap / Esri World Imagery sebagai cadangan (lihat [Peta Google](#peta-google)).
 

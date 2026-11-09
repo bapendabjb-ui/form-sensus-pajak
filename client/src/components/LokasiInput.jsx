@@ -274,7 +274,16 @@ export default function LokasiInput({ value, onChange, invalid }) {
 
       {galat && <span className="fk-err">{galat}</span>}
 
+      {/* Pilih di peta lebih dulu: koordinat objek pajak, bukan posisi petugas saat sensus. */}
       <div className="fk-lokasi-aksi">
+        <button
+          type="button"
+          className={petaTerbuka ? "fk-btn-ghost is-on" : "fk-btn-ghost"}
+          onClick={() => setPetaTerbuka((b) => !b)}
+          aria-expanded={petaTerbuka}
+        >
+          {petaTerbuka ? "Tutup peta" : "Pilih di peta"}
+        </button>
         {mencari ? (
           <button type="button" className="fk-btn-ghost" onClick={hentikan}>
             Pakai Yang Ini!
@@ -284,14 +293,6 @@ export default function LokasiInput({ value, onChange, invalid }) {
             {punyaTitik ? "Ambil ulang" : "Ambil lokasi"}
           </button>
         )}
-        <button
-          type="button"
-          className={petaTerbuka ? "fk-btn-ghost is-on" : "fk-btn-ghost"}
-          onClick={() => setPetaTerbuka((b) => !b)}
-          aria-expanded={petaTerbuka}
-        >
-          {petaTerbuka ? "Tutup peta" : "Pilih di peta"}
-        </button>
         {/* Perangkat yang lambat mengunci sering butuh satu ronde tambahan. */}
         {punyaTitik && !mencari && value.akurasi > AKURASI_BAIK && (
           <button type="button" className="fk-mini" onClick={() => mulai(true)}>
