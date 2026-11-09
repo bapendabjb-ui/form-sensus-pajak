@@ -684,6 +684,9 @@ html.fk-ketik .fk-fab{display:none;}
 .fk-lokasi-aksi{display:flex; gap:8px; flex-wrap:wrap;}
 .fk-lokasi-akurasi.is-peta{background:#E6EEF7; color:#2B5A8C;}
 .fk-lokasi-aksi .fk-btn-ghost.is-on{border-color:var(--brand); color:var(--brand-dark); background:var(--brand-tint);}
+/* Pilih di peta | Ketik NIB: selalu satu baris, dua kolom sama lebar (Bidang Tanah BPN). */
+.fk-nib-aksi{display:grid; grid-template-columns:repeat(2, minmax(0, 200px));}
+.fk-nib-aksi .fk-btn-ghost{padding-left:8px; padding-right:8px; text-align:center;}
 
 /* Peta pemilih lokasi (Leaflet) */
 .fk-peta-wadah{display:flex; flex-direction:column; gap:8px;}

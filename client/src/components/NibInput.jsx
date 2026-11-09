@@ -270,7 +270,8 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
         </div>
       )}
 
-      <div className="fk-lokasi-aksi">
+      {/* Dua tombol sejajar sama lebar, juga di HP: labelnya sengaja pendek. */}
+      <div className="fk-lokasi-aksi fk-nib-aksi">
         <button
           type="button"
           className={petaBuka ? "fk-btn-ghost is-on" : "fk-btn-ghost"}
@@ -284,8 +285,9 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
           className={ketikBuka ? "fk-btn-ghost is-on" : "fk-btn-ghost"}
           onClick={() => setKetikBuka((b) => !b)}
           aria-expanded={ketikBuka}
+          aria-label="Ketik NIB dari sertifikat"
         >
-          Ketik NIB dari sertifikat
+          Ketik NIB
         </button>
       </div>
 

@@ -1190,8 +1190,9 @@ Atur juga **Isi dari EPBB** pada pertanyaan data wajib pajak (nama, alamat, luas
    memilih, ketuk lagi untuk membatalkan; bidang terpilih disorot. Boleh beberapa bidang (maks. 20),
    jumlah luas petanya tampil di bawah daftar. Kartu bidang (dengan isian NOP objek) tampil **di bawah
    peta**, jadi peta tidak bergeser saat bidang diketuk. Urutan pertanyaannya: usulan dari titik
-   Lokasi, tombol Pilih di peta / Ketik NIB, peta atau kotak ketik NIB, lalu kartu bidang.
-3. **Ketik NIB dari sertifikat** - NIB lengkap 13 digit (`17.11.74.02.03612`) atau 5 digit nomor
+   Lokasi, tombol Pilih di peta / Ketik NIB (sejajar, dua kolom sama lebar), peta atau kotak ketik NIB,
+   lalu kartu bidang.
+3. **Ketik NIB** (dari sertifikat) - NIB lengkap 13 digit (`17.11.74.02.03612`) atau 5 digit nomor
    bidangnya, lalu **Cari**. NIB lengkap yang tidak ada di peta BPN tetap bisa dicatat
    (**Catat NIB ini**), bertanda *tidak ada di peta BPN*.
 
@@ -1228,7 +1229,7 @@ diketahui**. Bila pertanyaannya wajib, salah satu harus terisi: bidang atau alas
   Di kolom NOP yang sempit (HP, kartu bidang, panel Peta Sensus - *container query* `nop` di
   `styles.css`) tombol **Lihat** turun ke baris penghitung digit supaya 18 digit NOP terbaca utuh;
   di layar lebar tombolnya tetap di samping isian.
-- Kotak **Ketik NIB dari sertifikat** tertutup sendiri begitu bidangnya dipilih.
+- Kotak **Ketik NIB** tertutup sendiri begitu bidangnya dipilih.
 - Ekspor: setiap pertanyaan Bidang Tanah BPN menjadi kolom *(NIB)*, *(Jumlah bidang)*, *(Luas peta BPN m²)*,
   *(Tipe hak BPN)*, *(Kelurahan BPN)*, dan *(Keterangan)* (alasan tanpa NIB / NIB yang tidak ada di peta).
 
