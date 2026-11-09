@@ -892,9 +892,6 @@ html.fk-ketik .fk-fab{display:none;}
 .fk-cari-nib-form{display:flex; gap:8px;}
 .fk-cari-nib-form .fk-input{flex:1; min-width:0;}
 .fk-sheet-isi .fk-cari-nib{padding:4px 0;}
-.fk-persil-titik{display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; margin:6px 0 0; font-size:13px; color:var(--ink);}
-.fk-persil-titik.is-kosong{color:var(--muted);}
-.fk-persil-titik-label{font-size:11px; font-weight:600; color:#BE185D; background:#FCE7F3; padding:1px 7px; border-radius:5px;}
 
 /* ---------- Bidang Tanah BPN (NIB) di formulir PBB ---------- */
 .fk-nib{display:flex; flex-direction:column; gap:10px;}

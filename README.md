@@ -155,7 +155,6 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── PengajuanHapus.jsx  pita pengajuan menunggu + isian "Ajukan hapus"
 │       │   ├── KelolaLapisan.jsx   admin: unggah / atur / hapus lapisan GIS (GeoJSON)
 │       │   ├── KelolaPersil.jsx    admin: impor shapefile persil BPN, ringkasan, hapus
-│       │   ├── PersilDiTitik.jsx   NIB bidang BPN di bawah jawaban Lokasi
 │       │   ├── NibInput.jsx        pertanyaan Bidang Tanah BPN: usulan dari titik, pilih di peta, ketik NIB sertifikat
 │       │   ├── PetaBidang.jsx      peta pemilih bidang BPN (mesin peta/BidangGoogle & BidangLeaflet)
 │       │   ├── PitaTitipan.jsx     pengingat di kertas kerja: bidang dari peta akan terisi di formulir PBB
@@ -903,9 +902,8 @@ Peta pendaftaran tanah BPN (shapefile persil per kecamatan) bisa dimasukkan ke a
 - **Cari NIB** di bilah alat peta: NIB 5 digit (kembar di kelurahan lain → pilih kelurahannya) atau
   NIB lengkap 13 digit (kode wilayah + NIB, mis. `17.11.74.02.03612`). Peta menuju bidangnya dan
   menyorotnya.
-- **Halaman data:** di bawah jawaban Lokasi tampil NIB bidang tempat titik itu berada, tipe hak, dan
-  luas petanya, bisa langsung dibandingkan dengan luas tanah isian petugas. Tidak tampil apa-apa
-  tanpa sinyal atau bila belum ada persil.
+- **Halaman data:** jawaban Lokasi berdiri sendiri, tanpa keterangan persil BPN di bawahnya (dulu
+  ada, tetapi membingungkan petugas). Bidang BPN objek dicatat lewat pertanyaan Bidang Tanah BPN.
 - **Ekspor:** setiap pertanyaan Lokasi mendapat tiga kolom tambahan, *(NIB BPN)*, *(Tipe hak BPN)*,
   dan *(Luas peta BPN m²)*, di CSV, Excel, GeoJSON, dan KML. Tanpa persil tersimpan, kolom itu tidak ada.
 

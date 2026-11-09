@@ -9,7 +9,6 @@ import { Loading, ErrorBox, BerkasPill } from "../../components/Ui.jsx";
 import { PitaPengajuan } from "../../components/PengajuanHapus.jsx";
 import { IkonEpbb } from "../../components/Icons.jsx";
 import { namaAdmin } from "../../components/LokasiObjek.jsx";
-import PersilDiTitik from "../../components/PersilDiTitik.jsx";
 import { formatNilai } from "../../lib/ringkas.js";
 import { formatWaktu, formatLokasi, formatNomorTelepon, formatHargaBaris, urlPeta } from "../../lib/format.js";
 import { kembali } from "../../lib/router.js";
@@ -82,7 +81,6 @@ function Nilai({ q, nilai, dicek }) {
           <a className="fk-lokasi-peta" href={urlPeta(nilai)} target="_blank" rel="noreferrer">
             Buka di Google Maps
           </a>
-          <PersilDiTitik lat={nilai.lat} lon={nilai.lon} />
           {dicek && (
             <span className="fk-dicek-ket">
               ✓ Sudah dicek {namaAdmin(dicek.oleh)}, {formatWaktu(dicek.waktu)}.
