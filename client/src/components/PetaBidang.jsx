@@ -55,7 +55,7 @@ export default function PetaBidang({ persil, titik, terpilih, fokus, onKetuk, me
   return (
     <div className="fk-peta-wadah fk-bidang-peta">
       <div className="fk-peta-alat">
-        <span className="fk-hint-kecil">Ketuk bidang untuk memilih. Ketuk lagi untuk membatalkan.</span>
+        <span className="fk-hint-kecil">Ketuk bidang untuk memilih, ketuk lagi untuk membatalkan. Bidang terpilih tampil di bawah peta.</span>
         <PilihJenis jenis={jenis} onChange={setJenis} />
       </div>
       <div className="fk-peta-tumpuk">

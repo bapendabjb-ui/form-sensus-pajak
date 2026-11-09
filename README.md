@@ -1188,7 +1188,9 @@ Atur juga **Isi dari EPBB** pada pertanyaan data wajib pajak (nama, alamat, luas
    berada; **Pakai bidang ini** memilihnya.
 2. **Pilih di peta** - peta persil BPN (bawaan satelit) berpusat di titik Lokasi. Ketuk bidang untuk
    memilih, ketuk lagi untuk membatalkan; bidang terpilih disorot. Boleh beberapa bidang (maks. 20),
-   jumlah luas petanya tampil di bawah daftar.
+   jumlah luas petanya tampil di bawah daftar. Kartu bidang (dengan isian NOP objek) tampil **di bawah
+   peta**, jadi peta tidak bergeser saat bidang diketuk. Urutan pertanyaannya: usulan dari titik
+   Lokasi, tombol Pilih di peta / Ketik NIB, peta atau kotak ketik NIB, lalu kartu bidang.
 3. **Ketik NIB dari sertifikat** - NIB lengkap 13 digit (`17.11.74.02.03612`) atau 5 digit nomor
    bidangnya, lalu **Cari**. NIB lengkap yang tidak ada di peta BPN tetap bisa dicatat
    (**Catat NIB ini**), bertanda *tidak ada di peta BPN*.

@@ -254,6 +254,78 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
 
   return (
     <div className={"fk-nib" + (invalid ? " is-invalid" : "")}>
+      {/* Urutan: usulan, tombol, peta / ketik NIB, lalu kartu bidang. Bidang yang diketuk muncul
+          di bawah peta, jadi peta tidak bergeser dan isian NOP objek langsung di bawahnya. */}
+      {tampilUsulan && (
+        <div className="fk-nib-usulan">
+          <span>
+            Titik Lokasi berada di bidang <b>NIB {nibLengkap(usulan.kodeWilayah, usulan.nib)}</b>
+            {[usulan.tipeHak, Number.isFinite(usulan.luasPeta) && formatLuas(usulan.luasPeta)].filter(Boolean).length > 0 &&
+              ` (${[usulan.tipeHak, Number.isFinite(usulan.luasPeta) && formatLuas(usulan.luasPeta)].filter(Boolean).join(", ")})`}
+            .
+          </span>
+          <button type="button" className="fk-mini" onClick={pakaiUsulan}>
+            {v.bidang.length ? "Tambahkan" : "Pakai bidang ini"}
+          </button>
+        </div>
+      )}
+
+      <div className="fk-lokasi-aksi">
+        <button
+          type="button"
+          className={petaBuka ? "fk-btn-ghost is-on" : "fk-btn-ghost"}
+          onClick={() => setPetaBuka((b) => !b)}
+          aria-expanded={petaBuka}
+        >
+          {petaBuka ? "Tutup peta" : "Pilih di peta"}
+        </button>
+        <button
+          type="button"
+          className={ketikBuka ? "fk-btn-ghost is-on" : "fk-btn-ghost"}
+          onClick={() => setKetikBuka((b) => !b)}
+          aria-expanded={ketikBuka}
+        >
+          Ketik NIB dari sertifikat
+        </button>
+      </div>
+
+      {petaBuka &&
+        (persil.ringkasan && !persil.ada ? (
+          <p className="fk-hint-kecil">Belum ada persil BPN di aplikasi. Admin bisa mengimpornya dari Peta Sensus → Lapisan.</p>
+        ) : (
+          <Suspense
+            fallback={
+              <div className="fk-lokasi-cari" role="status">
+                <span className="fk-spinner" aria-hidden="true" />
+                <span>Memuat peta…</span>
+              </div>
+            }
+          >
+            <PetaBidang
+              persil={persil.peta}
+              titik={titik}
+              terpilih={terpilihBerbentuk}
+              fokus={fokus}
+              onKetuk={ketuk}
+              mencari={mencari}
+            />
+          </Suspense>
+        ))}
+
+      {ketikBuka && (
+        <KetikNib
+          sudah={kunciTerpilih}
+          onPilih={(b, p) => {
+            // Bidang sudah dipilih: kotak ketik NIB ditutup supaya kotak bidang tidak ramai.
+            setKetikBuka(false);
+            if (tambah(b)) {
+              if (p?.fitur) simpanBentuk(kunciBidang(b.kode, b.nib), p.fitur);
+              if (p?.batas) setFokus((f) => ({ batas: p.batas, ke: (f?.ke || 0) + 1 }));
+            }
+          }}
+        />
+      )}
+
       {v.bidang.length > 0 && (
         <ul className="fk-nib-daftar">
           {v.bidang.map((b) => {
@@ -300,76 +372,6 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
       )}
 
       {v.bidang.length > 1 && isianNopObjek}
-
-      {tampilUsulan && (
-        <div className="fk-nib-usulan">
-          <span>
-            Titik Lokasi berada di bidang <b>NIB {nibLengkap(usulan.kodeWilayah, usulan.nib)}</b>
-            {[usulan.tipeHak, Number.isFinite(usulan.luasPeta) && formatLuas(usulan.luasPeta)].filter(Boolean).length > 0 &&
-              ` (${[usulan.tipeHak, Number.isFinite(usulan.luasPeta) && formatLuas(usulan.luasPeta)].filter(Boolean).join(", ")})`}
-            .
-          </span>
-          <button type="button" className="fk-mini" onClick={pakaiUsulan}>
-            {v.bidang.length ? "Tambahkan" : "Pakai bidang ini"}
-          </button>
-        </div>
-      )}
-
-      {petaBuka &&
-        (persil.ringkasan && !persil.ada ? (
-          <p className="fk-hint-kecil">Belum ada persil BPN di aplikasi. Admin bisa mengimpornya dari Peta Sensus → Lapisan.</p>
-        ) : (
-          <Suspense
-            fallback={
-              <div className="fk-lokasi-cari" role="status">
-                <span className="fk-spinner" aria-hidden="true" />
-                <span>Memuat peta…</span>
-              </div>
-            }
-          >
-            <PetaBidang
-              persil={persil.peta}
-              titik={titik}
-              terpilih={terpilihBerbentuk}
-              fokus={fokus}
-              onKetuk={ketuk}
-              mencari={mencari}
-            />
-          </Suspense>
-        ))}
-
-      {ketikBuka && (
-        <KetikNib
-          sudah={kunciTerpilih}
-          onPilih={(b, p) => {
-            // Bidang sudah dipilih: kotak ketik NIB ditutup supaya kotak bidang tidak ramai.
-            setKetikBuka(false);
-            if (tambah(b)) {
-              if (p?.fitur) simpanBentuk(kunciBidang(b.kode, b.nib), p.fitur);
-              if (p?.batas) setFokus((f) => ({ batas: p.batas, ke: (f?.ke || 0) + 1 }));
-            }
-          }}
-        />
-      )}
-
-      <div className="fk-lokasi-aksi">
-        <button
-          type="button"
-          className={petaBuka ? "fk-btn-ghost is-on" : "fk-btn-ghost"}
-          onClick={() => setPetaBuka((b) => !b)}
-          aria-expanded={petaBuka}
-        >
-          {petaBuka ? "Tutup peta" : "Pilih di peta"}
-        </button>
-        <button
-          type="button"
-          className={ketikBuka ? "fk-btn-ghost is-on" : "fk-btn-ghost"}
-          onClick={() => setKetikBuka((b) => !b)}
-          aria-expanded={ketikBuka}
-        >
-          Ketik NIB dari sertifikat
-        </button>
-      </div>
 
       {v.bidang.length === 0 && (
         <div className="fk-nib-status">
