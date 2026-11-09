@@ -9,7 +9,10 @@ import {
   WARNA_STATUS,
   ContohLapisan,
   ContohPersil,
+  TombolLokasiSaya,
+  CatatanGpsKasar,
 } from "./peta/bersama.jsx";
+import { useLokasiSaya } from "../lib/useLokasiSaya.js";
 import PanelBidang from "./peta/PanelBidang.jsx";
 import { IkonLayarPenuh, IkonTutupPenuh } from "./Icons.jsx";
 import { PERSIL_ZOOM_MIN, warnaDi, daftarStatusMode, LABEL_BELUM, warnaStatusBidang } from "../lib/persilBpn.js";
@@ -45,6 +48,10 @@ const PESAN_PERSIL = {
  *
  * Keterangan bidang persil yang diketuk / dicari tampil di panel tetap di kiri atas
  * peta (peta/PanelBidang.jsx: tab NIB dan NOP), bukan balon: tidak ikut bergeser.
+ *
+ * Tombol "Lokasi saya" di kanan bawah (lib/useLokasiSaya.js, sama dengan peta di
+ * formulir): titik biru posisi perangkat, supaya petugas tahu bidang mana yang ada di
+ * dekatnya. GPS baru dipantau setelah tombolnya ditekan.
  */
 export default function PetaSebaran({
   titik = [],
@@ -65,6 +72,8 @@ export default function PetaSebaran({
   const [bidang, setBidang] = useState(null);
   const panelRef = useRef(null);
   const mesin = useMesinPeta();
+  const { saya, posisiPeta, terlaluKasar, pusatkan, keLokasiSaya, berhentiIkuti } = useLokasiSaya();
+  const propsSaya = { posisiSaya: posisiPeta, pusatkan, onGeser: berhentiIkuti };
 
   // Layar penuh: Escape menutupnya, dan halaman di belakangnya tidak ikut bergulir.
   useEffect(() => {
@@ -101,6 +110,7 @@ export default function PetaSebaran({
         onBidang={setBidang}
         panelRef={panelRef}
         onStatusPersil={setStatusPersil}
+        {...propsSaya}
       />
     );
   } else if (mesin.jenis === "leaflet") {
@@ -118,6 +128,7 @@ export default function PetaSebaran({
         onBidang={setBidang}
         panelRef={panelRef}
         onStatusPersil={setStatusPersil}
+        {...propsSaya}
       />
     );
   }
@@ -229,7 +240,9 @@ export default function PetaSebaran({
             {PESAN_PERSIL[statusPersil]}
           </div>
         )}
+        <TombolLokasiSaya saya={saya} onClick={keLokasiSaya} />
       </div>
+      {terlaluKasar && <CatatanGpsKasar akurasi={saya.posisi.akurasi} />}
       {mesin.cadangan && <CatatanCadangan />}
     </div>
   );

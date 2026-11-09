@@ -13,6 +13,8 @@ import {
   gayaLapisan,
   TITIK_LAPISAN_RADIUS,
   geserPanel,
+  WARNA_SAYA,
+  zoomAkurasi,
 } from "./bersama.jsx";
 import * as api from "../../api.js";
 import { PERSIL_ZOOM_MIN, dengarPetak, statusPersil, warnaSorotBidang } from "../../lib/persilBpn.js";
@@ -41,6 +43,10 @@ import { pasangUbinPersil } from "./ubinPersilGoogle.js";
  * onBidang : (bidang | null) => void - bidang diketuk / dicari, atau ketukan di luar bidang
  * panelRef : ref elemen panel; bidang yang diketuk di bawah panel digeser keluar
  * onStatusPersil : (status) => void - "", "perbesar", "memuat", "galat" (lib/persilBpn.js statusPersil)
+ * posisiSaya, pusatkan : titik biru "Lokasi saya" - lihat lib/useLokasiSaya.js
+ * onGeser : () => void - peta digeser (berhenti mengikuti lokasi saya)
+ *
+ * Tombol zoom di kanan atas: kanan bawah untuk tombol "Lokasi saya" (PetaSebaran).
  */
 
 const TIPE = { peta: "roadmap", satelit: "hybrid" };
@@ -145,10 +151,16 @@ export default function SebaranGoogle({
   onBidang,
   panelRef = null,
   onStatusPersil,
+  posisiSaya = null,
+  pusatkan = 0,
+  onGeser,
 }) {
   const wadah = useRef(null);
   const peta = useRef(null);
   const balon = useRef(null);
+  const saya = useRef(null);
+  const geserRef = useRef(onGeser);
+  geserRef.current = onGeser;
   const penanda = useRef([]);
   // Tetap satu Map selama komponen hidup (bukan ref: isinya dibaca saat dibersihkan).
   const [lapisanGis] = useState(() => new Map()); // kunciLapisan -> google.maps.Data
@@ -259,6 +271,7 @@ export default function SebaranGoogle({
             mapTypeId: TIPE[jenis],
             disableDefaultUI: true,
             zoomControl: true,
+            zoomControlOptions: { position: lib.ControlPosition.RIGHT_TOP },
             // Layar penuh memakai tombol aplikasi sendiri (PetaSebaran), sama
             // untuk peta cadangan, dan legenda serta tombol jenis peta ikut terbawa.
             fullscreenControl: false,
@@ -271,6 +284,8 @@ export default function SebaranGoogle({
           lapisanPersil.current = { ubin: null, kunci: "", sorot: sorotData };
           peta.current.addListener("zoom_changed", () => panggilan.current.laporPersil());
           peta.current.addListener("click", (e) => panggilan.current.ketukPeta(e));
+          // Menggeser peta menghentikan peta mengikuti lokasi saya (lib/useLokasiSaya.js).
+          peta.current.addListener("dragstart", () => geserRef.current?.());
           setSiap(true);
         } catch (e) {
           tandaiGoogleGagal(`peta tidak dapat dibuat: ${e.message}`);
@@ -295,6 +310,11 @@ export default function SebaranGoogle({
         lapisanPersil.current = null;
       }
       if (balon.current) balon.current.close();
+      if (saya.current) {
+        saya.current.titik.setMap(null);
+        saya.current.lingkar.setMap(null);
+        saya.current = null;
+      }
       if (peta.current && g.current) g.current.event.clearInstanceListeners(peta.current);
       peta.current = null;
     };
@@ -418,6 +438,58 @@ export default function SebaranGoogle({
       });
     }
   }, [titik, siap, kunciPandang]);
+
+  // Titik biru lokasi saya, sama dengan peta pemilih (BidangGoogle).
+  useEffect(() => {
+    const m = peta.current;
+    const lib = g.current;
+    if (!m || !lib) return;
+    if (!posisiSaya) {
+      // Posisi terlalu kasar / hilang: titik biru dilepas (lib/useLokasiSaya.js posisiPeta).
+      if (saya.current) {
+        saya.current.titik.setMap(null);
+        saya.current.lingkar.setMap(null);
+        saya.current = null;
+      }
+      return;
+    }
+    const posisi = { lat: posisiSaya.lat, lng: posisiSaya.lon };
+    const radius = posisiSaya.akurasi ?? 0;
+    if (saya.current) {
+      saya.current.titik.setPosition(posisi);
+      saya.current.lingkar.setCenter(posisi);
+      saya.current.lingkar.setRadius(radius);
+      return;
+    }
+    saya.current = {
+      lingkar: new lib.Circle({
+        map: m,
+        center: posisi,
+        radius,
+        clickable: false,
+        strokeColor: WARNA_SAYA,
+        strokeOpacity: 0.35,
+        strokeWeight: 1,
+        fillColor: WARNA_SAYA,
+        fillOpacity: 0.12,
+      }),
+      titik: new lib.Marker({
+        map: m,
+        position: posisi,
+        clickable: false,
+        zIndex: 1,
+        icon: { path: lib.SymbolPath.CIRCLE, scale: 8, fillColor: WARNA_SAYA, fillOpacity: 1, strokeColor: "#fff", strokeWeight: 3 },
+      }),
+    };
+  }, [posisiSaya, siap]);
+
+  useEffect(() => {
+    const m = peta.current;
+    if (!m || !pusatkan || !posisiSaya) return;
+    m.setZoom(Math.max(zoomAkurasi(posisiSaya.akurasi), 18));
+    m.panTo({ lat: posisiSaya.lat, lng: posisiSaya.lon });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pusatkan, siap]);
 
   return (
     <div className="fk-peta is-sebaran">

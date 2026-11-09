@@ -135,7 +135,7 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │       │   ├── padanan.js          pemadanan NIB-NOP di layar: pilihan -> keputusan, petunjuk luas, baris status
 │       │   ├── titipanBidang.js    bidang + NOP dari tab NOP Peta Sensus yang diisikan ke formulir PBB berikutnya
 │       │   ├── nib.js              jawaban Bidang Tanah BPN (NIB): bentuk, tampilan, NIB dari sertifikat
-│       │   ├── useLokasiSaya.js    tombol "Lokasi saya" peta pemilih (Lokasi & Bidang): mengikuti GPS 30 detik sampai peta digeser
+│       │   ├── useLokasiSaya.js    tombol "Lokasi saya" (peta Lokasi, Bidang, dan Peta Sensus): mengikuti GPS 30 detik sampai peta digeser
 │       │   ├── shapefile.js        pembaca shapefile persil BPN di browser + tebakan sistem koordinat
 │       │   ├── useDragUrut.js      seret (drag & drop) untuk menyusun ulang daftar
 │       │   ├── useMobile.js        deteksi tata letak HP
@@ -892,13 +892,17 @@ Peta pendaftaran tanah BPN (shapefile persil per kecamatan) bisa dimasukkan ke a
   dengan **warna per kecamatan** (tabel di bawah). Mengetuk bidang menyorotnya dan menampilkan NIB, tipe
   hak, luas peta, kelurahan, dan atribut lain di **panel tetap di kiri atas peta**: tidak ikut bergeser
   saat peta digeser, dan bidang yang diketuk di bawah panel otomatis digeser ke sampingnya. Panelnya
-  ditutup dengan tombol ×, atau dengan mengetuk di luar bidang. Di peta cadangan, tombol zoom ada di
-  kanan bawah (sama dengan peta Google). **Lapisan → Persil BPN** menyalakan / mematikannya, dan
+  ditutup dengan tombol ×, atau dengan mengetuk di luar bidang. Tombol zoom ada di kanan atas (peta
+  Google maupun cadangan), kanan bawah untuk tombol **Lokasi saya**. **Lapisan → Persil BPN** menyalakan / mematikannya, dan
   centang di bawahnya memilih kecamatan mana yang tampil (tersimpan per browser). Legenda menyebut
   kecamatan yang tampil; di HP diringkas jadi satu contoh warna. **Warna bidang → NOP PBB**
   (lapisan NOP PBB) mewarnai bidang menurut NOP-nya. Panel bidang punya tab **NIB** (data BPN) dan
   **NOP** (NOP di bidang itu, tambah NOP, isi formulir PBB) - lihat
   [Integrasi NIB dan NOP](#integrasi-nib-dan-nop).
+- **Lokasi saya** (kanan bawah Peta Sensus, sama dengan peta di formulir): titik biru posisi HP beserta
+  ketelitian GPS-nya (*GPS ± 5 m*), supaya petugas tahu bidang mana yang ada di dekatnya. GPS baru
+  dipantau setelah tombolnya ditekan; peta mengikuti posisi selama 30 detik, berhenti bila peta digeser.
+  Posisi yang bukan GPS (perkiraan jaringan) tidak digambar, dan sebabnya tampil di bawah peta.
 - **Cari NIB** di bilah alat peta: NIB 5 digit (kembar di kelurahan lain → pilih kelurahannya) atau
   NIB lengkap 13 digit (kode wilayah + NIB, mis. `17.11.74.02.03612`). Peta menuju bidangnya dan
   menyorotnya.

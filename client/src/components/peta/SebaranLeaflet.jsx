@@ -17,6 +17,8 @@ import {
   gayaLapisan,
   TITIK_LAPISAN_RADIUS,
   geserPanel,
+  WARNA_SAYA,
+  zoomAkurasi,
 } from "./bersama.jsx";
 import * as api from "../../api.js";
 import {
@@ -41,8 +43,10 @@ import { LapisanUbinPersil, aturUbinPersil } from "./ubinPersilLeaflet.js";
  * lapisan : [{ versi, nama, warna, data }] - lapisan GIS yang menyala (lib/lapisanPeta.js),
  *           digambar di bawah titik sensus
  * persil, sorot, bidang, onBidang, panelRef, onStatusPersil : persil BPN - lihat SebaranGoogle
+ * posisiSaya, pusatkan, onGeser : titik biru "Lokasi saya" - lihat lib/useLokasiSaya.js
  *
- * Tombol zoom di kanan bawah (seperti peta Google): kiri atas untuk panel keterangan bidang.
+ * Tombol zoom di kanan atas: kiri atas untuk panel keterangan bidang, kanan bawah untuk
+ * tombol "Lokasi saya" (PetaSebaran).
  */
 
 /** Warna = status kertas kerja; sudah dicek admin bercentang. */
@@ -105,10 +109,16 @@ export default function SebaranLeaflet({
   onBidang,
   panelRef = null,
   onStatusPersil,
+  posisiSaya = null,
+  pusatkan = 0,
+  onGeser,
 }) {
   const wadah = useRef(null);
   const peta = useRef(null);
   const ubin = useRef(null);
+  const saya = useRef(null);
+  const geserRef = useRef(onGeser);
+  geserRef.current = onGeser;
   const lapisanTitik = useRef(null);
   const kanvas = useRef(null);
   // Tetap satu Map selama komponen hidup (bukan ref: isinya dibaca saat dibersihkan).
@@ -213,8 +223,10 @@ export default function SebaranLeaflet({
     // dipasang belakangan (lib/ubinPeta.js menguji OSM dulu), sedangkan
     // pengelompok titik langsung membutuhkan batas zoom peta.
     const m = L.map(wadah.current, { center: [PUSAT_AWAL.lat, PUSAT_AWAL.lon], zoom: 12, maxZoom: 19, zoomControl: false });
-    L.control.zoom({ position: "bottomright" }).addTo(m);
+    L.control.zoom({ position: "topright" }).addTo(m);
     peta.current = m;
+    // Menggeser peta menghentikan peta mengikuti lokasi saya (lib/useLokasiSaya.js).
+    m.on("dragstart", () => geserRef.current?.());
     kanvas.current = L.canvas({ padding: 0.5 });
     // Kelompok titik: hanya yang terlihat yang digambar, zoom tetap ringan.
     lapisanTitik.current = L.markerClusterGroup({
@@ -248,6 +260,7 @@ export default function SebaranLeaflet({
       ubin.current = null;
       lapisanTitik.current = null;
       kanvas.current = null;
+      saya.current = null;
       lapisanPersil.current = null;
       // Ikut terhapus bersama petanya; kosongkan supaya peta baru (mis. saat
       // efek dijalankan dua kali di mode pengembangan) menggambarnya lagi.
@@ -361,6 +374,54 @@ export default function SebaranLeaflet({
       m.fitBounds(L.latLngBounds(titik.map((t) => [t.lat, t.lon])), { padding: [40, 40], maxZoom: 17 });
     }
   }, [titik, kunciPandang]);
+
+  // Titik biru lokasi saya, sama dengan peta pemilih (BidangLeaflet).
+  useEffect(() => {
+    const m = peta.current;
+    if (!m) return;
+    if (!posisiSaya) {
+      // Posisi terlalu kasar / hilang: titik biru dilepas (lib/useLokasiSaya.js posisiPeta).
+      if (saya.current) {
+        saya.current.titik.remove();
+        saya.current.lingkar.remove();
+        saya.current = null;
+      }
+      return;
+    }
+    const ll = L.latLng(posisiSaya.lat, posisiSaya.lon);
+    const radius = posisiSaya.akurasi ?? 0;
+    if (saya.current) {
+      saya.current.titik.setLatLng(ll);
+      saya.current.lingkar.setLatLng(ll).setRadius(radius);
+      return;
+    }
+    saya.current = {
+      lingkar: L.circle(ll, {
+        radius,
+        interactive: false,
+        color: WARNA_SAYA,
+        opacity: 0.35,
+        weight: 1,
+        fillColor: WARNA_SAYA,
+        fillOpacity: 0.12,
+      }).addTo(m),
+      titik: L.circleMarker(ll, {
+        radius: 8,
+        interactive: false,
+        color: "#fff",
+        weight: 3,
+        fillColor: WARNA_SAYA,
+        fillOpacity: 1,
+      }).addTo(m),
+    };
+  }, [posisiSaya]);
+
+  useEffect(() => {
+    const m = peta.current;
+    if (!m || !pusatkan || !posisiSaya) return;
+    m.setView([posisiSaya.lat, posisiSaya.lon], Math.max(zoomAkurasi(posisiSaya.akurasi), 18));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pusatkan]);
 
   return <div className="fk-peta is-sebaran" ref={wadah} />;
 }

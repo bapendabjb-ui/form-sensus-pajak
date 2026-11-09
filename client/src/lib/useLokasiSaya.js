@@ -10,7 +10,8 @@ import { pantauPosisi, perluPusatkanUlang, posisiLayak } from "./rekamPosisi.js"
 const IKUTI_MS = 30000;
 
 /**
- * Tombol "Lokasi saya" pada peta pemilih (PetaLokasi, PetaBidang): memusatkan
+ * Tombol "Lokasi saya" pada peta pemilih (PetaLokasi, PetaBidang) dan Peta Sensus
+ * (PetaSebaran): memusatkan
  * peta ke posisi perangkat dan menampilkan titik biru, seperti di Google Maps.
  * GPS dipantau terus selama peta terbuka, dengan pembacaan terbaru (bukan
  * hasil cache browser), supaya titik birunya mengikuti perangkat.
