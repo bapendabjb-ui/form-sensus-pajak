@@ -896,7 +896,10 @@ html.fk-ketik .fk-fab{display:none;}
 
 /* ---------- Bidang Tanah BPN (NIB) di formulir PBB ---------- */
 .fk-nib{display:flex; flex-direction:column; gap:10px;}
-.fk-nib.is-invalid .fk-nib-status{border-color:var(--danger);}
+.fk-nib.is-invalid .fk-nib-status,
+.fk-nib.is-invalid .fk-nib-tanpa > .fk-dicek:not(.is-on){border-color:var(--danger);}
+/* "Tidak ada NIB": centang dulu, baru alasannya tampil. */
+.fk-nib-tanpa{display:flex; flex-direction:column; gap:8px;}
 .fk-nib-daftar{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
 .fk-nib-item{display:flex; flex-direction:column; gap:4px; min-width:0; border:1px solid var(--line); border-radius:11px; padding:10px 12px 12px; background:var(--surface);}
 /* Baris judul: NIB + asal di kiri, tombol lepas di kanan (margin negatif supaya tidak menambah tinggi). */

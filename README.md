@@ -1186,7 +1186,9 @@ Atur juga **Isi dari EPBB** pada pertanyaan data wajib pajak (nama, alamat, luas
 
 1. **Usulan dari titik Lokasi** - bila pertanyaan Lokasi sudah terisi, tampil bidang tempat titik itu
    berada; **Pakai bidang ini** memilihnya.
-2. **Pilih di peta** - peta persil BPN (bawaan satelit) berpusat di titik Lokasi. Ketuk bidang untuk
+2. **Pilih di peta** - peta persil BPN (bawaan satelit) berpusat di titik Lokasi. Peta **langsung
+   terbuka** pada data yang belum punya bidang maupun alasan tanpa NIB; data yang sudah berbidang
+   dibuka dengan peta tertutup (hemat kuota peta). Ketuk bidang untuk
    memilih, ketuk lagi untuk membatalkan; bidang terpilih disorot. Boleh beberapa bidang (maks. 20),
    jumlah luas petanya tampil di bawah daftar. Kartu bidang (dengan isian NOP objek) tampil **di bawah
    peta**, jadi peta tidak bergeser saat bidang diketuk. Urutan pertanyaannya: usulan dari titik
@@ -1196,8 +1198,10 @@ Atur juga **Isi dari EPBB** pada pertanyaan data wajib pajak (nama, alamat, luas
    bidangnya, lalu **Cari**. NIB lengkap yang tidak ada di peta BPN tetap bisa dicatat
    (**Catat NIB ini**), bertanda *tidak ada di peta BPN*.
 
-Tanpa NIB, petugas memilih alasannya: **Tanah belum bersertifikat** atau **Bersertifikat, NIB belum
-diketahui**. Bila pertanyaannya wajib, salah satu harus terisi: bidang atau alasan.
+Tanpa NIB, petugas mencentang **Tidak ada NIB** dulu, baru pilihan alasannya tampil: **Tanah belum
+bersertifikat** atau **Bersertifikat, NIB belum diketahui**. Melepas centang menghapus alasannya, dan
+memilih bidang melepas centangnya. Bila pertanyaannya wajib, salah satu harus terisi: bidang atau
+alasan (pesan: *Pilih bidangnya, atau centang Tidak ada NIB lalu pilih alasannya.*).
 
 - Tipe hak, luas peta, kelurahan, dan kecamatan setiap bidang disalin server dari tabel `persil` saat
   data disimpan, bukan dari kiriman browser. NIB yang sudah dicatat tidak hilang walau persil

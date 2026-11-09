@@ -416,6 +416,7 @@ export function validateRequired(pertanyaan, answers, { longgar = false } = {}) 
 function pesanWajib(tipe) {
   if (tipe === "foto") return "Tambahkan minimal satu foto.";
   if (tipe === "niknpwp") return "Isi NIK atau NPWP, minimal salah satu.";
+  if (tipe === "nib") return "Pilih bidangnya, atau centang Tidak ada NIB lalu pilih alasannya.";
   return "Kolom ini wajib diisi.";
 }
 

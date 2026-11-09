@@ -64,7 +64,13 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
   const v = useMemo(() => nibDari(value), [value]);
   const { entriId = null, titik = null, nop: nopIni = "", nopObjek = null, titikOtomatis = null } = konteks;
   const persil = usePersilBpn({ paksa: true });
-  const [petaBuka, setPetaBuka] = useState(false);
+  // Data yang belum punya bidang (dan belum diberi alasan tanpa NIB): peta langsung terbuka.
+  const [petaBuka, setPetaBuka] = useState(() => {
+    const awal = nibDari(value);
+    return awal.bidang.length === 0 && !awal.status;
+  });
+  // Alasan tanpa NIB baru tampil sesudah petugas mencentang "Tidak ada NIB".
+  const [tanpaNib, setTanpaNib] = useState(() => Boolean(nibDari(value).status));
   const [ketikBuka, setKetikBuka] = useState(false);
   const [mencari, setMencari] = useState(false);
   const [fokus, setFokus] = useState(null);
@@ -96,6 +102,7 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
       return false;
     }
     onChange({ bidang: [...kini, b], status: "" });
+    setTanpaNib(false);
     return true;
   };
 
@@ -376,16 +383,37 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
       {v.bidang.length > 1 && isianNopObjek}
 
       {v.bidang.length === 0 && (
-        <div className="fk-nib-status">
-          <span className="fk-wilayah-cap">Bila tidak ada NIB</span>
-          <ChoiceGroup
-            tipe="radio"
-            options={Object.values(STATUS_TANAH)}
-            value={STATUS_TANAH[v.status] || ""}
-            onChange={(label) =>
-              onChange({ bidang: [], status: Object.keys(STATUS_TANAH).find((k) => STATUS_TANAH[k] === label) || "" })
-            }
-          />
+        <div className="fk-nib-tanpa">
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={tanpaNib || Boolean(v.status)}
+            className={"fk-dicek" + (tanpaNib || v.status ? " is-on" : "")}
+            onClick={() => {
+              const buka = !(tanpaNib || v.status);
+              setTanpaNib(buka);
+              // Centang dilepas: alasan yang sudah dipilih ikut dihapus.
+              if (!buka && v.status) onChange({ bidang: [], status: "" });
+            }}
+          >
+            <span className="fk-dicek-kotak" aria-hidden="true">
+              {tanpaNib || v.status ? "✓" : ""}
+            </span>
+            <span>Tidak ada NIB</span>
+          </button>
+          {(tanpaNib || v.status) && (
+            <div className="fk-nib-status">
+              <span className="fk-wilayah-cap">Alasannya</span>
+              <ChoiceGroup
+                tipe="radio"
+                options={Object.values(STATUS_TANAH)}
+                value={STATUS_TANAH[v.status] || ""}
+                onChange={(label) =>
+                  onChange({ bidang: [], status: Object.keys(STATUS_TANAH).find((k) => STATUS_TANAH[k] === label) || "" })
+                }
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
