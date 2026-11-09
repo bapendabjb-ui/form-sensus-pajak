@@ -18,7 +18,7 @@ import { ringkasPadanan } from "../lib/padanan.js";
  * bidang itu. Dipakai tab NOP di panel bidang Peta Sensus (peta/PanelBidang.jsx)
  * dan kotak bidang di formulir PBB (NibInput.jsx).
  *
- * NOP yang ditambah di sini langsung tersimpan saat "Simpan" ditekan, tidak
+ * NOP yang ditambah di sini langsung tersimpan saat "Tambahkan" ditekan, tidak
  * menunggu tombol Simpan formulir.
  *
  * bidang      : { kunci, kodeWilayah | kode, nib }
@@ -182,12 +182,14 @@ export default function NopBidang({
         petugas &&
         (tambahBuka ? (
           <div className="fk-tabnop-tambah">
+            <span className="fk-tabnop-judul">{daftarNop.length ? "Tambah NOP lain ke bidang ini" : "Tambah NOP ke bidang ini"}</span>
             <NopInput value={nop} onChange={setNop} invalid={Boolean(galat)} ringkas />
             {sudahAda && <span className="fk-hint-kecil">NOP ini sudah ada di bidang ini.</span>}
             {galat && <span className="fk-err">{galat}</span>}
             <div className="fk-tabnop-aksi">
+              {/* Bukan "Simpan": di formulir tombol Simpan formulir ada tepat di bawahnya. */}
               <button type="button" className="fk-btn" onClick={tambah} disabled={!lengkap || sudahAda || menyimpan}>
-                {menyimpan ? "Menyimpan..." : "Simpan"}
+                {menyimpan ? "Menambahkan..." : "Tambahkan"}
               </button>
               <button
                 type="button"

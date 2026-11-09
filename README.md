@@ -1220,8 +1220,12 @@ diketahui**. Bila pertanyaannya wajib, salah satu harus terisi: bidang atau alas
   tampil di tempatnya seperti biasa.
 - **+ Tambah NOP lain** di kartu bidang (petugas / admin yang login, sesudah NOP objek terisi) menambah
   NOP lain ke bidang tersebut, mis. 1 NIB untuk 2 NOP, tanpa membuat data baru. NOP itu **langsung
-  tersimpan** saat **Simpan** ditekan - tidak menunggu tombol Simpan formulir - dan bisa dihapus lagi
+  tersimpan** saat **Tambahkan** ditekan - tidak menunggu tombol Simpan formulir - dan bisa dihapus lagi
   oleh admin atau penambahnya. NIB dari sertifikat yang tidak ada di peta BPN tidak bisa ditambah NOP.
+- Tampilan HP: tombol lepas bidang (✕) ada di baris judul NIB, jadi isian NOP memakai seluruh lebar kartu.
+  Di kolom NOP yang sempit (HP, kartu bidang, panel Peta Sensus - *container query* `nop` di
+  `styles.css`) tombol **Lihat** turun ke baris penghitung digit supaya 18 digit NOP terbaca utuh;
+  di layar lebar tombolnya tetap di samping isian.
 - Kotak **Ketik NIB dari sertifikat** tertutup sendiri begitu bidangnya dipilih.
 - Ekspor: setiap pertanyaan Bidang Tanah BPN menjadi kolom *(NIB)*, *(Jumlah bidang)*, *(Luas peta BPN m²)*,
   *(Tipe hak BPN)*, *(Kelurahan BPN)*, dan *(Keterangan)* (alasan tanpa NIB / NIB yang tidak ada di peta).
@@ -1249,7 +1253,7 @@ dua tab; tab terakhir yang dipilih diingat per perangkat:
   (siapa, kapan). NOP hasil padanan bertanda *NOP bidang ini*; NOP yang juga tercatat di bidang lain
   disebut.
   - **+ Tambah NOP** (petugas atau admin yang login): NOP 18 digit (tombol **Lihat** EPBB tersedia bila
-    cek NOP aktif), lalu **Simpan**. Bidangnya harus ada di peta BPN yang aktif; pasangan yang sudah ada
+    cek NOP aktif), lalu **Tambahkan**. Bidangnya harus ada di peta BPN yang aktif; pasangan yang sudah ada
     ditolak. Warna lapisan langsung diperbarui.
   - **Hapus** hanya untuk admin, atau petugas yang menambahkannya sendiri. NOP dari data sensus tidak bisa
     dihapus di sini - ubah lewat formulirnya.

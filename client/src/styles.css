@@ -864,8 +864,8 @@ html.fk-ketik .fk-fab{display:none;}
 .fk-panel-isi .fk-balon-tabel{margin-top:0;}
 .fk-tabnop-daftar{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
 .fk-tabnop-daftar li{display:flex; flex-direction:column; gap:4px; padding:8px 10px; border:1px solid var(--line-soft); border-radius:9px;}
-.fk-tabnop-nop{font-size:13px; color:var(--ink); font-variant-numeric:tabular-nums;}
-.fk-tabnop-sumber{display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; color:var(--muted);}
+.fk-tabnop-nop{font-size:14px; color:var(--ink); font-variant-numeric:tabular-nums;}
+.fk-tabnop-sumber{display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:13px; color:var(--muted);}
 .fk-tabnop-sumber > span{min-width:0; overflow-wrap:anywhere;}
 .fk-tabnop-sumber .fk-balon-buka{margin-top:0; flex:none;}
 .fk-tabnop-label{display:inline-block; margin-right:5px; padding:0 6px; border-radius:5px; background:#E6EEF7; color:#2B5A8C; font-size:11px; font-weight:600;}
@@ -873,13 +873,13 @@ html.fk-ketik .fk-fab{display:none;}
 .fk-tabnop-label.is-ini{background:#FEF3C7; color:#7A4A06;}
 /* NOP di satu bidang (components/NopBidang.jsx): tab NOP Peta Sensus dan kotak bidang di formulir. */
 .fk-nopbidang{display:flex; flex-direction:column; gap:6px;}
-.fk-nib-isi .fk-nopbidang{margin-top:6px; padding-top:8px; border-top:1px dashed var(--line);}
+.fk-nib-item .fk-nopbidang{margin-top:6px; padding-top:8px; border-top:1px dashed var(--line);}
 .fk-tabnop-aksi{display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
 .fk-tabnop-hapus{flex:none; border:1px solid var(--line); background:var(--surface); color:var(--danger); font-size:12px; font-weight:600; padding:5px 9px; border-radius:8px; cursor:pointer;}
 .fk-tabnop-hapus:hover{border-color:var(--danger);}
 .fk-tabnop-tanpa{display:flex; flex-direction:column; gap:4px;}
 .fk-tabnop-tambah{display:flex; flex-direction:column; gap:6px; margin-top:4px; padding-top:10px; border-top:1px solid var(--line-soft);}
-.fk-tabnop-judul{font-size:12.5px; font-weight:600; color:var(--ink);}
+.fk-tabnop-judul{font-size:13.5px; font-weight:600; color:var(--ink);}
 .fk-tabnop-tambah .fk-err{margin-top:0;}
 .fk-tabnop-formulir{align-self:flex-start; margin-top:2px;}
 .fk-cari-nib-panel{width:320px;}
@@ -895,13 +895,16 @@ html.fk-ketik .fk-fab{display:none;}
 .fk-nib{display:flex; flex-direction:column; gap:10px;}
 .fk-nib.is-invalid .fk-nib-status{border-color:var(--danger);}
 .fk-nib-daftar{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
-.fk-nib-item{display:flex; align-items:flex-start; gap:8px; border:1px solid var(--line); border-radius:11px; padding:10px 6px 10px 12px; background:var(--surface);}
-.fk-nib-isi{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;}
-.fk-nib-utama{display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; font-size:14px;}
+.fk-nib-item{display:flex; flex-direction:column; gap:4px; min-width:0; border:1px solid var(--line); border-radius:11px; padding:10px 12px 12px; background:var(--surface);}
+/* Baris judul: NIB + asal di kiri, tombol lepas di kanan (margin negatif supaya tidak menambah tinggi). */
+.fk-nib-kepala{display:flex; align-items:flex-start; gap:4px;}
+.fk-nib-kepala .fk-nib-utama{flex:1; min-width:0; padding-top:1px;}
+.fk-nib-lepas{flex:none; margin:-7px -8px -7px 0;}
+.fk-nib-utama{display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 6px; font-size:14.5px;}
 .fk-nib-utama strong{font-variant-numeric:tabular-nums;}
-.fk-nib-sumber{font-size:11px; font-weight:600; color:var(--brand-dark); background:var(--brand-tint); padding:1px 7px; border-radius:5px;}
-.fk-nib-rinci{font-size:12.5px; color:var(--muted);}
-.fk-nib-peringatan{font-size:12.5px; color:#8A5306; background:#FBF0DC; border-radius:7px; padding:5px 8px; margin-top:2px;}
+.fk-nib-sumber{font-size:12px; font-weight:600; color:var(--brand-dark); background:var(--brand-tint); padding:1px 7px; border-radius:5px;}
+.fk-nib-rinci{font-size:13.5px; line-height:1.4; color:var(--muted);}
+.fk-nib-peringatan{font-size:13px; color:#8A5306; background:#FBF0DC; border-radius:7px; padding:5px 8px; margin-top:2px;}
 .fk-nib-usulan{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; font-size:13px; color:var(--ink); background:#F5F7F9; border:1px dashed var(--line); border-radius:10px; padding:9px 12px;}
 .fk-nib-usulan > span{flex:1 1 220px;}
 .fk-nib-status{display:flex; flex-direction:column; gap:6px; border:1px solid var(--line-soft); border-radius:11px; padding:10px 12px;}
@@ -1025,7 +1028,18 @@ a.fk-nav-item.is-active{color:var(--brand-dark);}
 .fk-nop-isi-ganti{color:var(--amber); font-weight:600;}
 .fk-isi-epbb{margin-top:10px; display:flex; flex-direction:column; gap:6px; max-width:360px;}
 .fk-nop-gagal .fk-dialog-pesan{margin-top:4px;}
-.fk-nop-wadah{display:flex; flex-direction:column; gap:2px;}
+.fk-nop-wadah{display:flex; flex-direction:column; gap:2px; container:nop / inline-size;}
+.fk-nop-wadah .fk-textbtn{text-align:left;}
+/* Kolom NOP sempit (HP, kartu bidang, panel Peta Sensus): 18 digit NOP butuh hampir seluruh
+   lebarnya, jadi tombol Lihat turun ke baris penghitung digit supaya NOP terbaca utuh. */
+@container nop (max-width:360px){
+  .fk-digit{display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:8px; row-gap:5px; align-items:start;}
+  .fk-digit-baris{display:contents;}
+  .fk-digit-baris .fk-input{grid-column:1 / -1; letter-spacing:.05em;}
+  .fk-digit-aksi{grid-column:2; grid-row:2 / span 2; min-width:96px;}
+  .fk-digit-hitung{grid-column:1; grid-row:2; align-self:center;}
+  .fk-digit-hint{grid-column:1; grid-row:3;}
+}
 
 /* Pencarian NOP menurut nama WP, NIK, atau letak objek (di dalam modal NOP). */
 .fk-cari-nop{display:flex; flex-direction:column; gap:10px; margin-top:14px;}

@@ -261,32 +261,33 @@ export default function NibInput({ value, onChange, invalid, konteks = {} }) {
             const rinci = [b.tipeHak, Number.isFinite(b.luas) && `luas peta ${formatLuas(b.luas)}`, b.kelurahan && `Kel. ${b.kelurahan}`].filter(Boolean);
             return (
               <li className="fk-nib-item" key={k}>
-                <div className="fk-nib-isi">
+                {/* Tombol lepas di baris judul, bukan kolom sendiri: isian NOP di bawahnya memakai seluruh lebar kartu. */}
+                <div className="fk-nib-kepala">
                   <div className="fk-nib-utama">
                     <strong>NIB {nibLengkap(b.kode, b.nib)}</strong>
                     <span className="fk-nib-sumber">{b.sumber === "sertifikat" ? "Dari sertifikat" : "Dari peta"}</span>
                   </div>
-                  {rinci.length > 0 && <div className="fk-nib-rinci">{rinci.join(" · ")}</div>}
-                  {b.diPeta === false && (
-                    <div className="fk-nib-peringatan">Tidak ada di peta BPN. NIB tetap dicatat dari sertifikat.</div>
-                  )}
-                  {v.bidang.length === 1 && isianNopObjek}
-                  {isiNop[k] && (
-                    <NopBidang
-                      bidang={{ kunci: k, kode: b.kode, nib: b.nib }}
-                      isi={isiNop[k]}
-                      setIsi={(isi) => setIsiNop((m) => ({ ...m, [k]: isi }))}
-                      luasBpn={Number.isFinite(b.luas) ? b.luas : null}
-                      formulir
-                      nopIni={nopIni}
-                      kecuali={entriId}
-                      bolehTambah={b.diPeta !== false && (!nopObjek || Boolean(nopIni))}
-                    />
-                  )}
+                  <button type="button" className="fk-telepon-hapus fk-nib-lepas" onClick={() => lepas(k)} aria-label={`Lepas bidang NIB ${nibLengkap(b.kode, b.nib)}`}>
+                    ✕
+                  </button>
                 </div>
-                <button type="button" className="fk-telepon-hapus" onClick={() => lepas(k)} aria-label={`Lepas bidang NIB ${nibLengkap(b.kode, b.nib)}`}>
-                  ✕
-                </button>
+                {rinci.length > 0 && <div className="fk-nib-rinci">{rinci.join(" · ")}</div>}
+                {b.diPeta === false && (
+                  <div className="fk-nib-peringatan">Tidak ada di peta BPN. NIB tetap dicatat dari sertifikat.</div>
+                )}
+                {v.bidang.length === 1 && isianNopObjek}
+                {isiNop[k] && (
+                  <NopBidang
+                    bidang={{ kunci: k, kode: b.kode, nib: b.nib }}
+                    isi={isiNop[k]}
+                    setIsi={(isi) => setIsiNop((m) => ({ ...m, [k]: isi }))}
+                    luasBpn={Number.isFinite(b.luas) ? b.luas : null}
+                    formulir
+                    nopIni={nopIni}
+                    kecuali={entriId}
+                    bolehTambah={b.diPeta !== false && (!nopObjek || Boolean(nopIni))}
+                  />
+                )}
               </li>
             );
           })}
