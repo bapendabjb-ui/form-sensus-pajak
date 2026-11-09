@@ -17,8 +17,17 @@ import {
   titikDalamBidang,
 } from "../lib/nib.js";
 
-// Peta cukup besar: unduh hanya saat petugas membukanya.
-const PetaBidang = lazy(() => import("./PetaBidang.jsx"));
+// Peta cukup besar: unduh hanya saat petugas membukanya. Bila gagal diunduh (sinyal hilang),
+// yang tampil pesan - bukan halaman kosong - dan NIB tetap bisa diketik.
+const PetaBidang = lazy(() => import("./PetaBidang.jsx").catch(() => ({ default: PetaGagalDimuat })));
+
+function PetaGagalDimuat() {
+  return (
+    <p className="fk-hint-kecil fk-peta-gagal" role="alert">
+      Peta gagal dimuat. Periksa koneksi lalu muat ulang halaman. NIB tetap bisa diketik lewat tombol Ketik NIB.
+    </p>
+  );
+}
 
 /** Bentuk bidang yang sudah pernah diambil dari server, untuk disorot di peta: kunci -> Feature. */
 const bentukTersimpan = new Map();

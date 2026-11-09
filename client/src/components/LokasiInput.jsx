@@ -2,8 +2,17 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react"
 import { keDMS, urlPeta } from "../lib/format.js";
 import TempelKoordinat from "./TempelKoordinat.jsx";
 
-// Leaflet cukup besar: unduh hanya saat petugas membuka peta.
-const PetaLokasi = lazy(() => import("./PetaLokasi.jsx"));
+// Leaflet cukup besar: unduh hanya saat petugas membuka peta. Bila gagal diunduh (sinyal
+// hilang), yang tampil pesan - bukan halaman kosong - dan Ambil lokasi (GPS) tetap bisa dipakai.
+const PetaLokasi = lazy(() => import("./PetaLokasi.jsx").catch(() => ({ default: PetaGagalDimuat })));
+
+function PetaGagalDimuat() {
+  return (
+    <p className="fk-hint-kecil fk-peta-gagal" role="alert">
+      Peta gagal dimuat. Periksa koneksi lalu muat ulang halaman. Ambil lokasi (GPS) tetap bisa dipakai.
+    </p>
+  );
+}
 
 /**
  * Pertanyaan bertipe lokasi: satu titik koordinat GPS.
@@ -284,17 +293,21 @@ export default function LokasiInput({ value, onChange, invalid }) {
         >
           {petaTerbuka ? "Tutup peta" : "Pilih di peta"}
         </button>
+        {/* GPS hanya bersama peta: titiknya langsung terlihat dan bisa digeser ke bangunan objek.
+            Tombol berhenti tetap tampil bila peta ditutup selagi GPS mengunci. */}
         {mencari ? (
           <button type="button" className="fk-btn-ghost" onClick={hentikan}>
             Pakai Yang Ini!
           </button>
         ) : (
-          <button type="button" className="fk-btn-ghost" onClick={() => mulai(false)}>
-            {punyaTitik ? "Ambil ulang" : "Ambil lokasi"}
-          </button>
+          petaTerbuka && (
+            <button type="button" className="fk-btn-ghost" onClick={() => mulai(false)}>
+              {punyaTitik ? "Ambil ulang" : "Ambil lokasi"}
+            </button>
+          )
         )}
         {/* Perangkat yang lambat mengunci sering butuh satu ronde tambahan. */}
-        {punyaTitik && !mencari && value.akurasi > AKURASI_BAIK && (
+        {petaTerbuka && punyaTitik && !mencari && value.akurasi > AKURASI_BAIK && (
           <button type="button" className="fk-mini" onClick={() => mulai(true)}>
             Tunggu lebih lama
           </button>

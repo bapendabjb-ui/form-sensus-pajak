@@ -647,9 +647,11 @@ Tipe pertanyaan **Lokasi (GPS / peta)** menyimpan satu titik koordinat beserta a
 
 ### Memilih titik lewat peta
 
-Selain **Ambil lokasi**, petugas bisa menekan **Pilih di peta** (`PetaLokasi.jsx`) lalu
-mengetuk titik atau menggeser penanda. Tombol **Pilih di peta** sengaja ada di depan **Ambil lokasi**:
-yang dicatat koordinat objek pajak, bukan posisi petugas saat sensus. Tersedia peta jalan dan citra **satelit** — berguna untuk
+Petugas menekan **Pilih di peta** (`PetaLokasi.jsx`) lalu mengetuk titik atau menggeser penanda.
+Tombol **Ambil lokasi** (GPS) baru muncul setelah peta dibuka: titik GPS langsung terlihat di peta dan
+bisa digeser ke bangunan objek, karena yang dicatat koordinat objek pajak, bukan posisi petugas saat
+sensus. Bila peta ditutup selagi GPS mengunci, **Pakai Yang Ini!** tetap tampil; **Tunggu lebih lama**
+juga hanya tampil bersama peta. Tersedia peta jalan dan citra **satelit** — berguna untuk
 menunjuk bangunan yang sinyal GPS-nya buruk. Petanya Google bila `GOOGLE_MAPS_API_KEY` diisi,
 dengan OpenStreetMap / Esri World Imagery sebagai cadangan (lihat [Peta Google](#peta-google)).
 
@@ -666,7 +668,9 @@ dengan OpenStreetMap / Esri World Imagery sebagai cadangan (lihat [Peta Google](
   dan ArcGIS lebih mudah lagi lewat ekspor **GeoJSON / KML** (lihat
   [Ekspor ke QGIS / ArcGIS](#ekspor-ke-qgis--arcgis-geojson--kml)).
 - Petugas bisa mengambil GPS dulu lalu membetulkannya di peta — penanda ikut pindah ke titik GPS.
-- Potongan peta diambil dari internet, jadi **peta butuh koneksi**; Ambil lokasi (GPS) tetap jalan tanpanya.
+- Potongan peta diambil dari internet, jadi **peta butuh koneksi**. Bila berkas peta gagal diunduh,
+  tampil *Peta gagal dimuat* (bukan halaman kosong) dan Ambil lokasi (GPS) tetap bisa dipakai. Peta
+  pertanyaan Bidang Tanah BPN mendapat pengaman yang sama.
 
 #### Sumber potongan peta dan cadangannya
 
@@ -692,8 +696,8 @@ diuji) pada `server/src/keamanan.js`; `keamanan.test.js` akan gagal lebih dulu b
 
 Akurasi diperoleh dengan **mengamati** posisi, bukan sekali ambil. Pembacaan pertama sebuah
 perangkat biasanya berasal dari jaringan seluler/Wi-Fi dan bisa meleset ratusan meter; setelah
-beberapa detik GPS mengunci lebih banyak satelit dan angkanya membaik. Karena itu petugas menekan
-**Ambil lokasi** lalu:
+beberapa detik GPS mengunci lebih banyak satelit dan angkanya membaik. Karena itu petugas membuka
+peta, menekan **Ambil lokasi**, lalu:
 
 1. `watchPosition` berjalan dengan `enableHighAccuracy` dan `maximumAge: 0` (tolak posisi cache),
 2. tiap pembacaan dibandingkan — hanya yang **paling akurat** yang disimpan,

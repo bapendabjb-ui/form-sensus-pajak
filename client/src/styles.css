@@ -682,6 +682,8 @@ html.fk-ketik .fk-fab{display:none;}
 .fk-lokasi-peta:hover{text-decoration:underline;}
 .fk-lokasi-cari{display:flex; align-items:center; gap:9px; font-size:13px; color:var(--muted);}
 .fk-lokasi-aksi{display:flex; gap:8px; flex-wrap:wrap;}
+/* Berkas peta gagal diunduh (LokasiInput, NibInput): pesan pengganti peta. */
+.fk-peta-gagal{margin:0; padding:10px 12px; border:1px dashed var(--line); border-radius:10px; background:#F6F8FA; color:var(--ink); font-size:13px;}
 .fk-lokasi-akurasi.is-peta{background:#E6EEF7; color:#2B5A8C;}
 .fk-lokasi-aksi .fk-btn-ghost.is-on{border-color:var(--brand); color:var(--brand-dark); background:var(--brand-tint);}
 /* Pilih di peta | Ketik NIB: selalu satu baris, dua kolom sama lebar (Bidang Tanah BPN). */
