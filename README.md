@@ -493,11 +493,11 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `peta.test.js`         | Titik tanpa koordinat tidak pernah masuk peta                          |
 | `kertasKerja.test.js`  | Batas paginasi daftar, serta pencarian & penyaringan yang pindah ke server |
 | `ekspor.test.js`       | Lokasi terekspor sebagai kolom latitude & longitude, utuh di Excel; semua jenis ekspor memberi urutan, *No. data*, dan isi baris yang sama |
-| `eksporSpj.test.js`    | Laporan SPJ: satu baris per kertas kerja, kolom petugas sebanyak tim terbesar, tanggal di zona waktu aplikasi & sebagai tanggal Excel, wilayah & RT/RW dari data pertama, urutan & saringan per wilayah, pilihan RW / RT |
+| `eksporSpj.test.js`    | Laporan SPJ: satu baris per kertas kerja, kolom petugas sebanyak tim terbesar, tanggal di zona waktu aplikasi & sebagai tanggal Excel, wilayah & RT/RW dari data pertama, urutan & saringan per wilayah, pilihan RW / RT; tanpa isian wilayah objek: titik koordinat objek lalu GPS (kantor / kasar dilewati) dipetakan ke kecamatan & kelurahan BPN berkode SISMIOP |
 | `eksporPeta.test.js`   | GeoJSON / KML: titik [bujur, lintang] dari kolom Lokasi, baris tanpa koordinat dihitung, kolom sama di setiap titik, teks KML di-escape |
 | `lapisanPeta.test.js`  | Lapisan GIS: berkas UTM / TM-3 ditolak, koordinat dibulatkan, batas ukuran isi                |
 | `lokasiSaya.test.js`   | Titik biru "Lokasi saya": posisi cache browser ditolak, pembacaan terbaru diikuti (lonjakan kasar dari jaringan diabaikan), peta dipusatkan ulang saat GPS mengunci atau perangkat berpindah |
-| `persil.test.js`       | Persil BPN: bidang di luar Banjarbaru / bentuk rusak ditolak, petak & kunci wilayah, titik di bidang berlubang / bertumpuk, pencarian NIB |
+| `persil.test.js`       | Persil BPN: bidang di luar Banjarbaru / bentuk rusak ditolak, petak & kunci wilayah, titik di bidang berlubang / bertumpuk, pencarian NIB, wilayah di titik jalan (bidang terdekat ≤ 50 m) |
 | `shapefile.test.js`    | Pembaca shapefile di browser (`client/src/lib/shapefile.js`): TM-3 / UTM ke derajat, .prj salah / tidak ada, CRS campur, bidang nyasar & rusak, lubang |
 | `persilBpn.test.js`    | Warna persil per kecamatan (`client/src/lib/persilBpn.js`): lima kecamatan Banjarbaru berbeda, warna mengikuti nama bukan urutan, cadangan untuk kecamatan lain; isi ringkas (zoom 13–16) bolak-balik server → browser kembali ke tempatnya, beserta id tiap bidang; bidang yang diketuk di bawah panel keterangan digeser ke arah terpendek |
 | `integrasi.test.js`    | Integrasi NIB-NOP: bentuk jawaban Bidang Tanah BPN, NIB sertifikat 13 digit, pola tiap data (1 NIB = 1 NOP, beberapa NIB / NOP, campuran, tanpa NOP / NIB), status bidang di peta, kolom ekspor & daftar kerja Excel |
@@ -1640,7 +1640,7 @@ kecamatan. Kode yang tidak dikenal → **400**.
 | `GET`  | `/ekspor/petugas/xlsx`     | Idem, Excel (.xlsx)                                                 |
 | `GET`  | `/ekspor/semua`            | CSV seluruh data semua formulir dari semua kertas kerja, satu baris per kertas kerja |
 | `GET`  | `/ekspor/semua/xlsx`       | Idem, Excel (.xlsx)                                                 |
-| `GET`  | `/ekspor/spj/ringkas`      | `?kecamatan=&kelurahan=&rw=&rt=` (semua boleh kosong, bertingkat) → `{ kertasKerja, tanpaWilayah, tanpaData, rw: [{ nilai, jumlah }], rt: [{ nilai, jumlah }], tanpaRtRw }`; pilihan tidak sah → **400** |
+| `GET`  | `/ekspor/spj/ringkas`      | `?kecamatan=&kelurahan=&rw=&rt=` (semua boleh kosong, bertingkat) → `{ kertasKerja, tanpaWilayah, dariPeta, tanpaData, rw: [{ nilai, jumlah }], rt: [{ nilai, jumlah }], tanpaRtRw }`; pilihan tidak sah → **400** |
 | `GET`  | `/ekspor/spj`              | CSV laporan SPJ mentah: satu baris per kertas kerja berisi data, urut nomor |
 | `GET`  | `/ekspor/spj/xlsx`         | Idem, Excel (.xlsx)                                                 |
 | `GET`  | `/ekspor/spj/wilayah`      | `?kecamatan=&kelurahan=&rw=&rt=` → CSV laporan SPJ urut kecamatan > kelurahan > RW > RT, dipersempit ke pilihan itu |
@@ -1776,6 +1776,16 @@ beberapa RT tetap satu baris, supaya jumlah baris = jumlah kertas kerja. Dua for
 kelurahan > RW > RT > tanggal > nomor; bisa dipersempit ke satu kecamatan, kelurahan, RW, lalu RT -
 pilihan RW / RT yang ditawarkan hanya yang ada datanya). Tanpa pilihan kecamatan, kertas kerja yang
 belum punya wilayah objek ditaruh di akhir dengan kolom wilayah kosong.
+
+Kertas kerja **tanpa isian wilayah objek** (mis. PBJT, yang formulirnya tidak menanyakan letak objek)
+mendapat kecamatan & kelurahan dari **peta BPN** (Persil BPN), bukan dari Google: bidang tempat titik
+koordinatnya jatuh, lalu namanya dicocokkan ke kode SISMIOP sehingga saringan per wilayah tetap
+berlaku. Titiknya koordinat objek (pertanyaan Lokasi) data pertama yang mengisinya, atau bila tidak ada,
+GPS perangkat saat data pertama disimpan; titik yang terekam di kantor atau akurasinya lebih buruk
+dari 100 m dilewati. Titik di jalan / sungai memakai bidang terdekat paling jauh 50 m
+(`pencariWilayahPersil` di `server/src/persil.js`; hasilnya disimpan di memori sampai persil
+berubah). RT/RW tidak ada di peta BPN, jadi tetap dari isian petugas atau kosong. Layar ekspor
+menyebut berapa kertas kerja yang wilayahnya diambil dari peta.
 
 Semua ekspor diurutkan menurut nomor kertas kerja; kolom `Nomor`, `Status`, `Petugas` (nama tim
 digabung `; `), dan `NIP` mengikuti kertas kerja masing-masing baris. Kolom pertanyaan berjudul

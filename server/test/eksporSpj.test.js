@@ -8,6 +8,8 @@ const {
   nomorRtRw,
   bacaPilihanSpj,
   susunBarisSpj,
+  titikPeta,
+  lengkapiDariPeta,
   saringSpj,
   urutSpj,
   tabelSpj,
@@ -230,4 +232,86 @@ test("berkas SPJ: RT/RW & nomor tetap teks, tanggal jadi tanggal Excel", async (
   assert.equal(tanggal.numFmt, "dd/mm/yyyy");
   // ExcelJS membaca sel bertanggal sebagai Date (tengah malam UTC).
   assert.equal(tanggal.value.toISOString().slice(0, 10), "2026-11-04");
+});
+
+/* ---------- wilayah dari peta BPN ---------- */
+
+const { KANTOR } = require("../src/batas");
+
+// Titik-titik di Banjarbaru, jauh dari kantor.
+const P1 = { lat: -3.4487, lon: 114.8217 };
+const P2 = { lat: -3.4601, lon: 114.8402 };
+const P3 = { lat: -3.4702, lon: 114.7801 };
+
+const entriTitik = (id, kertasKerjaId, jam, { gps = null, akurasi = 8, lokasi = [], dicek = null } = {}) => ({
+  id,
+  kertasKerjaId,
+  createdAt: new Date(Date.UTC(2026, 10, 1, jam)),
+  rekamLat: gps ? gps.lat : null,
+  rekamLon: gps ? gps.lon : null,
+  rekamAkurasi: gps ? akurasi : null,
+  koordinatDicekAt: dicek,
+  jawaban: lokasi.map((nilai) => ({ nilai })),
+});
+
+test("titikPeta: koordinat objek dulu, lalu GPS; titik di kantor / kasar dilewati", () => {
+  const t = titikPeta([
+    // KK 7: GPS di data pertama, koordinat objek di data kedua -> koordinat objek.
+    entriTitik(70, 7, 1, { gps: P1 }),
+    entriTitik(71, 7, 2, { lokasi: [{ ...P2, akurasi: 5 }] }),
+    // KK 8: koordinat objek di kantor, GPS kasar, lalu GPS baik di data berikutnya.
+    entriTitik(80, 8, 1, { gps: P1, akurasi: 500, lokasi: [{ lat: KANTOR.lat, lon: KANTOR.lon, akurasi: 5 }] }),
+    entriTitik(81, 8, 2, { gps: P3 }),
+    // KK 9: titik di kantor tetapi ditunjuk di peta -> dipakai.
+    entriTitik(90, 9, 1, { lokasi: [{ lat: KANTOR.lat, lon: KANTOR.lon, sumber: "peta" }] }),
+    // KK 10: Lokasi kosong, tanpa GPS.
+    entriTitik(100, 10, 1, { lokasi: [{ lat: null, lon: null }] }),
+    // KK 11: GPS di kantor saja.
+    entriTitik(110, 11, 1, { gps: { lat: KANTOR.lat, lon: KANTOR.lon } }),
+  ]);
+  assert.deepEqual(t.get(7), { ...P2, sumber: "objek" });
+  assert.deepEqual(t.get(8), { ...P3, sumber: "gps" });
+  assert.deepEqual(t.get(9), { lat: KANTOR.lat, lon: KANTOR.lon, sumber: "objek" });
+  assert.equal(t.has(10), false);
+  assert.equal(t.has(11), false);
+});
+
+test("lengkapiDariPeta: kecamatan/kelurahan BPN untuk baris tanpa isian wilayah objek", () => {
+  const baris = contoh();
+  const titik = new Map([
+    [5, P1], // 00005 belum berwilayah
+    [1, P2], // 00003 sudah berisian: tidak diubah
+  ]);
+  const bpn = new Map([
+    [`${P1.lat},${P1.lon}`, { kecamatan: "Banjarbaru Selatan", kelurahan: "Loktabat Selatan" }],
+    [`${P2.lat},${P2.lon}`, { kecamatan: "Cempaka", kelurahan: "Bangkal" }],
+  ]);
+  lengkapiDariPeta(baris, titik, (lat, lon) => bpn.get(`${lat},${lon}`) || null);
+  const b = perNomor(baris);
+
+  assert.deepEqual(
+    [b["00005"].kecamatan, b["00005"].kelurahan, b["00005"].rw, b["00005"].sumberWilayah],
+    ["Banjarbaru Selatan", "Loktabat Selatan", "", "peta"]
+  );
+  assert.equal(b["00005"].wilayah.kode_kecamatan, "032", "dicocokkan ke kode SISMIOP");
+  assert.equal(b["00005"].wilayah.kode_kelurahan, "001");
+  assert.deepEqual([b["00003"].kelurahan, b["00003"].sumberWilayah], ["Palam", "isian"]);
+
+  // Saringan per wilayah berlaku sama dengan isian petugas.
+  const loktabat = saringSpj(baris, bacaPilihanSpj({ kecamatan: "032", kelurahan: "001" }));
+  assert.deepEqual(
+    loktabat.map((x) => x.kk.nomor),
+    ["00005"]
+  );
+  const r = ringkasSpj(baris, bacaPilihanSpj({}));
+  assert.equal(r.tanpaWilayah, 0);
+  assert.equal(r.dariPeta, 1);
+});
+
+test("lengkapiDariPeta: wilayah BPN yang tidak dikenal atau titik tanpa bidang dibiarkan kosong", () => {
+  const baris = contoh();
+  lengkapiDariPeta(baris, new Map([[5, P1]]), () => ({ kecamatan: "Martapura", kelurahan: "Jawa" }));
+  assert.deepEqual([perNomor(baris)["00005"].kecamatan, perNomor(baris)["00005"].sumberWilayah], ["", ""]);
+  lengkapiDariPeta(baris, new Map([[5, P1]]), () => null);
+  assert.equal(perNomor(baris)["00005"].kecamatan, "");
 });

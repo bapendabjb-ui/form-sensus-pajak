@@ -653,6 +653,123 @@ async function pencariPersilEkspor(entri) {
   return (lat, lon) => hasil.get(kunciTitik(lat, lon)) || null;
 }
 
+/* ---------- wilayah di titik (laporan SPJ) ---------- */
+
+/**
+ * Titik yang tidak jatuh di bidang mana pun (jalan, sungai, tanah belum
+ * terpetakan) memakai bidang terdekat, asal tidak lebih jauh dari ini (meter).
+ * Jalan kota umumnya 5-20 m: lebih jauh dari ini, kelurahannya tidak bisa
+ * dipastikan dari bidang tetangga.
+ */
+const WILAYAH_TERDEKAT_M = 50;
+
+/** WILAYAH_TERDEKAT_M dalam derajat lintang (±111,3 km per derajat), untuk memperlebar kotak cari. */
+const TEPI_TERDEKAT = WILAYAH_TERDEKAT_M / 111320;
+
+/** Kolom bidang untuk mencari wilayah di titik. */
+const PILIH_WILAYAH = {
+  id: true,
+  kecamatan: true,
+  kelurahan: true,
+  luasPeta: true,
+  geometri: true,
+  minLat: true,
+  minLon: true,
+  maxLat: true,
+  maxLon: true,
+};
+
+/**
+ * Bidang terdekat dari titik yang tidak berada di bidang mana pun, paling jauh
+ * `maksM` meter dari tepinya; null bila tidak ada. Jarak dihitung pada bidang
+ * datar setempat - selisihnya tidak berarti untuk jarak puluhan meter.
+ */
+function terdekatDariTitik(calon, lat, lon, maksM = WILAYAH_TERDEKAT_M) {
+  const mLat = 111320;
+  const mLon = 111320 * Math.cos((lat * Math.PI) / 180);
+  const tepiLat = maksM / mLat;
+  const tepiLon = maksM / mLon;
+  const titik = [lon * mLon, lat * mLat];
+  let terpilih = null;
+  let jarak2Terpilih = maksM * maksM;
+  for (const p of calon) {
+    if (lat < p.minLat - tepiLat || lat > p.maxLat + tepiLat || lon < p.minLon - tepiLon || lon > p.maxLon + tepiLon) {
+      continue;
+    }
+    let g;
+    try {
+      g = JSON.parse(p.geometri);
+    } catch {
+      continue;
+    }
+    for (const poligon of poligonDari(g)) {
+      for (const cincin of poligon) {
+        for (let i = 1; i < cincin.length; i++) {
+          const a = [cincin[i - 1][0] * mLon, cincin[i - 1][1] * mLat];
+          const b = [cincin[i][0] * mLon, cincin[i][1] * mLat];
+          const d2 = jarak2Ruas(titik, a, b);
+          if (d2 <= jarak2Terpilih) {
+            terpilih = p;
+            jarak2Terpilih = d2;
+          }
+        }
+      }
+    }
+  }
+  return terpilih;
+}
+
+/** Bidang di titik ini (pilihDiTitik), atau yang terdekat bila titiknya di luar semua bidang. */
+const bidangUntukWilayah = (calon, lat, lon) => pilihDiTitik(calon, lat, lon) || terdekatDariTitik(calon, lat, lon);
+
+/*
+ * Hasil pencarian wilayah per titik disimpan di memori: layar ekspor menyusun
+ * ulang laporan SPJ setiap pilihan wilayahnya berganti, sedangkan titik GPS
+ * tidak pernah berubah. Dikosongkan setiap persil berubah (persilBerubah).
+ */
+const simpananWilayah = new Map(); // "lat,lon" -> { kecamatan, kelurahan } | null
+const SIMPANAN_WILAYAH_MAKS = 100000;
+
+/**
+ * Kecamatan & kelurahan menurut peta BPN di titik-titik ini - untuk ekspor
+ * (laporan SPJ), sehingga batas wilayahnya mengikuti BPN, bukan peta lain.
+ * Semua titik dicari sekaligus per petak, seperti pencariPersilEkspor.
+ *
+ * @param {[number, number][]} titik  [lat, lon]
+ * @returns {Promise<null | ((lat: number, lon: number) => { kecamatan: string, kelurahan: string } | null)>}
+ *          null bila belum ada persil sama sekali
+ */
+async function pencariWilayahPersil(titik) {
+  if (!(await adaPersil())) return null;
+
+  const perPetak = new Map(); // "i,j" -> { i, j, titik: [[lat, lon]] }
+  for (const [lat, lon] of titik) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || simpananWilayah.has(kunciTitik(lat, lon))) continue;
+    const p = petakTitik(lat, lon);
+    const kp = `${p.i},${p.j}`;
+    if (!perPetak.has(kp)) perPetak.set(kp, { ...p, titik: [] });
+    perPetak.get(kp).titik.push([lat, lon]);
+  }
+
+  // Satu petak sekali query, berurutan, supaya memori tidak menumpuk. Kotaknya
+  // diperlebar supaya bidang terdekat di petak sebelah ikut terlihat.
+  for (const { i, j, titik: daftar } of perPetak.values()) {
+    const b = batasPetak(i, j);
+    const tepiLon = TEPI_TERDEKAT / Math.cos((b.s * Math.PI) / 180);
+    const calon = await bidangDiKotak(
+      { s: b.s - TEPI_TERDEKAT, n: b.n + TEPI_TERDEKAT, w: b.w - tepiLon, e: b.e + tepiLon },
+      PILIH_WILAYAH
+    );
+    for (const [lat, lon] of daftar) {
+      const p = bidangUntukWilayah(calon, lat, lon);
+      simpananWilayah.set(kunciTitik(lat, lon), p ? { kecamatan: p.kecamatan, kelurahan: p.kelurahan } : null);
+    }
+  }
+  while (simpananWilayah.size > SIMPANAN_WILAYAH_MAKS) simpananWilayah.delete(simpananWilayah.keys().next().value);
+
+  return (lat, lon) => simpananWilayah.get(kunciTitik(lat, lon)) ?? null;
+}
+
 /**
  * Ringkasan persil tersimpan: { jumlah, versi, wilayah: [{ kunci, kodeWilayah,
  * kecamatan, kelurahan, jumlah, diimpor, oleh }], sel: [[i, j]] }. `versi`
@@ -734,6 +851,7 @@ function daftarSelRingkas() {
 /** Persil berubah (impor selesai, hapus): buang semua isi ringkas tersimpan, lalu siapkan lagi. */
 function persilBerubah() {
   simpananRingkas.clear();
+  simpananWilayah.clear();
   simpananSel = null;
   hangatkanDiBelakang();
 }
@@ -837,6 +955,8 @@ module.exports = {
   nibLengkap,
   bacaKueriNib,
   pilihDiTitik,
+  terdekatDariTitik,
+  bidangUntukWilayah,
   petakTitik,
   batasPetak,
   teksPetak,
@@ -850,6 +970,7 @@ module.exports = {
   cariDiTitik,
   adaPersil,
   pencariPersilEkspor,
+  pencariWilayahPersil,
   ringkasan,
   cariNib,
   mulaiImpor,

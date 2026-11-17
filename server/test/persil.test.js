@@ -199,3 +199,29 @@ test("teksPetak: ringkas - id, indeks kecamatan, dan poligon-poligon (Polygon & 
   );
   assert.deepEqual(petak.bidang[0][2], [JSON.parse(a.geometri).coordinates]);
 });
+
+test("wilayah di titik (laporan SPJ): di dalam bidang, atau bidang terdekat paling jauh 50 m", () => {
+  const { terdekatDariTitik, bidangUntukWilayah } = require("../src/persil");
+  const d = 0.0002; // ±22 m
+  const baris = (id, lon, kelurahan) => ({
+    id,
+    kecamatan: "Banjarbaru Selatan",
+    kelurahan,
+    luasPeta: 400,
+    geometri: JSON.stringify({ type: "Polygon", coordinates: [kotak(lon, LAT, d)] }),
+    minLon: lon,
+    minLat: LAT,
+    maxLon: lon + d,
+    maxLat: LAT + d,
+  });
+  // Dua bidang dipisah jalan ±44 m: A di barat, B di timur.
+  const meterLon = (m) => m / (111320 * Math.cos((LAT * Math.PI) / 180));
+  const timurA = LON + d;
+  const calon = [baris(1, LON, "Loktabat Selatan"), baris(2, timurA + meterLon(44), "Kemuning")];
+
+  assert.equal(bidangUntukWilayah(calon, LAT + 0.0001, LON + 0.0001).id, 1, "di dalam bidang");
+  assert.equal(terdekatDariTitik(calon, LAT + 0.0001, timurA + meterLon(10)).id, 1, "di jalan, 10 m dari A");
+  assert.equal(terdekatDariTitik(calon, LAT + 0.0001, timurA + meterLon(34)).id, 2, "di jalan, 10 m dari B");
+  assert.equal(bidangUntukWilayah(calon, LAT + 0.0001, LON - meterLon(80)), null, "80 m dari bidang mana pun");
+  assert.equal(terdekatDariTitik(calon, LAT + 0.0001, LON - meterLon(80), 100).id, 1, "batas jarak bisa diubah");
+});

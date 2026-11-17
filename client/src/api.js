@@ -552,7 +552,7 @@ const querySpj = ({ kecamatan, kelurahan, rw, rt } = {}) => {
 };
 
 /**
- * Sebelum laporan SPJ: { kertasKerja, tanpaWilayah, tanpaData, rw: [{ nilai, jumlah }],
+ * Sebelum laporan SPJ: { kertasKerja, tanpaWilayah, dariPeta, tanpaData, rw: [{ nilai, jumlah }],
  * rt: [{ nilai, jumlah }], tanpaRtRw }. Khusus admin.
  */
 export const ringkasSpj = (pilihan) => request(`/ekspor/spj/ringkas?${querySpj(pilihan)}`);

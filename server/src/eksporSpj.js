@@ -23,11 +23,17 @@
  * pertama yang mengisinya. Satu kertas kerja = satu objek; bila ternyata
  * berisi objek di beberapa RT, yang dipakai data pertama, supaya jumlah baris
  * tetap sama dengan jumlah kertas kerja.
+ *
+ * Kertas kerja tanpa isian wilayah objek (mis. PBJT, yang formulirnya tidak
+ * menanyakan letak objek) mendapat kecamatan & kelurahan dari peta BPN di
+ * titik koordinatnya (titikPeta, lalu lengkapiDariPeta). RT/RW tidak ada di
+ * peta BPN, jadi tetap dari isian - atau kosong.
  */
 
 const { bentukTim } = require("./bentuk");
-const { rincianWilayah } = require("./wilayah");
+const { rincianWilayah, normalWilayah } = require("./wilayah");
 const { bacaPilihanWilayah, cocokWilayah } = require("./eksporWilayah");
+const { adaTitik, nilaiTitik, titikGps } = require("./cekLokasi");
 
 const FORMAT_TANGGAL = "dd/mm/yyyy";
 
@@ -76,7 +82,8 @@ function bacaPilihanSpj(query = {}) {
  *        jawaban pertanyaan wilayah & RT-RW objek; `waktu` = waktu simpan datanya,
  *        `urutan` = urutan pertanyaan di formulirnya
  * @returns {{ kk, tanggal: Date|null, petugas: string[], wilayah: object|null,
- *             kecamatan: string, kelurahan: string, rw: string, rt: string }[]}
+ *             kecamatan: string, kelurahan: string, rw: string, rt: string,
+ *             sumberWilayah: "isian" | "" }[]}  "peta" diisi lengkapiDariPeta
  */
 function susunBarisSpj({ kertasKerja, mulai, jawaban }) {
   const urut = jawaban
@@ -106,8 +113,70 @@ function susunBarisSpj({ kertasKerja, mulai, jawaban }) {
       kelurahan: rinci.kelurahan,
       rw: nomorRtRw(rtrw?.nilai?.rw),
       rt: nomorRtRw(rtrw?.nilai?.rt),
+      sumberWilayah: wil ? "isian" : "",
     };
   });
+}
+
+/** Titik yang layak dipetakan: bukan di kantor, akurasinya tidak kasar (cekLokasi.nilaiTitik). */
+const titikLayak = (t) => nilaiTitik(t) === "baik";
+
+/**
+ * Titik untuk mencari wilayah di peta BPN, per kertas kerja. Urutan pilihan:
+ *   1. koordinat objek (jawaban pertanyaan Lokasi) dari data pertama yang
+ *      mengisinya - titik yang ditunjuk di peta / dari bidang NIB / sudah
+ *      dicek admin selalu layak;
+ *   2. GPS perangkat saat data pertama disimpan (entri.rekam_*).
+ * Titik yang terekam di kantor atau akurasinya kasar (> AKURASI_KASAR_M)
+ * dilewati: kelurahannya bisa salah.
+ *
+ * @param {{ id, kertasKerjaId, createdAt, rekamLat, rekamLon, rekamAkurasi,
+ *           koordinatDicekAt, jawaban?: { nilai }[] }[]} entri  `jawaban` = jawaban pertanyaan Lokasi saja
+ * @returns {Map<number, { lat: number, lon: number, sumber: "objek" | "gps" }>}
+ */
+function titikPeta(entri) {
+  const urut = entri.slice().sort((a, b) => a.createdAt - b.createdAt || a.id - b.id);
+  const hasil = new Map();
+  const simpan = (e, t, sumber) => {
+    if (!hasil.has(e.kertasKerjaId)) hasil.set(e.kertasKerjaId, { lat: t.lat, lon: t.lon, sumber });
+  };
+  for (const e of urut) {
+    for (const j of e.jawaban || []) {
+      const v = j.nilai;
+      if (!adaTitik(v)) continue;
+      const manual = v.sumber === "peta" || v.sumber === "bidang" || Boolean(e.koordinatDicekAt);
+      if (titikLayak({ ...v, manual })) simpan(e, v, "objek");
+    }
+  }
+  for (const e of urut) {
+    const t = titikGps(e);
+    if (t && titikLayak(t)) simpan(e, t, "gps");
+  }
+  return hasil;
+}
+
+/**
+ * Isi kecamatan & kelurahan baris yang belum punya isian wilayah objek dari
+ * peta BPN. Namanya dicocokkan ke daftar Banjarbaru (kode SISMIOP) supaya
+ * saringan per wilayah berlaku sama dengan isian petugas. Mengubah `baris`.
+ *
+ * @param {Map<number, { lat, lon }>} titik  hasil titikPeta
+ * @param {(lat: number, lon: number) => { kecamatan, kelurahan } | null} cari  persil.pencariWilayahPersil
+ */
+function lengkapiDariPeta(baris, titik, cari) {
+  for (const b of baris) {
+    if (b.sumberWilayah) continue;
+    const t = titik.get(b.kk.id);
+    const bpn = t && cari(t.lat, t.lon);
+    if (!bpn) continue;
+    const w = normalWilayah({ kecamatan: bpn.kecamatan, kelurahan: bpn.kelurahan });
+    if (!w.kode_kecamatan) continue;
+    b.wilayah = w;
+    b.kecamatan = w.kecamatan;
+    b.kelurahan = w.kelurahan;
+    b.sumberWilayah = "peta";
+  }
+  return baris;
 }
 
 /** Baris yang berada di wilayah terpilih (bacaPilihanSpj). Tanpa kecamatan = semua baris. */
@@ -211,6 +280,8 @@ function tabelSpj(baris, { timezone }) {
  *
  *   kertasKerja : baris yang akan ikut dengan pilihan ini
  *   tanpaWilayah: kertas kerja berisi data yang belum punya kecamatan objek
+ *                 (dari isian maupun dari peta BPN)
+ *   dariPeta    : baris yang akan ikut, yang kecamatan/kelurahannya dari peta BPN
  *   rw          : pilihan RW di kelurahan terpilih [{ nilai, jumlah }]
  *   rt          : pilihan RT di RW terpilih [{ nilai, jumlah }]
  *   tanpaRtRw   : baris di kelurahan terpilih yang RW-nya kosong
@@ -223,13 +294,25 @@ function ringkasSpj(baris, pilihan) {
   };
   const diKelurahan = pilihan?.kelurahan ? saringSpj(baris, { ...pilihan, rw: "", rt: "" }) : [];
   const diRw = pilihan?.rw ? diKelurahan.filter((b) => b.rw === pilihan.rw) : [];
+  const ikut = saringSpj(baris, pilihan);
   return {
-    kertasKerja: saringSpj(baris, pilihan).length,
+    kertasKerja: ikut.length,
     tanpaWilayah: baris.filter((b) => !b.kecamatan).length,
+    dariPeta: ikut.filter((b) => b.sumberWilayah === "peta").length,
     rw: hitung(diKelurahan, "rw"),
     rt: hitung(diRw, "rt"),
     tanpaRtRw: diKelurahan.filter((b) => !b.rw).length,
   };
 }
 
-module.exports = { nomorRtRw, bacaPilihanSpj, susunBarisSpj, saringSpj, urutSpj, tabelSpj, ringkasSpj };
+module.exports = {
+  nomorRtRw,
+  bacaPilihanSpj,
+  susunBarisSpj,
+  titikPeta,
+  lengkapiDariPeta,
+  saringSpj,
+  urutSpj,
+  tabelSpj,
+  ringkasSpj,
+};

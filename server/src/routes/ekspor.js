@@ -20,9 +20,18 @@ const { wrap, badRequest, notFound, parseId } = require("../http");
 const { includePertanyaan } = require("../bentuk");
 const { susunTabel, baseUrlEkspor, namaBerkas, rutekanEkspor } = require("../ekspor");
 const { muatEntriEkspor } = require("../muatEkspor");
-const { pencariPersilEkspor } = require("../persil");
+const { pencariPersilEkspor, pencariWilayahPersil } = require("../persil");
 const { pertanyaanObjek, bacaPilihanWilayah, saringWilayah } = require("../eksporWilayah");
-const { bacaPilihanSpj, susunBarisSpj, saringSpj, urutSpj, tabelSpj, ringkasSpj } = require("../eksporSpj");
+const {
+  bacaPilihanSpj,
+  susunBarisSpj,
+  titikPeta,
+  lengkapiDariPeta,
+  saringSpj,
+  urutSpj,
+  tabelSpj,
+  ringkasSpj,
+} = require("../eksporSpj");
 
 const router = express.Router();
 
@@ -278,11 +287,12 @@ async function muatBarisSpj() {
   const [awal, pertanyaan] = await Promise.all([
     prisma.entri.groupBy({ by: ["kertasKerjaId"], _min: { createdAt: true } }),
     prisma.pertanyaan.findMany({
-      where: { tipe: { in: ["wilayah", "rtrw"] } },
+      where: { tipe: { in: ["wilayah", "rtrw", "lokasi"] } },
       select: { id: true, tipe: true, label: true, isiEpbb: true, urutan: true },
     }),
   ]);
   const letak = new Map(pertanyaan.filter(pertanyaanObjek).map((q) => [q.id, q]));
+  const lokasiIds = pertanyaan.filter((q) => q.tipe === "lokasi").map((q) => q.id);
   const kkIds = awal.map((a) => a.kertasKerjaId);
 
   const [kertasKerja, jawaban] = await Promise.all([
@@ -310,7 +320,7 @@ async function muatBarisSpj() {
       : [],
   ]);
 
-  return susunBarisSpj({
+  const baris = susunBarisSpj({
     kertasKerja,
     mulai: new Map(awal.map((a) => [a.kertasKerjaId, a._min.createdAt])),
     jawaban: jawaban.map((j) => ({
@@ -322,6 +332,32 @@ async function muatBarisSpj() {
       urutan: letak.get(j.pertanyaanId).urutan,
     })),
   });
+
+  // Tanpa isian wilayah objek: kecamatan & kelurahan dari peta BPN di titik koordinatnya.
+  const tanpaWilayah = baris.filter((b) => !b.sumberWilayah).map((b) => b.kk.id);
+  if (tanpaWilayah.length === 0) return baris;
+  const entri = await prisma.entri.findMany({
+    where: { kertasKerjaId: { in: tanpaWilayah } },
+    select: {
+      id: true,
+      kertasKerjaId: true,
+      createdAt: true,
+      rekamLat: true,
+      rekamLon: true,
+      rekamAkurasi: true,
+      koordinatDicekAt: true,
+      ...(lokasiIds.length && {
+        jawaban: {
+          where: { pertanyaanId: { in: lokasiIds } },
+          select: { nilai: true },
+          orderBy: { pertanyaan: { urutan: "asc" } },
+        },
+      }),
+    },
+  });
+  const titik = titikPeta(entri);
+  const cari = await pencariWilayahPersil([...titik.values()].map((t) => [t.lat, t.lon]));
+  return cari ? lengkapiDariPeta(baris, titik, cari) : baris;
 }
 
 /** Pilihan wilayah laporan SPJ dari query string (semuanya boleh kosong). */
@@ -355,7 +391,7 @@ async function dataEksporSpjWilayah(req) {
 
 /**
  * GET /api/ekspor/spj/ringkas?kecamatan=&kelurahan=&rw=&rt=
- *   -> { kertasKerja, tanpaWilayah, tanpaData, rw: [{ nilai, jumlah }], rt: [...], tanpaRtRw }
+ *   -> { kertasKerja, tanpaWilayah, dariPeta, tanpaData, rw: [{ nilai, jumlah }], rt: [...], tanpaRtRw }
  * Untuk layar ekspor: berapa baris yang ikut, pilihan RW / RT yang ada datanya,
  * dan berapa kertas kerja yang tidak masuk laporan karena belum berisi data.
  */
