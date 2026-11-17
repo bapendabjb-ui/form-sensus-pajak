@@ -13,6 +13,8 @@ import LoginAdmin from "../components/LoginAdmin.jsx";
  *     seluruh data semua formulir (satu baris per kertas kerja).
  *   - Per kecamatan / kelurahan objek pajak: semua formulir atau satu formulir.
  *   - Per petugas: data di kertas kerja yang timnya memuat petugas itu.
+ *   - Laporan SPJ: satu baris per kertas kerja (tanggal, nomor, status, petugas,
+ *     wilayah & RT/RW objek), mentah atau per wilayah - CSV & Excel saja.
  * Unduhannya sama dengan tombol ekspor di halaman kertas kerja & bank formulir.
  * GeoJSON / KML berisi baris yang sama dengan Excel, hanya yang berkoordinat.
  */
@@ -40,7 +42,7 @@ const labelJumlah = (judul, jumlah) => `${judul} · ${jumlah} data`;
  * ekspor besar butuh beberapa detik, dan klik berulang membuat server menyusun
  * berkas yang sama berkali-kali sekaligus.
  */
-function TombolUnduh({ onUnduh, disabled }) {
+function TombolUnduh({ onUnduh, disabled, peta = true }) {
   const toast = useToast();
   const [sibuk, setSibuk] = useState(""); // "" | "xlsx" | "csv" | "geojson" | "kml"
   const jalankan = (jenis) => async () => {
@@ -68,11 +70,13 @@ function TombolUnduh({ onUnduh, disabled }) {
     <div className="fk-ekspor-aksi">
       {tombol("xlsx", "Unduh Excel", "fk-btn")}
       {tombol("csv", "Unduh CSV", "fk-btn-ghost")}
-      <div className="fk-ekspor-peta" role="group" aria-label="Titik untuk aplikasi peta">
-        <span className="fk-hint-kecil">Titik untuk QGIS / ArcGIS:</span>
-        {tombol("geojson", "GeoJSON", "fk-btn-ghost")}
-        {tombol("kml", "KML", "fk-btn-ghost")}
-      </div>
+      {peta && (
+        <div className="fk-ekspor-peta" role="group" aria-label="Titik untuk aplikasi peta">
+          <span className="fk-hint-kecil">Titik untuk QGIS / ArcGIS:</span>
+          {tombol("geojson", "GeoJSON", "fk-btn-ghost")}
+          {tombol("kml", "KML", "fk-btn-ghost")}
+        </div>
+      )}
     </div>
   );
 }
@@ -271,6 +275,171 @@ function PanelPetugas({ unduhKe }) {
       </div>
 
       <TombolUnduh disabled={!siap} onUnduh={(jenis) => unduhKe(api.unduhPetugasData(pilihan, jenis))} />
+    </Panel>
+  );
+}
+
+const FORMAT_SPJ_MENTAH = "Mentah — urut nomor kertas kerja";
+const FORMAT_SPJ_WILAYAH = "Per wilayah — urut kecamatan, kelurahan, RW, RT";
+const SEMUA_KECAMATAN = "Semua kecamatan";
+const SEMUA_RW = "Semua RW";
+const SEMUA_RT = "Semua RT";
+
+/** "RW 001 · 12 kertas kerja" */
+const labelRtRw = (awalan, { nilai, jumlah }) => `${awalan} ${nilai} · ${formatAngka(jumlah)} kertas kerja`;
+
+/**
+ * Laporan SPJ (server/src/eksporSpj.js): satu baris per kertas kerja berisi
+ * data - tanggal sensus, nomor, status, nama petugas satu kolom per orang,
+ * kecamatan, kelurahan, RW, RT objek pajak. Dua format dengan kolom yang sama:
+ * mentah (urut nomor), atau per wilayah (urut kecamatan > kelurahan > RW > RT,
+ * bisa dipersempit ke satu kecamatan / kelurahan / RW / RT).
+ */
+function PanelSpj({ unduhKe }) {
+  const toast = useToast();
+  const [wilayah, setWilayah] = useState([]);
+  const [perWilayah, setPerWilayah] = useState(false);
+  const [kecKode, setKecKode] = useState(null); // null = semua kecamatan
+  const [kelKode, setKelKode] = useState(null); // null = semua kelurahan
+  const [rw, setRw] = useState(""); // "" = semua RW
+  const [rt, setRt] = useState(""); // "" = semua RT
+  const [ringkas, setRingkas] = useState(null);
+  const [memuat, setMemuat] = useState(true);
+
+  useEffect(() => {
+    api.getWilayah().then(setWilayah).catch((e) => toast(e.message, true));
+  }, [toast]);
+
+  // Mentah tidak disaring, jadi ringkasannya tanpa pilihan wilayah.
+  const pilihan = perWilayah ? { kecamatan: kecKode, kelurahan: kelKode, rw, rt } : {};
+  const kunci = JSON.stringify(pilihan);
+
+  // Ringkasan lama dibiarkan tampil selama yang baru dimuat, supaya pilihan RW / RT tidak berkedip.
+  useEffect(() => {
+    let batal = false;
+    setMemuat(true);
+    api
+      .ringkasSpj(JSON.parse(kunci))
+      .then((r) => !batal && setRingkas(r))
+      .catch((e) => {
+        if (batal) return;
+        setRingkas(null);
+        toast(e.message, true);
+      })
+      .finally(() => !batal && setMemuat(false));
+    return () => {
+      batal = true;
+    };
+  }, [kunci, toast]);
+
+  const kec = wilayah.find((k) => k.kode === kecKode) || null;
+  const kel = kec?.kelurahan.find((l) => l.kode === kelKode) || null;
+  const pilihanRw = kel ? ringkas?.rw || [] : [];
+  const pilihanRt = rw ? ringkas?.rt || [] : [];
+  const rwTerpilih = pilihanRw.find((r) => r.nilai === rw);
+  const rtTerpilih = pilihanRt.find((r) => r.nilai === rt);
+  const kosong = ringkas?.kertasKerja === 0;
+  const siap = Boolean(ringkas) && !memuat && !kosong;
+
+  const pilihKecamatan = (kode) => {
+    setKecKode(kode);
+    setKelKode(null);
+    setRw("");
+    setRt("");
+  };
+  const pilihKelurahan = (kode) => {
+    setKelKode(kode);
+    setRw("");
+    setRt("");
+  };
+
+  let hint = "";
+  if (ringkas) {
+    const tanpaWilayah = ringkas.tanpaWilayah > 0 && `${formatAngka(ringkas.tanpaWilayah)} kertas kerja belum punya kecamatan/kelurahan objek pajak`;
+    if (!perWilayah) {
+      hint = kosong
+        ? "Belum ada kertas kerja yang berisi data."
+        : `${formatAngka(ringkas.kertasKerja)} kertas kerja berisi data, urut nomor kertas kerja.`;
+      if (ringkas.tanpaData > 0)
+        hint += ` ${formatAngka(ringkas.tanpaData)} kertas kerja belum berisi data, jadi tidak ikut.`;
+      if (tanpaWilayah) hint += ` ${tanpaWilayah}, jadi kolom wilayahnya kosong.`;
+    } else {
+      hint = kosong
+        ? "Belum ada kertas kerja berisi data di wilayah ini."
+        : `${formatAngka(ringkas.kertasKerja)} kertas kerja.`;
+      if (tanpaWilayah)
+        hint += kecKode
+          ? ` ${tanpaWilayah}, jadi tidak ikut.`
+          : ` ${tanpaWilayah}, jadi ditaruh di akhir berkas dengan kolom wilayah kosong.`;
+      if (kel && !rw && ringkas.tanpaRtRw > 0)
+        hint += ` ${formatAngka(ringkas.tanpaRtRw)} kertas kerja di kelurahan ini belum diisi RW-nya.`;
+    }
+  }
+
+  return (
+    <Panel
+      title="Laporan SPJ"
+      sub="Satu baris per kertas kerja berisi data: tanggal sensus (tanggal data pertama disimpan), nomor kertas kerja, status, nama petugas (satu kolom per orang), lalu kecamatan, kelurahan, RW, dan RT objek pajak."
+    >
+      <div className="fk-ekspor-isian">
+        <span className="fk-q-name">Format</span>
+        <CustomSelect
+          value={perWilayah ? FORMAT_SPJ_WILAYAH : FORMAT_SPJ_MENTAH}
+          options={[FORMAT_SPJ_MENTAH, FORMAT_SPJ_WILAYAH]}
+          title="Pilih format laporan"
+          onChange={(label) => setPerWilayah(label === FORMAT_SPJ_WILAYAH)}
+        />
+
+        {perWilayah && (
+          <>
+            <span className="fk-q-name">Kecamatan</span>
+            <CustomSelect
+              value={kec?.nama || SEMUA_KECAMATAN}
+              options={[SEMUA_KECAMATAN, ...wilayah.map((k) => k.nama)]}
+              title="Pilih kecamatan"
+              onChange={(nama) => pilihKecamatan(wilayah.find((k) => k.nama === nama)?.kode ?? null)}
+            />
+
+            <span className="fk-q-name">Kelurahan</span>
+            <CustomSelect
+              value={kel?.nama || SEMUA_KELURAHAN}
+              options={[SEMUA_KELURAHAN, ...(kec?.kelurahan.map((l) => l.nama) || [])]}
+              title="Pilih kelurahan"
+              disabled={!kec}
+              onChange={(nama) => pilihKelurahan(kec?.kelurahan.find((l) => l.nama === nama)?.kode ?? null)}
+            />
+
+            <span className="fk-q-name">RW</span>
+            <CustomSelect
+              value={rwTerpilih ? labelRtRw("RW", rwTerpilih) : rw ? `RW ${rw}` : SEMUA_RW}
+              options={[SEMUA_RW, ...pilihanRw.map((r) => labelRtRw("RW", r))]}
+              title="Pilih RW"
+              disabled={!kel}
+              onChange={(label) => {
+                setRw(pilihanRw.find((r) => labelRtRw("RW", r) === label)?.nilai ?? "");
+                setRt("");
+              }}
+            />
+
+            <span className="fk-q-name">RT</span>
+            <CustomSelect
+              value={rtTerpilih ? labelRtRw("RT", rtTerpilih) : rt ? `RT ${rt}` : SEMUA_RT}
+              options={[SEMUA_RT, ...pilihanRt.map((r) => labelRtRw("RT", r))]}
+              title="Pilih RT"
+              disabled={!rw}
+              onChange={(label) => setRt(pilihanRt.find((r) => labelRtRw("RT", r) === label)?.nilai ?? "")}
+            />
+          </>
+        )}
+
+        {hint && <span className="fk-hint-kecil">{hint}</span>}
+      </div>
+
+      <TombolUnduh
+        peta={false}
+        disabled={!siap}
+        onUnduh={(jenis) => unduhKe(perWilayah ? api.unduhSpjWilayah(pilihan, jenis) : api.unduhSpj(jenis))}
+      />
     </Panel>
   );
 }
@@ -494,7 +663,7 @@ export default function EksporPage({ admin, onAuthChanged }) {
     <>
       <PageHead
         title="Ekspor Data"
-        sub="Unduh Data Sebagai Excel atau CSV, atau Sebagai Titik GeoJSON/KML Untuk QGIS & ArcGIS: Per Kertas Kerja, Per Formulir, Per Kecamatan/Kelurahan, atau Per Petugas."
+        sub="Unduh Data Sebagai Excel atau CSV, atau Sebagai Titik GeoJSON/KML Untuk QGIS & ArcGIS: Per Kertas Kerja, Per Formulir, Per Kecamatan/Kelurahan, Per Petugas, atau Laporan SPJ."
       />
 
       <Panel title="Per kertas kerja" sub="Satu kertas kerja — seluruh formulir atau satu formulir saja.">
@@ -572,6 +741,8 @@ export default function EksporPage({ admin, onAuthChanged }) {
       <PanelWilayah unduhKe={unduhKe} />
 
       <PanelPetugas unduhKe={unduhKe} />
+
+      <PanelSpj unduhKe={unduhKe} />
 
       <PanelCadangan />
     </>

@@ -541,6 +541,33 @@ export const ringkasEksporWilayah = (kecamatan, kelurahan) =>
 export const unduhWilayah = (pilihan, jenis = "xlsx") =>
   unduhBerkas(`/ekspor/wilayah${akhiran(jenis)}?${queryWilayah(pilihan)}`, `wilayah.${jenisSah(jenis)}`);
 
+/**
+ * ?kecamatan=&kelurahan=&rw=&rt= untuk laporan SPJ per wilayah - kode SISMIOP
+ * dan RT/RW 3 digit; semuanya boleh kosong (= semua), tetapi bertingkat.
+ */
+const querySpj = ({ kecamatan, kelurahan, rw, rt } = {}) => {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries({ kecamatan, kelurahan, rw, rt })) if (v) q.set(k, v);
+  return q;
+};
+
+/**
+ * Sebelum laporan SPJ: { kertasKerja, tanpaWilayah, tanpaData, rw: [{ nilai, jumlah }],
+ * rt: [{ nilai, jumlah }], tanpaRtRw }. Khusus admin.
+ */
+export const ringkasSpj = (pilihan) => request(`/ekspor/spj/ringkas?${querySpj(pilihan)}`);
+
+/** Laporan SPJ hanya CSV & Excel - tanpa titik untuk aplikasi peta. */
+const akhiranSpj = (jenis) => (jenis === "csv" ? "" : "/xlsx");
+const berkasSpj = (nama, jenis) => `${nama}.${jenis === "csv" ? "csv" : "xlsx"}`;
+
+/** Unduh laporan SPJ mentah: semua kertas kerja berisi data, urut nomor. */
+export const unduhSpj = (jenis = "xlsx") => unduhBerkas(`/ekspor/spj${akhiranSpj(jenis)}`, berkasSpj("spj", jenis));
+
+/** Unduh laporan SPJ per wilayah: urut kecamatan, kelurahan, RW, RT; bisa dipersempit. */
+export const unduhSpjWilayah = (pilihan, jenis = "xlsx") =>
+  unduhBerkas(`/ekspor/spj/wilayah${akhiranSpj(jenis)}?${querySpj(pilihan)}`, berkasSpj("spj-per-wilayah", jenis));
+
 /* ---------- cadangan manual ---------- */
 
 /** { database: { tersedia, ukuran }, foto: [{ bulan: "2026-10", jumlah, ukuran }] }. Khusus admin. */

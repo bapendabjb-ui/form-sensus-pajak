@@ -209,6 +209,7 @@ Monorepo dengan npm workspaces — satu `npm install` di root menyiapkan keduany
 │   │   ├── integrasi.js            integrasi NIB-NOP: pola hubungan, status bidang di peta, laporan & daftar kerja
 │   │   ├── muatEkspor.js           pemuatan data ekspor besar secara bertahap (hemat memori)
 │   │   ├── eksporWilayah.js        aturan ekspor per kecamatan / kelurahan objek pajak
+│   │   ├── eksporSpj.js            laporan SPJ: satu baris per kertas kerja (tanggal, petugas, wilayah & RT/RW objek)
 │   │   ├── cadangan.js             cadangan manual: mysqldump, arsip foto per bulan, tiket unduh
 │   │   └── routes/                 auth, petugas, formulir, kertasKerja, entri, pengajuan, foto, dashboard, peta, lapisan, persil, integrasi, nop, wilayah, ekspor, cadangan
 │   └── test/                       tes node:test - logika murni, tanpa database
@@ -492,6 +493,7 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `peta.test.js`         | Titik tanpa koordinat tidak pernah masuk peta                          |
 | `kertasKerja.test.js`  | Batas paginasi daftar, serta pencarian & penyaringan yang pindah ke server |
 | `ekspor.test.js`       | Lokasi terekspor sebagai kolom latitude & longitude, utuh di Excel; semua jenis ekspor memberi urutan, *No. data*, dan isi baris yang sama |
+| `eksporSpj.test.js`    | Laporan SPJ: satu baris per kertas kerja, kolom petugas sebanyak tim terbesar, tanggal di zona waktu aplikasi & sebagai tanggal Excel, wilayah & RT/RW dari data pertama, urutan & saringan per wilayah, pilihan RW / RT |
 | `eksporPeta.test.js`   | GeoJSON / KML: titik [bujur, lintang] dari kolom Lokasi, baris tanpa koordinat dihitung, kolom sama di setiap titik, teks KML di-escape |
 | `lapisanPeta.test.js`  | Lapisan GIS: berkas UTM / TM-3 ditolak, koordinat dibulatkan, batas ukuran isi                |
 | `lokasiSaya.test.js`   | Titik biru "Lokasi saya": posisi cache browser ditolak, pembacaan terbaru diikuti (lonjakan kasar dari jaringan diabaikan), peta dipusatkan ulang saat GPS mengunci atau perangkat berpindah |
@@ -1623,7 +1625,7 @@ Memutuskan pengajuan yang sudah diputuskan dijawab **409**.
 | `POST` | `/cadangan/tiket`    | `{ jenis: "database" }` atau `{ jenis: "foto", bulan: "2026-10" }` → `{ tiket }`, sekali pakai, 2 menit. **400** bulan tidak sah · **404** tidak ada foto bulan itu · **503** mysqldump tidak ada |
 | `GET`  | `/cadangan/unduh`    | `?tiket=` → `.sql.gz` / `.tar`. Tanpa login (tiketnya izinnya). **410** tiket sudah dipakai / kedaluwarsa |
 
-### Ekspor per wilayah, per petugas & seluruh data (khusus admin)
+### Ekspor per wilayah, per petugas, seluruh data & laporan SPJ (khusus admin)
 
 `kecamatan` dan `kelurahan` berisi kode SISMIOP dari `GET /wilayah`; `kelurahan` kosong = seluruh
 kecamatan. Kode yang tidak dikenal → **400**.
@@ -1638,8 +1640,13 @@ kecamatan. Kode yang tidak dikenal → **400**.
 | `GET`  | `/ekspor/petugas/xlsx`     | Idem, Excel (.xlsx)                                                 |
 | `GET`  | `/ekspor/semua`            | CSV seluruh data semua formulir dari semua kertas kerja, satu baris per kertas kerja |
 | `GET`  | `/ekspor/semua/xlsx`       | Idem, Excel (.xlsx)                                                 |
+| `GET`  | `/ekspor/spj/ringkas`      | `?kecamatan=&kelurahan=&rw=&rt=` (semua boleh kosong, bertingkat) → `{ kertasKerja, tanpaWilayah, tanpaData, rw: [{ nilai, jumlah }], rt: [{ nilai, jumlah }], tanpaRtRw }`; pilihan tidak sah → **400** |
+| `GET`  | `/ekspor/spj`              | CSV laporan SPJ mentah: satu baris per kertas kerja berisi data, urut nomor |
+| `GET`  | `/ekspor/spj/xlsx`         | Idem, Excel (.xlsx)                                                 |
+| `GET`  | `/ekspor/spj/wilayah`      | `?kecamatan=&kelurahan=&rw=&rt=` → CSV laporan SPJ urut kecamatan > kelurahan > RW > RT, dipersempit ke pilihan itu |
+| `GET`  | `/ekspor/spj/wilayah/xlsx` | Idem, Excel (.xlsx)                                                 |
 
-Setiap ekspor di atas (dan ekspor per kertas kerja & per formulir) juga tersedia sebagai
+Setiap ekspor di atas kecuali laporan SPJ (dan ekspor per kertas kerja & per formulir) juga tersedia sebagai
 `…/geojson` dan `…/kml` dengan query yang sama: satu titik per baris berkoordinat, header
 `X-Jumlah-Titik` & `X-Tanpa-Titik`, **400** bila tidak ada satu titik pun.
 
@@ -1755,6 +1762,20 @@ data tanpa pertanyaan wilayah objek (mis. Identitas Wajib Pajak) ikut bila kerta
 yang objeknya di wilayah itu; data yang objeknya sendiri di kelurahan lain tidak ikut. Sebelum
 mengunduh, layar menampilkan jumlah kertas kerja & data, serta berapa kertas kerja berisi data yang
 belum punya wilayah objek (tidak masuk ekspor wilayah mana pun).
+
+**Laporan SPJ** (`server/src/eksporSpj.js`) punya susunan sendiri, tanpa isian formulir: satu baris
+per kertas kerja yang sudah berisi data, dengan kolom `Tanggal Sensus`, `Nomor Kertas Kerja`,
+`Status`, `Nama Petugas 1` … `Nama Petugas n` (satu kolom per anggota tim, penanggung jawab dulu;
+sebanyak tim terbesar di laporan itu), `Kecamatan`, `Kelurahan`, `RW`, `RT`. *Tanggal Sensus* =
+tanggal data pertama kertas kerja itu disimpan (zona waktu aplikasi), tersimpan sebagai tanggal Excel
+sehingga bisa difilter per bulan / hari. Wilayah dan RT/RW diambil dari pertanyaan wilayah & RT-RW
+objek (aturan yang sama dengan ekspor per wilayah; yang bersumber EPBB *subjek pajak* atau berlabel
+wajib pajak tidak dipakai) pada data pertama yang mengisinya - kertas kerja yang berisi objek di
+beberapa RT tetap satu baris, supaya jumlah baris = jumlah kertas kerja. Dua format, kolomnya sama:
+**mentah** (semua kertas kerja berisi data, urut nomor) dan **per wilayah** (urut kecamatan >
+kelurahan > RW > RT > tanggal > nomor; bisa dipersempit ke satu kecamatan, kelurahan, RW, lalu RT -
+pilihan RW / RT yang ditawarkan hanya yang ada datanya). Tanpa pilihan kecamatan, kertas kerja yang
+belum punya wilayah objek ditaruh di akhir dengan kolom wilayah kosong.
 
 Semua ekspor diurutkan menurut nomor kertas kerja; kolom `Nomor`, `Status`, `Petugas` (nama tim
 digabung `; `), dan `NIP` mengikuti kertas kerja masing-masing baris. Kolom pertanyaan berjudul

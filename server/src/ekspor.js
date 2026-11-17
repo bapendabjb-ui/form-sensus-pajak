@@ -494,9 +494,12 @@ const PENGIRIM = {
  * `susun(req)` -> { nama, sheet, tabel }.
  *
  * @param {Function} penjaga  middleware izin, mis. requireAdmin
+ * @param {string[]} [akhiranDipakai]  sebagian jenis saja, mis. ["", "/xlsx"] untuk
+ *        tabel tanpa kolom Lokasi (berkas petanya pasti kosong)
  */
-function rutekanEkspor(router, jalur, penjaga, susun) {
-  for (const [akhiran, kirim] of Object.entries(PENGIRIM)) {
+function rutekanEkspor(router, jalur, penjaga, susun, akhiranDipakai = Object.keys(PENGIRIM)) {
+  for (const akhiran of akhiranDipakai) {
+    const kirim = PENGIRIM[akhiran];
     router.get(
       jalur + akhiran,
       penjaga,

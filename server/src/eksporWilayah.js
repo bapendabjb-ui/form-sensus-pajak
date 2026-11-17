@@ -19,16 +19,22 @@ const { KECAMATAN } = require("./wilayah");
 const LABEL_OBJEK = /\bobjek\b/i;
 const LABEL_SUBJEK = /\b(subjek|wajib\s*pajak|wp|ktp|domisili|pemilik)\b/i;
 
+/** Tipe pertanyaan letak: wilayah (kecamatan & kelurahan) dan RT-RW (laporan SPJ). */
+const TIPE_LETAK = new Set(["wilayah", "rtrw"]);
+
 /**
- * Pertanyaan wilayah yang menunjuk letak objek pajak: bersumber EPBB "wilayah
- * objek", atau labelnya menyebut "objek". Label netral ("Kecamatan dan
- * Kelurahan") juga dianggap objek - yang disensus adalah objeknya - kecuali
- * jelas menunjuk alamat subjek / wajib pajak.
+ * Pertanyaan wilayah / RT-RW yang menunjuk letak objek pajak: bersumber EPBB
+ * "... objek pajak" (wilayah_op, rtrw_op), atau labelnya menyebut "objek".
+ * Yang bersumber EPBB "... subjek pajak" (wilayah_sp, rtrw_sp) bukan objek.
+ * Label netral ("Kecamatan dan Kelurahan", "RT & RW") juga dianggap objek -
+ * yang disensus adalah objeknya - kecuali jelas menunjuk alamat subjek /
+ * wajib pajak.
  */
 function pertanyaanObjek(q) {
-  if (q.tipe !== "wilayah") return false;
+  if (!TIPE_LETAK.has(q.tipe)) return false;
   const label = q.label || "";
-  if (q.isiEpbb === "wilayah_op" || LABEL_OBJEK.test(label)) return true;
+  if (/_op$/.test(q.isiEpbb || "") || LABEL_OBJEK.test(label)) return true;
+  if (/_sp$/.test(q.isiEpbb || "")) return false;
   return !LABEL_SUBJEK.test(label);
 }
 

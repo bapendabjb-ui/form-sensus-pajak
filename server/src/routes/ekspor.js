@@ -7,6 +7,9 @@
  *
  * Setiap ekspor tersedia sebagai CSV (jalur dasarnya), /xlsx, /geojson, dan
  * /kml - dipasang sekaligus oleh rutekanEkspor.
+ *
+ * Laporan SPJ (src/eksporSpj.js) punya susunan sendiri - satu baris per
+ * kertas kerja, tanpa isian formulir - dan hanya CSV & Excel.
  */
 
 const express = require("express");
@@ -19,6 +22,7 @@ const { susunTabel, baseUrlEkspor, namaBerkas, rutekanEkspor } = require("../eks
 const { muatEntriEkspor } = require("../muatEkspor");
 const { pencariPersilEkspor } = require("../persil");
 const { pertanyaanObjek, bacaPilihanWilayah, saringWilayah } = require("../eksporWilayah");
+const { bacaPilihanSpj, susunBarisSpj, saringSpj, urutSpj, tabelSpj, ringkasSpj } = require("../eksporSpj");
 
 const router = express.Router();
 
@@ -258,6 +262,118 @@ async function dataEksporSemua(req) {
 
 /** GET /api/ekspor/semua[/xlsx|/geojson|/kml] */
 rutekanEkspor(router, "/semua", requireAdmin, dataEksporSemua);
+
+/* ---------- laporan SPJ ---------- */
+
+/*
+ * Satu baris per kertas kerja berisi data: tanggal sensus, nomor, status, nama
+ * petugas (satu kolom per orang), kecamatan, kelurahan, RW, RT objek pajak.
+ * Aturan susunannya di src/eksporSpj.js. Hanya CSV & Excel: tanpa koordinat.
+ */
+
+const JENIS_SPJ = ["", "/xlsx"];
+
+/** Semua baris laporan SPJ, belum tersaring dan belum terurut. */
+async function muatBarisSpj() {
+  const [awal, pertanyaan] = await Promise.all([
+    prisma.entri.groupBy({ by: ["kertasKerjaId"], _min: { createdAt: true } }),
+    prisma.pertanyaan.findMany({
+      where: { tipe: { in: ["wilayah", "rtrw"] } },
+      select: { id: true, tipe: true, label: true, isiEpbb: true, urutan: true },
+    }),
+  ]);
+  const letak = new Map(pertanyaan.filter(pertanyaanObjek).map((q) => [q.id, q]));
+  const kkIds = awal.map((a) => a.kertasKerjaId);
+
+  const [kertasKerja, jawaban] = await Promise.all([
+    kkIds.length
+      ? prisma.kertasKerja.findMany({
+          where: { id: { in: kkIds } },
+          select: {
+            id: true,
+            nomor: true,
+            status: true,
+            petugas: { include: { petugas: { select: { id: true, nama: true, nip: true } } } },
+          },
+        })
+      : [],
+    letak.size
+      ? prisma.jawaban.findMany({
+          where: { pertanyaanId: { in: [...letak.keys()] } },
+          select: {
+            entriId: true,
+            pertanyaanId: true,
+            nilai: true,
+            entri: { select: { kertasKerjaId: true, createdAt: true } },
+          },
+        })
+      : [],
+  ]);
+
+  return susunBarisSpj({
+    kertasKerja,
+    mulai: new Map(awal.map((a) => [a.kertasKerjaId, a._min.createdAt])),
+    jawaban: jawaban.map((j) => ({
+      kertasKerjaId: j.entri.kertasKerjaId,
+      entriId: j.entriId,
+      tipe: letak.get(j.pertanyaanId).tipe,
+      nilai: j.nilai,
+      waktu: j.entri.createdAt,
+      urutan: letak.get(j.pertanyaanId).urutan,
+    })),
+  });
+}
+
+/** Pilihan wilayah laporan SPJ dari query string (semuanya boleh kosong). */
+function pilihanSpj(req) {
+  const pilihan = bacaPilihanSpj(req.query);
+  if (!pilihan) throw badRequest("Pilihan wilayah tidak dikenal. Pilih berurutan: kecamatan, kelurahan, RW, lalu RT.");
+  return pilihan;
+}
+
+/** Mentah: semua kertas kerja berisi data, urut nomor. */
+async function dataEksporSpj() {
+  return {
+    nama: "spj-kertas-kerja",
+    sheet: "SPJ",
+    tabel: tabelSpj(urutSpj(await muatBarisSpj(), false), { timezone: config.timezone }),
+  };
+}
+
+/** Per wilayah: urut kecamatan > kelurahan > RW > RT, bisa dipersempit. */
+async function dataEksporSpjWilayah(req) {
+  const pilihan = pilihanSpj(req);
+  const baris = urutSpj(saringSpj(await muatBarisSpj(), pilihan), true);
+  const { kecamatan, kelurahan, rw, rt } = pilihan;
+  const bagian = [kecamatan?.nama, kelurahan?.nama, rw && `RW ${rw}`, rt && `RT ${rt}`].filter(Boolean);
+  return {
+    nama: ["spj-per-wilayah", ...bagian.map((s) => namaBerkas(s))].join("-"),
+    sheet: bagian.length ? `SPJ ${bagian.slice(-3).join(" ")}` : "SPJ per wilayah",
+    tabel: tabelSpj(baris, { timezone: config.timezone }),
+  };
+}
+
+/**
+ * GET /api/ekspor/spj/ringkas?kecamatan=&kelurahan=&rw=&rt=
+ *   -> { kertasKerja, tanpaWilayah, tanpaData, rw: [{ nilai, jumlah }], rt: [...], tanpaRtRw }
+ * Untuk layar ekspor: berapa baris yang ikut, pilihan RW / RT yang ada datanya,
+ * dan berapa kertas kerja yang tidak masuk laporan karena belum berisi data.
+ */
+router.get(
+  "/spj/ringkas",
+  requireAdmin,
+  wrap(async (req, res) => {
+    const pilihan = pilihanSpj(req);
+    const [baris, semuaKk] = await Promise.all([muatBarisSpj(), prisma.kertasKerja.count()]);
+    res.json({ ...ringkasSpj(baris, pilihan), tanpaData: semuaKk - baris.length });
+  })
+);
+
+/** GET /api/ekspor/spj[/xlsx] */
+rutekanEkspor(router, "/spj", requireAdmin, dataEksporSpj, JENIS_SPJ);
+
+/** GET /api/ekspor/spj/wilayah[/xlsx]?kecamatan=&kelurahan=&rw=&rt= */
+rutekanEkspor(router, "/spj/wilayah", requireAdmin, dataEksporSpjWilayah, JENIS_SPJ);
 
 module.exports = router;
 

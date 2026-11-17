@@ -16,7 +16,18 @@ test("pertanyaanObjek mengenali wilayah objek, bukan alamat wajib pajak", () => 
   assert.equal(pertanyaanObjek(wilayah({ label: "Wilayah", isiEpbb: "wilayah_op" })), true);
   // Label netral: yang disensus adalah objeknya.
   assert.equal(pertanyaanObjek(wilayah({ label: "Kecamatan dan Kelurahan" })), true);
-  assert.equal(pertanyaanObjek({ tipe: "text", label: "Kelurahan Objek" }), false, "hanya tipe wilayah");
+  assert.equal(pertanyaanObjek({ tipe: "text", label: "Kelurahan Objek" }), false, "hanya tipe wilayah / RT-RW");
+  // Bersumber EPBB "wilayah subjek" bukan objek, walau labelnya netral.
+  assert.equal(pertanyaanObjek(wilayah({ label: "Kecamatan dan Kelurahan", isiEpbb: "wilayah_sp" })), false);
+});
+
+test("pertanyaanObjek mengenali RT & RW objek (laporan SPJ)", () => {
+  const rtrw = (q) => ({ tipe: "rtrw", isiEpbb: "", ...q });
+  assert.equal(pertanyaanObjek(rtrw({ label: "RT & RW" })), true, "label netral");
+  assert.equal(pertanyaanObjek(rtrw({ label: "RT/RW Objek Pajak" })), true);
+  assert.equal(pertanyaanObjek(rtrw({ label: "RT/RW Wajib Pajak" })), false);
+  assert.equal(pertanyaanObjek(rtrw({ label: "RT & RW", isiEpbb: "rtrw_op" })), true);
+  assert.equal(pertanyaanObjek(rtrw({ label: "RT & RW", isiEpbb: "rtrw_sp" })), false);
 });
 
 test("bacaPilihanWilayah membaca kode SISMIOP Banjarbaru", () => {
