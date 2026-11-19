@@ -1766,7 +1766,8 @@ belum punya wilayah objek (tidak masuk ekspor wilayah mana pun).
 **Laporan SPJ** (`server/src/eksporSpj.js`) punya susunan sendiri, tanpa isian formulir: satu baris
 per kertas kerja yang sudah berisi data, dengan kolom `Tanggal Sensus`, `Nomor Kertas Kerja`,
 `Status`, `Nama Petugas 1` … `Nama Petugas n` (satu kolom per anggota tim, penanggung jawab dulu;
-sebanyak tim terbesar di laporan itu), `Kecamatan`, `Kelurahan`, `RW`, `RT`. *Tanggal Sensus* =
+sebanyak tim terbesar di laporan itu), `Kecamatan`, `Kelurahan`, `RW`, `RT`, `Sumber RT/RW`
+(`Isian`, `Perkiraan (...)`, atau `Tidak ada`). *Tanggal Sensus* =
 tanggal data pertama kertas kerja itu disimpan (zona waktu aplikasi), tersimpan sebagai tanggal Excel
 sehingga bisa difilter per bulan / hari. Wilayah dan RT/RW diambil dari pertanyaan wilayah & RT-RW
 objek (aturan yang sama dengan ekspor per wilayah; yang bersumber EPBB *subjek pajak* atau berlabel
@@ -1784,8 +1785,26 @@ berlaku. Titiknya koordinat objek (pertanyaan Lokasi) data pertama yang mengisin
 GPS perangkat saat data pertama disimpan; titik yang terekam di kantor atau akurasinya lebih buruk
 dari 100 m dilewati. Titik di jalan / sungai memakai bidang terdekat paling jauh 50 m
 (`pencariWilayahPersil` di `server/src/persil.js`; hasilnya disimpan di memori sampai persil
-berubah). RT/RW tidak ada di peta BPN, jadi tetap dari isian petugas atau kosong. Layar ekspor
-menyebut berapa kertas kerja yang wilayahnya diambil dari peta.
+berubah). RT/RW tidak ada di peta BPN, jadi tetap dari isian petugas, diperkirakan (di bawah), atau
+kosong. Layar ekspor menyebut berapa kertas kerja yang wilayahnya diambil dari peta.
+
+**Perkiraan RT/RW** (mati kecuali `SPJ_PERKIRAAN_RTRW=1` di `.env`): petugas turun ke lapangan per
+hari dan biasanya bertahan di satu lingkungan, jadi kertas kerja yang RT maupun RW-nya kosong mengambil
+RT/RW kertas kerja lain dengan **tanggal sensus sama, tim beririsan (ada petugas yang sama), dan
+kelurahan sama**, termasuk kelurahan yang didapat dari peta BPN. Acuannya hanya isian petugas, bukan perkiraan lain,
+supaya tebakan tidak berantai. Aturannya berurutan: semua kandidat sepakat RW & RT → dipakai; bila
+berbeda, kandidat dengan titik koordinat terdekat asal ≤ 300 m (tanpa titik: jam simpan terdekat asal
+≤ 60 menit); bila tidak ada yang cukup dekat tetapi RW-nya sama semua → RW saja; selain itu tetap
+kosong. Kolom `Sumber RT/RW` menyebut kertas kerja acuannya, mis. `Perkiraan (dari KK 00012, tim &
+tanggal sama)`. Sebelum menyalakannya, ukur ketepatannya terhadap data sungguhan (baca-saja):
+
+```bash
+node server/scripts/uji-perkiraan-rtrw.js
+```
+
+Skrip itu menganggap kosong setiap RT/RW isian petugas, menebaknya dari kertas kerja lain, lalu
+membandingkan dengan isian aslinya: jumlah tertebak, RW tepat, dan RT tepat per aturan dan per jumlah
+kandidat, contoh tebakan yang meleset, serta berapa kertas kerja kosong yang akan terisi.
 
 Semua ekspor diurutkan menurut nomor kertas kerja; kolom `Nomor`, `Status`, `Petugas` (nama tim
 digabung `; `), dan `NIP` mengikuti kertas kerja masing-masing baris. Kolom pertanyaan berjudul

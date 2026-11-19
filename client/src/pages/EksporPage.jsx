@@ -360,7 +360,11 @@ function PanelSpj({ unduhKe }) {
       `${formatAngka(ringkas.tanpaWilayah)} kertas kerja belum punya kecamatan/kelurahan objek pajak, dari isian maupun dari titik koordinat di peta BPN`;
     const dariPeta =
       ringkas.dariPeta > 0
-        ? ` ${formatAngka(ringkas.dariPeta)} kertas kerja tanpa isian wilayah objek, kecamatan/kelurahannya diambil dari titik koordinat di peta BPN (RT/RW-nya kosong bila tidak diisi petugas).`
+        ? ` ${formatAngka(ringkas.dariPeta)} kertas kerja tanpa isian wilayah objek, kecamatan/kelurahannya diambil dari titik koordinat di peta BPN.`
+        : "";
+    const rtRwPerkiraan =
+      ringkas.rtRwPerkiraan > 0
+        ? ` ${formatAngka(ringkas.rtRwPerkiraan)} kertas kerja tanpa isian RT/RW, RT/RW-nya diperkirakan dari kertas kerja lain di hari, tim, dan kelurahan yang sama (ditandai di kolom Sumber RT/RW).`
         : "";
     if (!perWilayah) {
       hint = kosong
@@ -368,13 +372,13 @@ function PanelSpj({ unduhKe }) {
         : `${formatAngka(ringkas.kertasKerja)} kertas kerja berisi data, urut nomor kertas kerja.`;
       if (ringkas.tanpaData > 0)
         hint += ` ${formatAngka(ringkas.tanpaData)} kertas kerja belum berisi data, jadi tidak ikut.`;
-      hint += dariPeta;
+      hint += dariPeta + rtRwPerkiraan;
       if (tanpaWilayah) hint += ` ${tanpaWilayah}, jadi kolom wilayahnya kosong.`;
     } else {
       hint = kosong
         ? "Belum ada kertas kerja berisi data di wilayah ini."
         : `${formatAngka(ringkas.kertasKerja)} kertas kerja.`;
-      hint += dariPeta;
+      hint += dariPeta + rtRwPerkiraan;
       if (tanpaWilayah)
         hint += kecKode
           ? ` ${tanpaWilayah}, jadi tidak ikut.`
@@ -387,7 +391,7 @@ function PanelSpj({ unduhKe }) {
   return (
     <Panel
       title="Laporan SPJ"
-      sub="Satu baris per kertas kerja berisi data: tanggal sensus (tanggal data pertama disimpan), nomor kertas kerja, status, nama petugas (satu kolom per orang), lalu kecamatan, kelurahan, RW, dan RT objek pajak. Kertas kerja tanpa isian wilayah objek (mis. PBJT) mendapat kecamatan/kelurahan dari titik koordinatnya di peta BPN."
+      sub="Satu baris per kertas kerja berisi data: tanggal sensus (tanggal data pertama disimpan), nomor kertas kerja, status, nama petugas (satu kolom per orang), lalu kecamatan, kelurahan, RW, dan RT objek pajak, serta sumber RT/RW-nya. Kertas kerja tanpa isian wilayah objek (mis. PBJT) mendapat kecamatan/kelurahan dari titik koordinatnya di peta BPN."
     >
       <div className="fk-ekspor-isian">
         <span className="fk-q-name">Format</span>

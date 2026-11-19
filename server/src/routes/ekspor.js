@@ -27,6 +27,7 @@ const {
   susunBarisSpj,
   titikPeta,
   lengkapiDariPeta,
+  perkiraRtRw,
   saringSpj,
   urutSpj,
   tabelSpj,
@@ -282,8 +283,15 @@ rutekanEkspor(router, "/semua", requireAdmin, dataEksporSemua);
 
 const JENIS_SPJ = ["", "/xlsx"];
 
-/** Semua baris laporan SPJ, belum tersaring dan belum terurut. */
-async function muatBarisSpj() {
+/**
+ * Baris laporan SPJ dengan wilayah dari peta BPN sudah dilengkapi, belum
+ * tersaring dan belum terurut, beserta titik koordinat per kertas kerja.
+ * `titikSemua` = muat titik semua kertas kerja (untuk perkiraan RT/RW), bukan
+ * hanya yang tanpa isian wilayah.
+ *
+ * @returns {Promise<{ baris: object[], titik: Map<number, { lat, lon, sumber }> }>}
+ */
+async function muatSpj({ titikSemua = false } = {}) {
   const [awal, pertanyaan] = await Promise.all([
     prisma.entri.groupBy({ by: ["kertasKerjaId"], _min: { createdAt: true } }),
     prisma.pertanyaan.findMany({
@@ -335,9 +343,10 @@ async function muatBarisSpj() {
 
   // Tanpa isian wilayah objek: kecamatan & kelurahan dari peta BPN di titik koordinatnya.
   const tanpaWilayah = baris.filter((b) => !b.sumberWilayah).map((b) => b.kk.id);
-  if (tanpaWilayah.length === 0) return baris;
+  const perluTitik = titikSemua ? kkIds : tanpaWilayah;
+  if (perluTitik.length === 0) return { baris, titik: new Map() };
   const entri = await prisma.entri.findMany({
-    where: { kertasKerjaId: { in: tanpaWilayah } },
+    where: { kertasKerjaId: { in: perluTitik } },
     select: {
       id: true,
       kertasKerjaId: true,
@@ -356,8 +365,21 @@ async function muatBarisSpj() {
     },
   });
   const titik = titikPeta(entri);
-  const cari = await pencariWilayahPersil([...titik.values()].map((t) => [t.lat, t.lon]));
-  return cari ? lengkapiDariPeta(baris, titik, cari) : baris;
+  const tanpa = new Set(tanpaWilayah);
+  const titikTanpaWilayah = [...titik].filter(([id]) => tanpa.has(id)).map(([, t]) => [t.lat, t.lon]);
+  const cari = titikTanpaWilayah.length ? await pencariWilayahPersil(titikTanpaWilayah) : null;
+  if (cari) lengkapiDariPeta(baris, titik, cari);
+  return { baris, titik };
+}
+
+/**
+ * Semua baris laporan SPJ, belum tersaring dan belum terurut. RT/RW yang
+ * kosong diperkirakan dari kertas kerja sehari bila SPJ_PERKIRAAN_RTRW=1.
+ */
+async function muatBarisSpj() {
+  const perkiraan = config.spjPerkiraanRtRw;
+  const { baris, titik } = await muatSpj({ titikSemua: perkiraan });
+  return perkiraan ? perkiraRtRw(baris, titik, { timezone: config.timezone }) : baris;
 }
 
 /** Pilihan wilayah laporan SPJ dari query string (semuanya boleh kosong). */
@@ -416,3 +438,5 @@ module.exports = router;
 // Diekspor untuk diuji terpisah: murni, tanpa database.
 module.exports.bacaIdPetugas = bacaIdPetugas;
 module.exports.namaPetugas = namaPetugas;
+// Untuk scripts/uji-perkiraan-rtrw.js.
+module.exports.muatSpj = muatSpj;

@@ -27,13 +27,19 @@
  * Kertas kerja tanpa isian wilayah objek (mis. PBJT, yang formulirnya tidak
  * menanyakan letak objek) mendapat kecamatan & kelurahan dari peta BPN di
  * titik koordinatnya (titikPeta, lalu lengkapiDariPeta). RT/RW tidak ada di
- * peta BPN, jadi tetap dari isian - atau kosong.
+ * peta BPN, jadi tetap dari isian - atau diperkirakan (perkiraRtRw).
+ *
+ * Perkiraan RT/RW (hanya bila SPJ_PERKIRAAN_RTRW=1): petugas turun ke
+ * lapangan per hari dan biasanya bertahan di satu lingkungan, jadi kertas
+ * kerja tanpa RT/RW mengambil RT/RW kertas kerja lain dengan tanggal sensus
+ * sama, tim yang beririsan, dan kelurahan sama. Hasilnya ditandai di kolom
+ * Sumber RT/RW. Ketepatannya diuji dengan server/scripts/uji-perkiraan-rtrw.js.
  */
 
 const { bentukTim } = require("./bentuk");
 const { rincianWilayah, normalWilayah } = require("./wilayah");
 const { bacaPilihanWilayah, cocokWilayah } = require("./eksporWilayah");
-const { adaTitik, nilaiTitik, titikGps } = require("./cekLokasi");
+const { adaTitik, nilaiTitik, titikGps, jarakMeter } = require("./cekLokasi");
 
 const FORMAT_TANGGAL = "dd/mm/yyyy";
 
@@ -83,7 +89,8 @@ function bacaPilihanSpj(query = {}) {
  *        `urutan` = urutan pertanyaan di formulirnya
  * @returns {{ kk, tanggal: Date|null, petugas: string[], wilayah: object|null,
  *             kecamatan: string, kelurahan: string, rw: string, rt: string,
- *             sumberWilayah: "isian" | "" }[]}  "peta" diisi lengkapiDariPeta
+ *             sumberWilayah: "isian" | "", sumberRtRw: "isian" | "", rtRwDari: null }[]}
+ *          sumberWilayah "peta" diisi lengkapiDariPeta, sumberRtRw "perkiraan" diisi perkiraRtRw
  */
 function susunBarisSpj({ kertasKerja, mulai, jawaban }) {
   const urut = jawaban
@@ -104,6 +111,8 @@ function susunBarisSpj({ kertasKerja, mulai, jawaban }) {
     // RT/RW dari data yang sama dengan wilayahnya bila ada, supaya keduanya menunjuk objek yang sama.
     const rtrw = (wil && letak.rtrw.find((r) => r.entriId === wil.entriId)) || letak.rtrw[0] || null;
     const rinci = rincianWilayah(wil?.nilai);
+    const rw = nomorRtRw(rtrw?.nilai?.rw);
+    const rt = nomorRtRw(rtrw?.nilai?.rt);
     return {
       kk,
       tanggal: mulai.get(kk.id) || null,
@@ -111,9 +120,11 @@ function susunBarisSpj({ kertasKerja, mulai, jawaban }) {
       wilayah: wil?.nilai || null,
       kecamatan: rinci.kecamatan,
       kelurahan: rinci.kelurahan,
-      rw: nomorRtRw(rtrw?.nilai?.rw),
-      rt: nomorRtRw(rtrw?.nilai?.rt),
+      rw,
+      rt,
       sumberWilayah: wil ? "isian" : "",
+      sumberRtRw: rw || rt ? "isian" : "",
+      rtRwDari: null,
     };
   });
 }
@@ -177,6 +188,123 @@ function lengkapiDariPeta(baris, titik, cari) {
     b.sumberWilayah = "peta";
   }
   return baris;
+}
+
+/* ---------- perkiraan RT/RW dari kertas kerja sehari ---------- */
+
+/** Jarak terjauh ke kertas kerja acuan agar RT-nya ikut dipakai. */
+const JARAK_RT_M = 300;
+/** Tanpa titik koordinat: selisih waktu terjauh agar RT acuan ikut dipakai. */
+const SELISIH_RT_MENIT = 60;
+
+const kunciKelurahan = (b) =>
+  b.kecamatan && b.kelurahan ? `${b.kecamatan}|${b.kelurahan}`.toLowerCase().replace(/\s+/g, " ").trim() : "";
+
+const idTim = (b) => new Set((b.kk.petugas || []).map((r) => r.petugas?.id ?? r.petugasId).filter(Boolean));
+
+function kunciTanggal(d, timeZone) {
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return "";
+  const { tahun, bulan, hari } = tanggalDi(d, timeZone);
+  return `${tahun}-${bulan}-${hari}`;
+}
+
+/**
+ * Pengindeks kandidat acuan: kertas kerja yang RW-nya dari isian petugas,
+ * dikelompokkan per tanggal sensus + kelurahan. Kandidat untuk satu baris =
+ * kelompoknya, tanpa baris itu sendiri, yang timnya beririsan (ada petugas
+ * yang sama).
+ *
+ * @returns {(target) => object[]}
+ */
+function pengindeksKandidat(baris, timeZone) {
+  const kunci = (b) => {
+    const kel = kunciKelurahan(b);
+    const tgl = kunciTanggal(b.tanggal, timeZone);
+    return kel && tgl ? `${tgl}#${kel}` : "";
+  };
+  const tim = new Map(baris.map((b) => [b, idTim(b)]));
+  const kelompok = new Map();
+  for (const b of baris) {
+    const k = kunci(b);
+    if (!k || b.sumberRtRw !== "isian" || !b.rw) continue;
+    if (!kelompok.has(k)) kelompok.set(k, []);
+    kelompok.get(k).push(b);
+  }
+  return (target) => {
+    const timTarget = tim.get(target) || idTim(target);
+    return (kelompok.get(kunci(target)) || []).filter(
+      (b) => b !== target && [...tim.get(b)].some((id) => timTarget.has(id))
+    );
+  };
+}
+
+/**
+ * Tebak RT/RW `target` dari `kandidat` (hasil pengindeksKandidat):
+ *   "sepakat"   : semua kandidat menunjuk RW & RT yang sama;
+ *   "terdekat"  : kandidat terdekat cukup dekat - titik koordinat <=
+ *                 JARAK_RT_M, atau bila tanpa titik, jam simpan data pertamanya
+ *                 <= SELISIH_RT_MENIT;
+ *   "rw-sepakat": RT kandidat berbeda-beda dan tidak ada yang cukup dekat,
+ *                 tetapi RW-nya sama semua -> RW saja, RT kosong.
+ * Null bila tidak ada kandidat atau tidak ada yang meyakinkan.
+ *
+ * @param {Map<number, { lat, lon }>} titik  kertas kerja -> titik (titikPeta)
+ * @returns {{ rw, rt, aturan, dari, jarak: number|null, menit: number|null } | null}
+ */
+function tebakRtRw(target, kandidat, titik) {
+  if (kandidat.length === 0) return null;
+  const t0 = titik.get(target.kk.id);
+  const ukur = kandidat
+    .map((k) => {
+      const t = titik.get(k.kk.id);
+      const menit =
+        target.tanggal && k.tanggal ? Math.abs(target.tanggal.getTime() - k.tanggal.getTime()) / 60000 : null;
+      return { k, jarak: t0 && t ? jarakMeter(t0, t) : null, menit };
+    })
+    .sort(
+      (a, b) =>
+        (a.jarak === null) - (b.jarak === null) ||
+        (a.jarak ?? 0) - (b.jarak ?? 0) ||
+        (a.menit ?? Infinity) - (b.menit ?? Infinity)
+    );
+  const d = ukur[0];
+  const hasil = (aturan, rw, rt) => ({ rw, rt, aturan, dari: d.k, jarak: d.jarak, menit: d.menit });
+
+  if (new Set(kandidat.map((k) => `${k.rw}|${k.rt}`)).size === 1) return hasil("sepakat", d.k.rw, d.k.rt);
+  const dekat = d.jarak !== null ? d.jarak <= JARAK_RT_M : d.menit !== null && d.menit <= SELISIH_RT_MENIT;
+  if (dekat) return hasil("terdekat", d.k.rw, d.k.rt);
+  if (new Set(kandidat.map((k) => k.rw)).size === 1) return hasil("rw-sepakat", d.k.rw, "");
+  return null;
+}
+
+/**
+ * Isi RT/RW baris yang belum punya RT maupun RW dari kertas kerja sehari
+ * (tebakRtRw). Acuannya hanya isian petugas, bukan perkiraan lain, supaya
+ * tebakan tidak berantai. Mengubah `baris`; panggil SETELAH lengkapiDariPeta
+ * supaya kertas kerja yang kelurahannya dari peta ikut diperkirakan.
+ */
+function perkiraRtRw(baris, titik, { timezone }) {
+  const kandidatUntuk = pengindeksKandidat(baris, timezone);
+  for (const b of baris) {
+    if (b.rw || b.rt) continue;
+    const tebak = tebakRtRw(b, kandidatUntuk(b), titik);
+    if (!tebak) continue;
+    b.rw = tebak.rw;
+    b.rt = tebak.rt;
+    b.sumberRtRw = "perkiraan";
+    b.rtRwDari = { nomor: tebak.dari.kk.nomor, aturan: tebak.aturan };
+  }
+  return baris;
+}
+
+/** Isi kolom Sumber RT/RW. */
+function keteranganRtRw(b) {
+  if (b.sumberRtRw === "isian") return "Isian";
+  if (b.sumberRtRw === "perkiraan") {
+    const dari = `dari KK ${b.rtRwDari.nomor}, tim & tanggal sama`;
+    return b.rtRwDari.aturan === "rw-sepakat" ? `Perkiraan RW saja (${dari})` : `Perkiraan (${dari})`;
+  }
+  return "Tidak ada";
 }
 
 /** Baris yang berada di wilayah terpilih (bacaPilihanSpj). Tanpa kecamatan = semua baris. */
@@ -258,6 +386,7 @@ function tabelSpj(baris, { timezone }) {
     "Kelurahan",
     "RW",
     "RT",
+    "Sumber RT/RW",
   ];
   return {
     header,
@@ -270,6 +399,7 @@ function tabelSpj(baris, { timezone }) {
       teks(b.kelurahan),
       teks(b.rw),
       teks(b.rt),
+      teks(keteranganRtRw(b)),
     ]),
     titik: [],
   };
@@ -285,6 +415,7 @@ function tabelSpj(baris, { timezone }) {
  *   rw          : pilihan RW di kelurahan terpilih [{ nilai, jumlah }]
  *   rt          : pilihan RT di RW terpilih [{ nilai, jumlah }]
  *   tanpaRtRw   : baris di kelurahan terpilih yang RW-nya kosong
+ *   rtRwPerkiraan: baris yang akan ikut, yang RT/RW-nya perkiraan
  */
 function ringkasSpj(baris, pilihan) {
   const hitung = (daftar, kunci) => {
@@ -302,6 +433,7 @@ function ringkasSpj(baris, pilihan) {
     rw: hitung(diKelurahan, "rw"),
     rt: hitung(diRw, "rt"),
     tanpaRtRw: diKelurahan.filter((b) => !b.rw).length,
+    rtRwPerkiraan: ikut.filter((b) => b.sumberRtRw === "perkiraan").length,
   };
 }
 
@@ -311,6 +443,9 @@ module.exports = {
   susunBarisSpj,
   titikPeta,
   lengkapiDariPeta,
+  pengindeksKandidat,
+  tebakRtRw,
+  perkiraRtRw,
   saringSpj,
   urutSpj,
   tabelSpj,

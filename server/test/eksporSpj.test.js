@@ -10,6 +10,9 @@ const {
   susunBarisSpj,
   titikPeta,
   lengkapiDariPeta,
+  pengindeksKandidat,
+  tebakRtRw,
+  perkiraRtRw,
   saringSpj,
   urutSpj,
   tabelSpj,
@@ -141,6 +144,7 @@ test("tabelSpj: kolom petugas sebanyak tim terbesar, tanggal di zona waktu aplik
     "Kelurahan",
     "RW",
     "RT",
+    "Sumber RT/RW",
   ]);
   const teks = t.baris.map((r) => r.map((c) => c.teks));
   assert.deepEqual(
@@ -161,7 +165,9 @@ test("tabelSpj: kolom petugas sebanyak tim terbesar, tanggal di zona waktu aplik
     "Palam",
     "002",
     "005",
+    "Isian",
   ]);
+  assert.equal(teks[4].at(-1), "Tidak ada", "KK 00005 tanpa RT/RW");
   assert.deepEqual(teks[3].slice(3, 8), ["Eka", "Fajar", "Gita", "Hadi", "Indah"]);
   assert.equal(teks[0][2], "Draft");
 
@@ -314,4 +320,137 @@ test("lengkapiDariPeta: wilayah BPN yang tidak dikenal atau titik tanpa bidang d
   assert.deepEqual([perNomor(baris)["00005"].kecamatan, perNomor(baris)["00005"].sumberWilayah], ["", ""]);
   lengkapiDariPeta(baris, new Map([[5, P1]]), () => null);
   assert.equal(perNomor(baris)["00005"].kecamatan, "");
+});
+
+/* ---------- perkiraan RT/RW dari kertas kerja sehari ---------- */
+
+/**
+ * Baris SPJ siap pakai (bentuk keluaran susunBarisSpj). `jam` = jam WITA pada
+ * 10 Nov 2026; `tim` = id petugas.
+ */
+const barisSpj = (id, tim, jam, kel, rw = "", rt = "", hari = 10) => ({
+  kk: {
+    id,
+    nomor: String(id).padStart(5, "0"),
+    status: "draft",
+    petugas: tim.map((p, i) => ({ id: id * 10 + i, urutan: i, petugas: { id: p, nama: `P${p}`, nip: "" } })),
+  },
+  tanggal: new Date(Date.UTC(2026, 10, hari, jam - 8)),
+  petugas: tim.map((p) => `P${p}`),
+  wilayah: kel,
+  kecamatan: kel?.kecamatan || "",
+  kelurahan: kel?.kelurahan || "",
+  rw,
+  rt,
+  sumberWilayah: kel ? "isian" : "",
+  sumberRtRw: rw || rt ? "isian" : "",
+  rtRwDari: null,
+});
+
+/** Titik ~`m` meter di utara P1. */
+const utaraP1 = (m) => ({ lat: P1.lat + m / 111320, lon: P1.lon });
+
+const tebakUntuk = (target, baris, titik = new Map()) =>
+  tebakRtRw(target, pengindeksKandidat(baris, TZ)(target), titik);
+
+test("pengindeksKandidat: hanya hari, kelurahan, dan tim yang sama, dari isian petugas", () => {
+  const target = barisSpj(1, [1, 2], 9, palam);
+  const baris = [
+    target,
+    barisSpj(2, [2, 3], 10, palam, "002", "005"), // cocok: petugas 2 sama
+    barisSpj(3, [9], 10, palam, "002", "005"), // tim lain
+    barisSpj(4, [1], 10, palam, "002", "005", 11), // hari lain
+    barisSpj(5, [1], 10, bangkal, "001", "001"), // kelurahan lain
+    barisSpj(6, [1], 10, palam, "", "004"), // tanpa RW
+    { ...barisSpj(7, [1], 10, palam, "003", "003"), sumberRtRw: "perkiraan" }, // bukan isian
+  ];
+  assert.deepEqual(
+    pengindeksKandidat(baris, TZ)(target).map((b) => b.kk.id),
+    [2]
+  );
+
+  // 23.30 WITA dan 00.30 WITA keesokan harinya: tanggal berbeda walau berselang sejam.
+  const malam = barisSpj(8, [1], 23.5, palam);
+  const pagi = barisSpj(9, [1], 24.5, palam, "002", "005");
+  assert.deepEqual(pengindeksKandidat([malam, pagi], TZ)(malam), []);
+
+  // Tanpa kelurahan tidak punya kandidat.
+  const tanpaKel = barisSpj(10, [1], 9, null);
+  assert.deepEqual(pengindeksKandidat([tanpaKel, barisSpj(11, [1], 9, palam, "002", "005")], TZ)(tanpaKel), []);
+});
+
+test("tebakRtRw: sepakat, terdekat menurut jarak / waktu, RW saja, atau tidak menebak", () => {
+  const target = barisSpj(1, [1], 9, palam);
+
+  // Semua kandidat sepakat: dipakai walau jauh.
+  const sepakat = tebakUntuk(target, [target, barisSpj(2, [1], 15, palam, "002", "005"), barisSpj(3, [1], 16, palam, "002", "005")]);
+  assert.deepEqual([sepakat.aturan, sepakat.rw, sepakat.rt, sepakat.dari.kk.id], ["sepakat", "002", "005", 2]);
+
+  // Berbeda RT: yang titiknya terdekat (<= 300 m), walau jam simpannya lebih jauh.
+  const beda = [target, barisSpj(2, [1], 9.25, palam, "002", "001"), barisSpj(3, [1], 13, palam, "002", "007")];
+  const titik = new Map([
+    [1, P1],
+    [2, utaraP1(900)],
+    [3, utaraP1(120)],
+  ]);
+  const dekat = tebakUntuk(target, beda, titik);
+  assert.deepEqual([dekat.aturan, dekat.rw, dekat.rt, dekat.dari.kk.id], ["terdekat", "002", "007", 3]);
+  assert.ok(Math.abs(dekat.jarak - 120) < 1);
+
+  // Tanpa titik: yang jam simpannya terdekat, asal <= 60 menit.
+  const waktu = tebakUntuk(target, beda);
+  assert.deepEqual([waktu.aturan, waktu.rt, waktu.dari.kk.id], ["terdekat", "001", 2]);
+
+  // Terdekat masih terlalu jauh, RW-nya sama: RW saja.
+  const jauh = new Map([
+    [1, P1],
+    [2, utaraP1(900)],
+    [3, utaraP1(500)],
+  ]);
+  const rwSaja = tebakUntuk(target, beda, jauh);
+  assert.deepEqual([rwSaja.aturan, rwSaja.rw, rwSaja.rt], ["rw-sepakat", "002", ""]);
+
+  // RW pun berbeda dan tidak ada yang dekat: tidak menebak.
+  const bedaRw = [target, barisSpj(2, [1], 12, palam, "002", "001"), barisSpj(3, [1], 13, palam, "004", "007")];
+  assert.equal(tebakUntuk(target, bedaRw), null);
+  assert.equal(tebakUntuk(target, [target]), null, "tanpa kandidat");
+});
+
+test("perkiraRtRw: mengisi yang kosong, tidak berantai, tidak menimpa isian", () => {
+  const baris = [
+    barisSpj(1, [1], 9, palam, "002", "005"), // acuan
+    barisSpj(2, [1, 5], 9.5, palam), // tim beririsan dengan 1 -> diperkirakan
+    barisSpj(3, [5], 9.75, palam), // hanya beririsan dengan 2 (perkiraan) -> tetap kosong
+    barisSpj(4, [1], 10, palam, "", "004"), // isian sebagian, dibiarkan
+  ];
+  perkiraRtRw(baris, new Map(), { timezone: TZ });
+  const [a, b, c, d] = baris;
+  assert.deepEqual([b.rw, b.rt, b.sumberRtRw, b.rtRwDari], ["002", "005", "perkiraan", { nomor: "00001", aturan: "sepakat" }]);
+  assert.deepEqual([c.rw, c.rt, c.sumberRtRw], ["", "", ""]);
+  assert.deepEqual([d.rw, d.rt, d.sumberRtRw], ["", "004", "isian"]);
+  assert.equal(a.sumberRtRw, "isian");
+
+  const t = tabelSpj(baris, { timezone: TZ });
+  const kolom = t.header.indexOf("Sumber RT/RW");
+  assert.deepEqual(
+    t.baris.map((r) => r[kolom].teks),
+    ["Isian", "Perkiraan (dari KK 00001, tim & tanggal sama)", "Tidak ada", "Isian"]
+  );
+
+  // Ikut saringan RW / RT dan dihitung di ringkasan.
+  const ringkas = ringkasSpj(baris, bacaPilihanSpj({ kecamatan: "020", kelurahan: "001", rw: "002" }));
+  assert.equal(ringkas.kertasKerja, 2);
+  assert.equal(ringkas.rtRwPerkiraan, 1);
+});
+
+test("perkiraRtRw: RW saja ditandai di kolom Sumber RT/RW", () => {
+  const baris = [
+    barisSpj(1, [1], 9, palam),
+    barisSpj(2, [1], 12, palam, "002", "001"),
+    barisSpj(3, [1], 13, palam, "002", "007"),
+  ];
+  perkiraRtRw(baris, new Map(), { timezone: TZ });
+  assert.deepEqual([baris[0].rw, baris[0].rt], ["002", ""]);
+  const t = tabelSpj(baris, { timezone: TZ });
+  assert.equal(t.baris[0].at(-1).teks, "Perkiraan RW saja (dari KK 00002, tim & tanggal sama)");
 });

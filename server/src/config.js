@@ -41,6 +41,10 @@ const config = {
   // Alamat publik aplikasi, dipakai menyusun tautan foto di berkas ekspor.
   // Kosong = disusun dari header Host permintaan.
   appUrl: (process.env.APP_URL || "").trim().replace(/\/+$/, ""),
+  // Laporan SPJ: RT/RW yang kosong diperkirakan dari kertas kerja lain di hari,
+  // tim, dan kelurahan yang sama (src/eksporSpj.js). Mati sampai ketepatannya
+  // diuji dengan server/scripts/uji-perkiraan-rtrw.js.
+  spjPerkiraanRtRw: String(process.env.SPJ_PERKIRAAN_RTRW || "").trim() === "1",
 };
 
 config.isProd = config.nodeEnv === "production";
