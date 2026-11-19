@@ -157,8 +157,8 @@ test("susunEksporPerKk: kolom tiap formulir berdampingan dalam satu blok", () =>
   assert.deepEqual(perKk.header, [
     "Nomor",
     "Status",
-    "Petugas",
-    "NIP",
+    "Nama Petugas 1",
+    "NIP Petugas 1",
     "Identitas - Nama",
     "Identitas - Kelengkapan berkas",
     "Identitas - Catatan kekurangan berkas",
@@ -291,4 +291,77 @@ test("Excel: kolom angka di mana pun letaknya berformat ribuan, No. data angka p
   assert.equal(ws2.getRow(1).getCell(1).value, "Nomor");
   assert.equal(ws2.views[0].state, "frozen");
   assert.ok(ws2.autoFilter, "filter otomatis terpasang");
+});
+
+/*
+ * Satu petugas satu kolom (nama & NIP), supaya bisa disaring sendiri-sendiri;
+ * banyaknya mengikuti tim terbesar. RT dan RW juga kolom sendiri-sendiri.
+ */
+
+const anggota = (id, nama, nip, urutan) => ({ id, urutan, petugas: { id, nama, nip } });
+
+test("kolom petugas: satu pasangan nama & NIP per anggota, tim kecil diisi kosong", () => {
+  const f = [{ id: 1, judul: "PBB", pertanyaan: [{ id: 201, tipe: "text", label: "NOP" }] }];
+  const besar = { id: 1, nomor: "00001", status: "selesai", petugas: [anggota(2, "Ani", "", 2), anggota(1, "Budi", "1987", 1)] };
+  const kecil = { id: 2, nomor: "00002", status: "draft", petugas: [anggota(3, "Citra", "1990", 1)] };
+  const isi = (k, id) => ({ kk: k, e: { id, formulirId: 1, createdAt: new Date(0), jawaban: [] } });
+
+  for (const perData of [true, false]) {
+    const t = susunTabel([isi(besar, 1), isi(kecil, 2)], f, { ...opsi, perData });
+    assert.deepEqual(t.header.slice(0, 6), [
+      "Nomor",
+      "Status",
+      "Nama Petugas 1",
+      "NIP Petugas 1",
+      "Nama Petugas 2",
+      "NIP Petugas 2",
+    ]);
+    const kepala = (r) => r.slice(0, 6).map((c) => c.teks);
+    assert.deepEqual(kepala(t.baris[0]), ["00001", "Selesai", "Budi", "1987", "Ani", "-"], "urut penanggung jawab");
+    assert.deepEqual(kepala(t.baris[1]), ["00002", "Draft", "Citra", "1990", "", ""]);
+  }
+
+  // Tanpa petugas: tetap satu pasangan kolom, kosong.
+  const t = susunTabel([isi({ ...kecil, petugas: [] }, 3)], f, { ...opsi, perData: true });
+  assert.deepEqual(t.header.slice(2, 5), ["Nama Petugas 1", "NIP Petugas 1", "Formulir"]);
+  assert.deepEqual(t.baris[0].slice(2, 4).map((c) => c.teks), ["", ""]);
+
+  // Kertas kerja tanpa data: kolom petugas tetap cukup untuk timnya.
+  const kosong = susunTabel([], f, { ...opsi, perData: false, petugasMinimal: 2 });
+  assert.deepEqual(kosong.header.slice(2, 6), ["Nama Petugas 1", "NIP Petugas 1", "Nama Petugas 2", "NIP Petugas 2"]);
+});
+
+test("RT & RW subjek dan objek masing-masing dipecah jadi kolom RT dan RW", () => {
+  const f = [
+    {
+      id: 1,
+      judul: "PBB",
+      pertanyaan: [
+        { id: 301, tipe: "rtrw", label: "RT/RW Subjek Pajak" },
+        { id: 302, tipe: "rtrw", label: "RT/RW Objek Pajak" },
+      ],
+    },
+  ];
+  const isi = (sp, op) => ({
+    kk,
+    e: {
+      formulirId: 1,
+      createdAt: new Date(0),
+      jawaban: [
+        { pertanyaanId: 301, nilai: sp },
+        { pertanyaanId: 302, nilai: op },
+      ],
+    },
+  });
+  const t = susunEkspor([isi({ rt: "001", rw: "002" }, { rt: "010", rw: "" }), isi(null, { rt: " 003 ", rw: "004" })], f, opsi);
+  assert.deepEqual(t.header.slice(-4), [
+    "PBB - RT/RW Subjek Pajak (RT)",
+    "PBB - RT/RW Subjek Pajak (RW)",
+    "PBB - RT/RW Objek Pajak (RT)",
+    "PBB - RT/RW Objek Pajak (RW)",
+  ]);
+  const ekor = (r) => r.slice(-4).map((c) => c.teks);
+  assert.deepEqual(ekor(t.baris[0]), ["001", "002", "010", ""]);
+  assert.deepEqual(ekor(t.baris[1]), ["", "", "003", "004"]);
+  assert.equal(t.baris[0].at(-4).angka, undefined, "tetap teks: 001 tidak jadi 1 di Excel");
 });

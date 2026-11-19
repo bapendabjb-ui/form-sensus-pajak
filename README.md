@@ -492,7 +492,7 @@ Beberapa hal yang dikunci tes, supaya tidak diam-diam kembali rusak:
 | `imporPetugas.test.js` | Pembacaan .csv/.xlsx daftar petugas & penomoran barisnya               |
 | `peta.test.js`         | Titik tanpa koordinat tidak pernah masuk peta                          |
 | `kertasKerja.test.js`  | Batas paginasi daftar, serta pencarian & penyaringan yang pindah ke server |
-| `ekspor.test.js`       | Lokasi terekspor sebagai kolom latitude & longitude, utuh di Excel; semua jenis ekspor memberi urutan, *No. data*, dan isi baris yang sama |
+| `ekspor.test.js`       | Lokasi terekspor sebagai kolom latitude & longitude, utuh di Excel; semua jenis ekspor memberi urutan, *No. data*, dan isi baris yang sama; satu kolom nama & NIP per petugas; RT & RW dipecah |
 | `eksporSpj.test.js`    | Laporan SPJ: satu baris per kertas kerja, kolom petugas sebanyak tim terbesar, tanggal di zona waktu aplikasi & sebagai tanggal Excel, wilayah & RT/RW dari data pertama, urutan & saringan per wilayah, pilihan RW / RT; tanpa isian wilayah objek: titik koordinat objek lalu GPS (kantor / kasar dilewati) dipetakan ke kecamatan & kelurahan BPN berkode SISMIOP |
 | `eksporPeta.test.js`   | GeoJSON / KML: titik [bujur, lintang] dari kolom Lokasi, baris tanpa koordinat dihitung, kolom sama di setiap titik, teks KML di-escape |
 | `lapisanPeta.test.js`  | Lapisan GIS: berkas UTM / TM-3 ditolak, koordinat dibulatkan, batas ukuran isi                |
@@ -1047,7 +1047,7 @@ supaya nilai yang salah panjang tidak pernah masuk database.
 | **NPWP**        | **15–17** digit    | 15 = format lama, 16 = NPWP baru (memakai NIK), 17 = NITKU          |
 | **NIK / NPWP**  | seperti di atas    | Dua kolom bersanding, disimpan sebagai `{ nik, npwp }`. Wajib = minimal salah satu |
 | **NOP PBB**     | tepat **18** digit | Nomor Objek Pajak. Ditampilkan `63.72.010.001.002-0123.0`            |
-| **RT & RW**     | masing-masing **3** digit | Dua kolom terpisah, disimpan sebagai `{ rt, rw }`            |
+| **RT & RW**     | masing-masing **3** digit | Dua kolom terpisah, disimpan sebagai `{ rt, rw }`. Di ekspor jadi dua kolom teks `… (RT)` dan `… (RW)` |
 | **Luas Tanah & Bangunan** | angka m², desimal koma | Dua kolom bersanding, disimpan `{ tanah, bangunan }`. Wajib = keduanya diisi (bangunan boleh `0`). Di ekspor jadi dua kolom angka |
 
 - Di bawah kolom NIK/NPWP/NOP ada penghitung `12/16 digit` yang berubah kuning selama belum cukup.
@@ -1811,10 +1811,11 @@ Skrip itu menganggap kosong setiap RT/RW isian petugas, menebaknya dari kertas k
 membandingkan dengan isian aslinya: jumlah tertebak, RW tepat, dan RT tepat per aturan dan per jumlah
 kandidat, contoh tebakan yang meleset, serta berapa kertas kerja kosong yang akan terisi.
 
-Semua ekspor diurutkan menurut nomor kertas kerja; kolom `Nomor`, `Status`, `Petugas` (nama tim
-digabung `; `), dan `NIP` mengikuti kertas kerja masing-masing baris. Kolom pertanyaan berjudul
-`Judul formulir - Label` (pertanyaan NIK / NPWP, lokasi, wilayah, dan luas dipecah jadi beberapa
-kolom); pertanyaan foto berisi tautan lengkap ke fotonya. Bentuk barisnya ada dua:
+Semua ekspor diurutkan menurut nomor kertas kerja; kolom `Nomor`, `Status`, lalu sepasang
+`Nama Petugas n` & `NIP Petugas n` per anggota tim (penanggung jawab dulu; sebanyak tim terbesar di
+berkas itu, tim yang lebih kecil dibiarkan kosong) mengikuti kertas kerja masing-masing baris. Kolom
+pertanyaan berjudul `Judul formulir - Label` (pertanyaan NIK / NPWP, lokasi, wilayah, luas, dan RT &
+RW dipecah jadi beberapa kolom - RT & RW subjek maupun objek menjadi `… (RT)` dan `… (RW)`); pertanyaan foto berisi tautan lengkap ke fotonya. Bentuk barisnya ada dua:
 
 - **Semua formulir → satu baris per kertas kerja** (`susunEksporPerKk`). Tiap formulir mendapat satu
   blok kolom berdampingan: pertanyaannya, lalu `Kelengkapan berkas`, `Catatan kekurangan berkas`,
@@ -1823,8 +1824,8 @@ kolom); pertanyaan foto berisi tautan lengkap ke fotonya. Bentuk barisnya ada du
   yang sama, kertas kerja itu mendapat baris sebanyak data terbanyaknya (data ke-n di baris ke-n),
   dan formulir yang datanya hanya satu diulang di setiap barisnya supaya tiap baris tetap lengkap
   saat disaring.
-- **Satu formulir → satu baris per data** (`susunEkspor`). Kolom: `Nomor`, `Status`, `Petugas`,
-  `NIP`, `Formulir`, `No. data`, `Waktu input`, `Diisi oleh`, `Kelengkapan berkas` (`Lengkap` /
+- **Satu formulir → satu baris per data** (`susunEkspor`). Kolom: `Nomor`, `Status`, kolom
+  petugas, `Formulir`, `No. data`, `Waktu input`, `Diisi oleh`, `Kelengkapan berkas` (`Lengkap` /
   `Tidak lengkap`), `Catatan kekurangan berkas`, lalu kolom pertanyaannya.
 
 - **CSV** diawali **BOM UTF-8** agar rapi saat dibuka di Excel.

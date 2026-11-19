@@ -405,8 +405,19 @@ function tabelSpj(baris, { timezone }) {
   };
 }
 
-/** Kolom identitas kertas kerja di depan tabel ekspor "Semua formulir" (ekspor.js kolomKertasKerja). */
-const KOLOM_IDENTITAS_KK = ["Nomor", "Status", "Petugas", "NIP"];
+/**
+ * Banyak kolom identitas kertas kerja di depan tabel ekspor "Semua formulir"
+ * (ekspor.js judulKertasKerja): Nomor, Status, lalu pasangan "Nama Petugas n"
+ * & "NIP Petugas n" sebanyak tim terbesarnya. Melempar galat bila susunannya
+ * tidak dikenal.
+ */
+function jumlahKolomIdentitas(header) {
+  const ok = header[0] === "Nomor" && header[1] === "Status";
+  let n = 2;
+  while (ok && header[n] === `Nama Petugas ${n / 2}` && header[n + 1] === `NIP Petugas ${n / 2}`) n += 2;
+  if (n === 2) throw new Error("Kolom identitas tabel formulir tidak dikenal.");
+  return n;
+}
 
 /**
  * Laporan SPJ dengan seluruh isian formulir: kolom SPJ (tabelSpj), lalu
@@ -424,10 +435,7 @@ const KOLOM_IDENTITAS_KK = ["Nomor", "Status", "Petugas", "NIP"];
  * @param {{ header, baris }} formulir  hasil susunTabel "Semua formulir"
  */
 function gabungIsianFormulir(spj, formulir) {
-  const n = KOLOM_IDENTITAS_KK.length;
-  if (KOLOM_IDENTITAS_KK.some((h, i) => formulir.header[i] !== h)) {
-    throw new Error("Kolom identitas tabel formulir tidak dikenal.");
-  }
+  const n = jumlahKolomIdentitas(formulir.header);
   const iNomor = spj.header.indexOf("Nomor Kertas Kerja");
   const perNomor = new Map();
   for (const r of formulir.baris) {

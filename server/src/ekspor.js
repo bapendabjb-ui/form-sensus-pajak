@@ -152,6 +152,18 @@ function kolomPertanyaan(formulir, baseUrl, persilDi = null) {
         ];
       }
 
+      if (q.tipe === "rtrw") {
+        // RT dan RW di kolom sendiri-sendiri, tetap teks supaya "001" tidak jadi 1.
+        const bagian = (k) => (j) => {
+          const v = j[q.id];
+          return teks(v && typeof v === "object" ? String(v[k] || "").trim() : "");
+        };
+        return [
+          { f, judul: `${judul} (RT)`, sel: bagian("rt") },
+          { f, judul: `${judul} (RW)`, sel: bagian("rw") },
+        ];
+      }
+
       if (q.tipe === "luas") {
         const luas = (k) => (j) => {
           const n = j[q.id] && typeof j[q.id] === "object" ? j[q.id][k] : null;
@@ -188,15 +200,37 @@ function kolomPertanyaan(formulir, baseUrl, persilDi = null) {
 const pasanganTitik = (kolom, awal) =>
   kolom.flatMap((k, i) => (k.koordinat === "lat" ? [[awal + i, awal + i + 1]] : []));
 
-/** Kolom identitas kertas kerja: nomor, status, tim petugas. */
-function kolomKertasKerja(kk) {
+/** Banyak anggota tim sebuah kertas kerja (baris kertas_kerja_petugas). */
+const besarTim = (kk) => (kk.petugas || []).length;
+
+/**
+ * Banyak pasangan kolom petugas di tabel: anggota tim terbanyak di antara
+ * kertas kerja `data`, minimal `minimal` (dan minimal 1).
+ */
+function jumlahKolomPetugas(data, minimal = 1) {
+  let n = Math.max(1, minimal);
+  for (const { kk } of data) n = Math.max(n, besarTim(kk));
+  return n;
+}
+
+/**
+ * Judul kolom identitas kertas kerja: Nomor, Status, lalu sepasang "Nama
+ * Petugas n" & "NIP Petugas n" per anggota tim (penanggung jawab dulu) -
+ * satu orang satu kolom supaya bisa disaring sendiri-sendiri.
+ */
+const judulKertasKerja = (nPetugas) => [
+  "Nomor",
+  "Status",
+  ...Array.from({ length: nPetugas }, (_, i) => [`Nama Petugas ${i + 1}`, `NIP Petugas ${i + 1}`]).flat(),
+];
+
+/** Kolom identitas kertas kerja (lihat judulKertasKerja); tim yang lebih kecil diisi kosong. */
+function kolomKertasKerja(kk, nPetugas = Math.max(1, besarTim(kk))) {
   const tim = bentukTim(kk.petugas);
-  return [
-    teks(kk.nomor),
-    teks(kk.status === "selesai" ? "Selesai" : "Draft"),
-    teks(tim.map((p) => p.nama).join("; ")),
-    teks(tim.map((p) => p.nip || "-").join("; ")),
-  ];
+  const petugas = Array.from({ length: nPetugas }, (_, i) =>
+    tim[i] ? [teks(tim[i].nama), teks(tim[i].nip || "-")] : [teks(""), teks("")]
+  ).flat();
+  return [teks(kk.nomor), teks(kk.status === "selesai" ? "Selesai" : "Draft"), ...petugas];
 }
 
 /**
@@ -224,13 +258,15 @@ function nomoriData(data) {
  * @param {Map} [nomorData]  "No. data" tiap entri (lihat susunTabel); bawaan dihitung dari `data`
  * @returns {{ header: string[], baris: object[][], titik: number[][] }}  `titik`: lihat pasanganTitik
  */
-function susunEkspor(data, formulir, { baseUrl, timezone, nomorData = nomoriData(data), persilDi = null }) {
+function susunEkspor(
+  data,
+  formulir,
+  { baseUrl, timezone, nomorData = nomoriData(data), persilDi = null, petugasMinimal = 1 }
+) {
   const kolom = kolomPertanyaan(formulir, baseUrl, persilDi);
+  const nPetugas = jumlahKolomPetugas(data, petugasMinimal);
   const header = [
-    "Nomor",
-    "Status",
-    "Petugas",
-    "NIP",
+    ...judulKertasKerja(nPetugas),
     "Formulir",
     "No. data",
     "Waktu input",
@@ -245,7 +281,7 @@ function susunEkspor(data, formulir, { baseUrl, timezone, nomorData = nomoriData
   const identitasKk = new Map();
   const baris = data.map(({ kk, e }) => {
     const ke = nomorData.get(e);
-    if (!identitasKk.has(kk.id)) identitasKk.set(kk.id, kolomKertasKerja(kk));
+    if (!identitasKk.has(kk.id)) identitasKk.set(kk.id, kolomKertasKerja(kk, nPetugas));
 
     const jawaban = petaJawaban(e.jawaban);
     return [
@@ -281,7 +317,8 @@ function susunEkspor(data, formulir, { baseUrl, timezone, nomorData = nomoriData
  * @returns {{ header: string[], baris: object[][], titik: number[][], kelompok: (string|null)[] }}
  *          `kelompok` = judul formulir pemilik tiap kolom (null untuk kolom kertas kerja)
  */
-function susunEksporPerKk(data, formulir, { baseUrl, timezone, persilDi = null }) {
+function susunEksporPerKk(data, formulir, { baseUrl, timezone, persilDi = null, petugasMinimal = 1 }) {
+  const nPetugas = jumlahKolomPetugas(data, petugasMinimal);
   const blok = formulir.map((f) => ({
     f,
     kolom: [
@@ -300,7 +337,7 @@ function susunEksporPerKk(data, formulir, { baseUrl, timezone, persilDi = null }
     ],
   }));
   const kolomForm = blok.flatMap((b) => b.kolom);
-  const header = ["Nomor", "Status", "Petugas", "NIP", ...kolomForm.map((k) => k.judul)];
+  const header = [...judulKertasKerja(nPetugas), ...kolomForm.map((k) => k.judul)];
   // Formulir pemilik tiap kolom: Excel memberi tiap formulir warnanya sendiri (keXlsx).
   const kelompok = [
     ...header.slice(0, header.length - kolomForm.length).map(() => null),
@@ -319,7 +356,7 @@ function susunEksporPerKk(data, formulir, { baseUrl, timezone, persilDi = null }
 
   const baris = [];
   for (const { kk, perForm } of perKk.values()) {
-    const identitas = kolomKertasKerja(kk);
+    const identitas = kolomKertasKerja(kk, nPetugas);
     const banyak = Math.max(1, ...[...perForm.values()].map((d) => d.length));
     for (let i = 0; i < banyak; i++) {
       const sel = blok.flatMap(({ f, kolom }) => {
@@ -352,8 +389,10 @@ function susunEksporPerKk(data, formulir, { baseUrl, timezone, persilDi = null }
  *        ke-1 berada di kelurahan lain.
  * @param {Function} [o.persilDi]  pencari bidang BPN di titik Lokasi (src/persil.js
  *        pencariPersilEkspor); null = tanpa kolom BPN
+ * @param {number} [o.petugasMinimal]  pasangan kolom petugas paling sedikit; bawaan
+ *        mengikuti tim terbesar di baris yang tampil (lihat barisTanpaData)
  */
-function susunTabel(data, formulir, { perData, ikut, baseUrl, timezone, persilDi = null }) {
+function susunTabel(data, formulir, { perData, ikut, baseUrl, timezone, persilDi = null, petugasMinimal = 1 }) {
   const urutForm = new Map(formulir.map((f, i) => [f.id, i]));
   const urut = data
     .filter(({ e }) => urutForm.has(e.formulirId))
@@ -367,8 +406,8 @@ function susunTabel(data, formulir, { perData, ikut, baseUrl, timezone, persilDi
   const nomorData = nomoriData(urut);
   const pakai = ikut ? urut.filter(({ e }) => ikut(e)) : urut;
   return perData
-    ? susunEkspor(pakai, formulir, { baseUrl, timezone, nomorData, persilDi })
-    : susunEksporPerKk(pakai, formulir, { baseUrl, timezone, persilDi });
+    ? susunEkspor(pakai, formulir, { baseUrl, timezone, nomorData, persilDi, petugasMinimal })
+    : susunEksporPerKk(pakai, formulir, { baseUrl, timezone, persilDi, petugasMinimal });
 }
 
 /**
@@ -382,7 +421,10 @@ function baseUrlEkspor(req) {
   return config.appUrl || `${req.protocol}://${req.get("host")}`;
 }
 
-/** Baris pengganti untuk kertas kerja yang belum punya data. */
+/**
+ * Baris pengganti untuk kertas kerja yang belum punya data. Susun tabelnya
+ * dengan `petugasMinimal: besarTim(kk)` supaya kolom petugasnya cukup.
+ */
 const barisTanpaData = (kk) => kolomKertasKerja(kk);
 
 /** Judul -> potongan nama berkas yang aman: "Identitas Wajib Pajak" -> "identitas-wajib-pajak". */
@@ -560,6 +602,7 @@ function rutekanEkspor(router, jalur, penjaga, susun, akhiranDipakai = Object.ke
 
 module.exports = {
   susunTabel,
+  besarTim,
   susunEkspor,
   susunEksporPerKk,
   barisTanpaData,

@@ -462,11 +462,11 @@ test("gabungIsianFormulir: kolom SPJ, Baris ke-, lalu kolom formulir tanpa ident
   const spj = tabelSpj(urutSpj(contoh(), false), { timezone: TZ });
   const sel = (...isi) => isi.map((t) => ({ teks: t }));
   const isian = {
-    header: ["Nomor", "Status", "Petugas", "NIP", "PBB - NOP", "PBB - Nama WP"],
+    header: ["Nomor", "Status", "Nama Petugas 1", "NIP Petugas 1", "Nama Petugas 2", "NIP Petugas 2", "PBB - NOP", "PBB - Nama WP"],
     baris: [
-      sel("00001", "Draft", "Citra", "-", "6372", "Citra"),
-      sel("00003", "Selesai", "Budi; Ani", "-; -", "6373", "Budi"),
-      sel("00003", "Selesai", "Budi; Ani", "-; -", "6374", "Ani"),
+      sel("00001", "Draft", "Citra", "-", "", "", "6372", "Citra"),
+      sel("00003", "Selesai", "Budi", "-", "Ani", "-", "6373", "Budi"),
+      sel("00003", "Selesai", "Budi", "-", "Ani", "-", "6374", "Ani"),
     ],
   };
   const t = gabungIsianFormulir(spj, isian);
@@ -497,9 +497,9 @@ test("berkas Excel: tiap formulir diberi warna sendiri, kolom SPJ tetap warna bi
   const spj = tabelSpj(urutSpj(contoh(), false), { timezone: TZ });
   const sel = (...isi) => isi.map((t) => ({ teks: t }));
   const isian = {
-    header: ["Nomor", "Status", "Petugas", "NIP", "PBB - NOP", "PBB - Nama WP", "PBJT - Nama Usaha"],
-    kelompok: [null, null, null, null, "PBB", "PBB", "PBJT"],
-    baris: [sel("00001", "Draft", "Citra", "-", "6372", "Citra", "Warung")],
+    header: ["Nomor", "Status", "Nama Petugas 1", "NIP Petugas 1", "Nama Petugas 2", "NIP Petugas 2", "PBB - NOP", "PBB - Nama WP", "PBJT - Nama Usaha"],
+    kelompok: [null, null, null, null, null, null, "PBB", "PBB", "PBJT"],
+    baris: [sel("00001", "Draft", "Citra", "-", "", "", "6372", "Citra", "Warung")],
   };
   const t = gabungIsianFormulir(spj, isian);
   const n = spj.header.length + 1;
