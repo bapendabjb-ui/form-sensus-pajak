@@ -1830,7 +1830,9 @@ kolom); pertanyaan foto berisi tautan lengkap ke fotonya. Bentuk barisnya ada du
 - **CSV** diawali **BOM UTF-8** agar rapi saat dibuka di Excel.
 - **Excel (.xlsx)** memakai `exceljs`: baris judul tebal dan dibekukan, filter otomatis, lebar kolom
   menyesuaikan isi. Jawaban angka tersimpan sebagai angka (bisa dijumlah); NIK, NPWP, dan NOP tetap
-  teks supaya tidak berubah menjadi `3,17E+15`.
+  teks supaya tidak berubah menjadi `3,17E+15`. Pada ekspor yang memuat beberapa formulir (satu baris
+  per kertas kerja, termasuk laporan SPJ dengan seluruh isian formulir), kolom tiap formulir diberi
+  warna sendiri - judul kolom lebih tua, selnya lebih muda - dengan garis tebal di batas antarformulir.
 - **Hemat memori.** Server di-restart PM2 bila memakai lebih dari 512 MB
   (`deploy/ecosystem.config.js`), sementara ekspor seluruh data berisi ribuan baris × ratusan kolom.
   Karena itu data ekspor besar dimuat bertahap per 1.000 entri (`server/src/muatEkspor.js`), Excel

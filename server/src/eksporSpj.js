@@ -441,7 +441,13 @@ function gabungIsianFormulir(spj, formulir) {
     const isian = perNomor.get(r[iNomor].teks) || [kosong];
     isian.forEach((sel, i) => baris.push([...r, teks(String(i + 1)), ...sel]));
   }
-  return { header: [...spj.header, "Baris ke-", ...formulir.header.slice(n)], baris, titik: [] };
+  const header = [...spj.header, "Baris ke-", ...formulir.header.slice(n)];
+  // Warna per formulir di Excel (ekspor.js keXlsx): kolom SPJ tanpa kelompok.
+  const kelompok = [
+    ...header.slice(0, spj.header.length + 1).map(() => null),
+    ...(formulir.kelompok || []).slice(n),
+  ];
+  return { header, baris, titik: [], kelompok };
 }
 
 /**

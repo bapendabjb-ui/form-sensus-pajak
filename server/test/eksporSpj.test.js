@@ -492,3 +492,34 @@ test("gabungIsianFormulir: kolom SPJ, Baris ke-, lalu kolom formulir tanpa ident
   assert.doesNotThrow(() => gabungIsianFormulir(spj, asli));
   assert.throws(() => gabungIsianFormulir(spj, { header: ["No"], baris: [] }));
 });
+
+test("berkas Excel: tiap formulir diberi warna sendiri, kolom SPJ tetap warna biasa", async () => {
+  const spj = tabelSpj(urutSpj(contoh(), false), { timezone: TZ });
+  const sel = (...isi) => isi.map((t) => ({ teks: t }));
+  const isian = {
+    header: ["Nomor", "Status", "Petugas", "NIP", "PBB - NOP", "PBB - Nama WP", "PBJT - Nama Usaha"],
+    kelompok: [null, null, null, null, "PBB", "PBB", "PBJT"],
+    baris: [sel("00001", "Draft", "Citra", "-", "6372", "Citra", "Warung")],
+  };
+  const t = gabungIsianFormulir(spj, isian);
+  const n = spj.header.length + 1;
+  assert.deepEqual(t.kelompok.slice(n - 1), [null, "PBB", "PBB", "PBJT"]);
+
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(await keXlsx(t, "SPJ"));
+  const ws = wb.getWorksheet("SPJ");
+  const isi = (r, c) => ws.getRow(r).getCell(c).fill?.fgColor?.argb;
+  const [spjKepala, pbb1, pbb2, pbjt] = [1, n + 1, n + 2, n + 3].map((c) => isi(1, c));
+  assert.equal(spjKepala, "FFE2F1EF", "kolom SPJ tetap warna judul biasa");
+  assert.equal(pbb1, pbb2, "satu formulir satu warna");
+  assert.notEqual(pbb1, pbjt, "formulir berbeda, warna berbeda");
+  assert.notEqual(pbb1, spjKepala);
+  // Sel isian ikut berwarna muda sesuai formulirnya; kolom SPJ tanpa warna.
+  assert.ok(isi(2, n + 1), "sel isian PBB berwarna");
+  assert.notEqual(isi(2, n + 1), isi(2, n + 3));
+  assert.equal(isi(2, 1), undefined);
+  // Garis batas di kolom pertama tiap formulir.
+  assert.equal(ws.getRow(1).getCell(n + 1).border?.left?.style, "medium");
+  assert.equal(ws.getRow(1).getCell(n + 2).border?.left, undefined);
+  assert.equal(ws.getRow(1).getCell(n + 3).border?.left?.style, "medium");
+});

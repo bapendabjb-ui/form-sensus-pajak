@@ -278,7 +278,8 @@ function susunEkspor(data, formulir, { baseUrl, timezone, nomorData = nomoriData
  * @param {{ kk: object, e: object }[]} data  seperti susunEkspor, SUDAH terurut
  *        (data satu kertas kerja berurutan, tiap formulir urut waktu input)
  * @param {object[]} formulir  formulir (+ pertanyaan) yang kolomnya ditampilkan, urut
- * @returns {{ header: string[], baris: object[][], titik: number[][] }}
+ * @returns {{ header: string[], baris: object[][], titik: number[][], kelompok: (string|null)[] }}
+ *          `kelompok` = judul formulir pemilik tiap kolom (null untuk kolom kertas kerja)
  */
 function susunEksporPerKk(data, formulir, { baseUrl, timezone, persilDi = null }) {
   const blok = formulir.map((f) => ({
@@ -300,6 +301,11 @@ function susunEksporPerKk(data, formulir, { baseUrl, timezone, persilDi = null }
   }));
   const kolomForm = blok.flatMap((b) => b.kolom);
   const header = ["Nomor", "Status", "Petugas", "NIP", ...kolomForm.map((k) => k.judul)];
+  // Formulir pemilik tiap kolom: Excel memberi tiap formulir warnanya sendiri (keXlsx).
+  const kelompok = [
+    ...header.slice(0, header.length - kolomForm.length).map(() => null),
+    ...blok.flatMap((b) => b.kolom.map(() => b.f.judul)),
+  ];
   const titik = pasanganTitik(kolomForm, header.length - kolomForm.length);
 
   // Kelompokkan per kertas kerja; urutan kemunculan pertama dipertahankan.
@@ -324,7 +330,7 @@ function susunEksporPerKk(data, formulir, { baseUrl, timezone, persilDi = null }
       baris.push([...identitas, ...sel]);
     }
   }
-  return { header, baris, titik };
+  return { header, baris, titik, kelompok };
 }
 
 /**
@@ -395,6 +401,39 @@ function keCsv({ header, baris }) {
   return buildCsv([header, ...baris.map((r) => r.map((c) => c.teks))]);
 }
 
+/**
+ * Warna per formulir di Excel: [judul kolom, isian sel]. Pastel berselang
+ * hue supaya formulir yang bersebelahan mudah dibedakan; berulang dari awal
+ * bila formulirnya lebih banyak.
+ */
+const PALET_FORMULIR = [
+  ["FFBDD7EE", "FFEEF4FB"], // biru
+  ["FFFFE699", "FFFFF9E5"], // kuning
+  ["FFC6E0B4", "FFF1F7EC"], // hijau
+  ["FFF8CBAD", "FFFDF1EA"], // oranye
+  ["FFD9C9EC", "FFF5F0FA"], // ungu
+  ["FFB4DFDB", "FFEBF6F5"], // toska
+  ["FFF4C2D7", "FFFCEFF5"], // merah muda
+  ["FFD9D9D9", "FFF4F4F4"], // abu-abu
+];
+
+const isianWarna = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
+
+/**
+ * `kelompok` per kolom (judul formulir atau null) -> warna per kolom:
+ * { judul, isi, awal } atau null. Formulir mendapat warna menurut urutan
+ * kemunculannya; `awal` = kolom pertama blok formulir itu.
+ */
+function warnaKelompok(kelompok) {
+  const urutan = new Map();
+  return kelompok.map((k, i) => {
+    if (!k) return null;
+    if (!urutan.has(k)) urutan.set(k, urutan.size);
+    const [judul, isi] = PALET_FORMULIR[urutan.get(k) % PALET_FORMULIR.length];
+    return { judul, isi, awal: kelompok[i - 1] !== k };
+  });
+}
+
 /** Baris Excel yang ditulis sebelum memberi giliran ke proses lain (dan ke pemampat zip). */
 const XLSX_PER_GILIRAN = 500;
 
@@ -406,7 +445,7 @@ const XLSX_PER_GILIRAN = 500;
  * sel sebagai objek: ekspor seluruh data (ribuan baris x ratusan kolom)
  * memakan lebih dari 1 GB, melewati batas restart PM2 di server.
  */
-async function keXlsx({ header, baris }, namaSheet) {
+async function keXlsx({ header, baris, kelompok = [] }, namaSheet) {
   const keluar = new PassThrough();
   const potongan = [];
   keluar.on("data", (b) => potongan.push(b));
@@ -432,19 +471,30 @@ async function keXlsx({ header, baris }, namaSheet) {
     autoFilter: { from: { row: 1, column: 1 }, to: { row: 1, column: header.length } },
   });
 
-  // Lebar kolom harus ditetapkan sebelum baris pertama ditulis.
+  const warna = warnaKelompok(kelompok);
+
+  // Lebar kolom (dan warna isian per formulir) harus ditetapkan sebelum baris
+  // pertama ditulis. Gaya kolom diwarisi setiap selnya, jadi tidak perlu
+  // mewarnai sel satu per satu.
   ws.columns = header.map((h, i) => {
     let terpanjang = 0;
     for (const r of baris) terpanjang = Math.max(terpanjang, (r[i]?.teks || "").length);
-    return { width: Math.min(Math.max(Math.min(h.length, 30), terpanjang, 8) + 2, 60) };
+    const kolom = { width: Math.min(Math.max(Math.min(h.length, 30), terpanjang, 8) + 2, 60) };
+    if (warna[i]) kolom.style = { fill: isianWarna(warna[i].isi) };
+    return kolom;
   });
 
   const kepala = ws.addRow(header);
   kepala.font = { bold: true };
   kepala.alignment = { vertical: "middle", wrapText: true };
-  kepala.eachCell((c) => {
-    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2F1EF" } };
-    c.border = { bottom: { style: "thin", color: { argb: "FFB7C4CC" } } };
+  kepala.eachCell((c, n) => {
+    const w = warna[n - 1];
+    c.fill = isianWarna(w ? w.judul : "FFE2F1EF");
+    c.border = {
+      bottom: { style: "thin", color: { argb: "FFB7C4CC" } },
+      // Garis tebal di kolom pertama tiap formulir: batas antarformulir.
+      ...(w?.awal && { left: { style: "medium", color: { argb: "FF7F8C94" } } }),
+    };
   });
   kepala.commit();
 
