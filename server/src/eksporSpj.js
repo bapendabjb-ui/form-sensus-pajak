@@ -405,6 +405,45 @@ function tabelSpj(baris, { timezone }) {
   };
 }
 
+/** Kolom identitas kertas kerja di depan tabel ekspor "Semua formulir" (ekspor.js kolomKertasKerja). */
+const KOLOM_IDENTITAS_KK = ["Nomor", "Status", "Petugas", "NIP"];
+
+/**
+ * Laporan SPJ dengan seluruh isian formulir: kolom SPJ (tabelSpj), lalu
+ * "Baris ke-", lalu kolom semua formulir dari tabel ekspor "Semua formulir"
+ * (ekspor.js susunTabel, perData: false) tanpa kolom identitasnya - sudah
+ * ada di kolom SPJ.
+ *
+ * Kertas kerja yang punya lebih dari satu data untuk formulir yang sama
+ * mendapat lebih dari satu baris (aturan ekspor "Semua formulir"); kolom SPJ
+ * diulang di setiap baris supaya tetap bisa disaring, dan "Baris ke-" = 1
+ * menandai baris pertamanya - saring ke 1 untuk menghitung kertas kerja.
+ * Urutan baris mengikuti tabel SPJ (urut nomor).
+ *
+ * @param {{ header, baris }} spj  hasil tabelSpj
+ * @param {{ header, baris }} formulir  hasil susunTabel "Semua formulir"
+ */
+function gabungIsianFormulir(spj, formulir) {
+  const n = KOLOM_IDENTITAS_KK.length;
+  if (KOLOM_IDENTITAS_KK.some((h, i) => formulir.header[i] !== h)) {
+    throw new Error("Kolom identitas tabel formulir tidak dikenal.");
+  }
+  const iNomor = spj.header.indexOf("Nomor Kertas Kerja");
+  const perNomor = new Map();
+  for (const r of formulir.baris) {
+    const nomor = r[0].teks;
+    if (!perNomor.has(nomor)) perNomor.set(nomor, []);
+    perNomor.get(nomor).push(r.slice(n));
+  }
+  const kosong = formulir.header.slice(n).map(() => teks(""));
+  const baris = [];
+  for (const r of spj.baris) {
+    const isian = perNomor.get(r[iNomor].teks) || [kosong];
+    isian.forEach((sel, i) => baris.push([...r, teks(String(i + 1)), ...sel]));
+  }
+  return { header: [...spj.header, "Baris ke-", ...formulir.header.slice(n)], baris, titik: [] };
+}
+
 /**
  * Ringkasan untuk layar ekspor sebelum mengunduh laporan per wilayah.
  *
@@ -449,5 +488,6 @@ module.exports = {
   saringSpj,
   urutSpj,
   tabelSpj,
+  gabungIsianFormulir,
   ringkasSpj,
 };

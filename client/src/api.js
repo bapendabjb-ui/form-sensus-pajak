@@ -564,6 +564,10 @@ const berkasSpj = (nama, jenis) => `${nama}.${jenis === "csv" ? "csv" : "xlsx"}`
 /** Unduh laporan SPJ mentah: semua kertas kerja berisi data, urut nomor. */
 export const unduhSpj = (jenis = "xlsx") => unduhBerkas(`/ekspor/spj${akhiranSpj(jenis)}`, berkasSpj("spj", jenis));
 
+/** Unduh laporan SPJ dengan seluruh isian formulir di kanannya, urut nomor. */
+export const unduhSpjFormulir = (jenis = "xlsx") =>
+  unduhBerkas(`/ekspor/spj/formulir${akhiranSpj(jenis)}`, berkasSpj("spj-isian-formulir", jenis));
+
 /** Unduh laporan SPJ per wilayah: urut kecamatan, kelurahan, RW, RT; bisa dipersempit. */
 export const unduhSpjWilayah = (pilihan, jenis = "xlsx") =>
   unduhBerkas(`/ekspor/spj/wilayah${akhiranSpj(jenis)}?${querySpj(pilihan)}`, berkasSpj("spj-per-wilayah", jenis));

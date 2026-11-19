@@ -16,9 +16,10 @@ const {
   saringSpj,
   urutSpj,
   tabelSpj,
+  gabungIsianFormulir,
   ringkasSpj,
 } = require("../src/eksporSpj");
-const { keCsv, keXlsx } = require("../src/ekspor");
+const { keCsv, keXlsx, susunEksporPerKk } = require("../src/ekspor");
 
 const TZ = "Asia/Makassar";
 
@@ -453,4 +454,41 @@ test("perkiraRtRw: RW saja ditandai di kolom Sumber RT/RW", () => {
   assert.deepEqual([baris[0].rw, baris[0].rt], ["002", ""]);
   const t = tabelSpj(baris, { timezone: TZ });
   assert.equal(t.baris[0].at(-1).teks, "Perkiraan RW saja (dari KK 00002, tim & tanggal sama)");
+});
+
+/* ---------- dengan seluruh isian formulir ---------- */
+
+test("gabungIsianFormulir: kolom SPJ, Baris ke-, lalu kolom formulir tanpa identitas kertas kerja", () => {
+  const spj = tabelSpj(urutSpj(contoh(), false), { timezone: TZ });
+  const sel = (...isi) => isi.map((t) => ({ teks: t }));
+  const isian = {
+    header: ["Nomor", "Status", "Petugas", "NIP", "PBB - NOP", "PBB - Nama WP"],
+    baris: [
+      sel("00001", "Draft", "Citra", "-", "6372", "Citra"),
+      sel("00003", "Selesai", "Budi; Ani", "-; -", "6373", "Budi"),
+      sel("00003", "Selesai", "Budi; Ani", "-; -", "6374", "Ani"),
+    ],
+  };
+  const t = gabungIsianFormulir(spj, isian);
+  assert.deepEqual(t.header.slice(spj.header.length), ["Baris ke-", "PBB - NOP", "PBB - Nama WP"]);
+  const teks = t.baris.map((r) => r.map((c) => c.teks));
+  const nomor = spj.header.indexOf("Nomor Kertas Kerja");
+  assert.deepEqual(
+    teks.map((r) => [r[nomor], ...r.slice(spj.header.length)]),
+    [
+      ["00001", "1", "6372", "Citra"],
+      ["00002", "1", "", ""], // tanpa baris di tabel formulir: kolom formulir kosong
+      ["00003", "1", "6373", "Budi"],
+      ["00003", "2", "6374", "Ani"], // kolom SPJ diulang
+      ["00004", "1", "", ""],
+      ["00005", "1", "", ""],
+    ]
+  );
+  assert.deepEqual(teks[3].slice(0, spj.header.length), teks[2].slice(0, spj.header.length));
+  assert.deepEqual(t.titik, []);
+
+  // Kolom identitas tabel "Semua formulir" yang sebenarnya cocok dengan yang dibuang.
+  const asli = susunEksporPerKk([], [], { baseUrl: "", timezone: TZ });
+  assert.doesNotThrow(() => gabungIsianFormulir(spj, asli));
+  assert.throws(() => gabungIsianFormulir(spj, { header: ["No"], baris: [] }));
 });

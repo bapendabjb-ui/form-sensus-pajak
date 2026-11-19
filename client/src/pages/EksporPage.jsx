@@ -281,6 +281,7 @@ function PanelPetugas({ unduhKe }) {
 
 const FORMAT_SPJ_MENTAH = "Mentah — urut nomor kertas kerja";
 const FORMAT_SPJ_WILAYAH = "Per wilayah — urut kecamatan, kelurahan, RW, RT";
+const FORMAT_SPJ_FORMULIR = "Dengan seluruh isian formulir — urut nomor kertas kerja";
 const SEMUA_KECAMATAN = "Semua kecamatan";
 const SEMUA_RW = "Semua RW";
 const SEMUA_RT = "Semua RT";
@@ -291,14 +292,17 @@ const labelRtRw = (awalan, { nilai, jumlah }) => `${awalan} ${nilai} · ${format
 /**
  * Laporan SPJ (server/src/eksporSpj.js): satu baris per kertas kerja berisi
  * data - tanggal sensus, nomor, status, nama petugas satu kolom per orang,
- * kecamatan, kelurahan, RW, RT objek pajak. Dua format dengan kolom yang sama:
- * mentah (urut nomor), atau per wilayah (urut kecamatan > kelurahan > RW > RT,
- * bisa dipersempit ke satu kecamatan / kelurahan / RW / RT).
+ * kecamatan, kelurahan, RW, RT objek pajak. Tiga format: mentah (urut nomor),
+ * per wilayah (urut kecamatan > kelurahan > RW > RT, bisa dipersempit ke satu
+ * kecamatan / kelurahan / RW / RT), atau mentah dengan seluruh isian formulir
+ * di kanannya.
  */
 function PanelSpj({ unduhKe }) {
   const toast = useToast();
   const [wilayah, setWilayah] = useState([]);
-  const [perWilayah, setPerWilayah] = useState(false);
+  const [format, setFormat] = useState(FORMAT_SPJ_MENTAH);
+  const perWilayah = format === FORMAT_SPJ_WILAYAH;
+  const denganFormulir = format === FORMAT_SPJ_FORMULIR;
   const [kecKode, setKecKode] = useState(null); // null = semua kecamatan
   const [kelKode, setKelKode] = useState(null); // null = semua kelurahan
   const [rw, setRw] = useState(""); // "" = semua RW
@@ -374,6 +378,9 @@ function PanelSpj({ unduhKe }) {
         hint += ` ${formatAngka(ringkas.tanpaData)} kertas kerja belum berisi data, jadi tidak ikut.`;
       hint += dariPeta + rtRwPerkiraan;
       if (tanpaWilayah) hint += ` ${tanpaWilayah}, jadi kolom wilayahnya kosong.`;
+      if (denganFormulir && !kosong)
+        hint +=
+          " Kolom semua formulir ditambahkan di kanan kolom SPJ. Kertas kerja yang punya lebih dari satu data untuk formulir yang sama mendapat lebih dari satu baris; saring kolom Baris ke- = 1 untuk menghitung kertas kerja.";
     } else {
       hint = kosong
         ? "Belum ada kertas kerja berisi data di wilayah ini."
@@ -396,10 +403,10 @@ function PanelSpj({ unduhKe }) {
       <div className="fk-ekspor-isian">
         <span className="fk-q-name">Format</span>
         <CustomSelect
-          value={perWilayah ? FORMAT_SPJ_WILAYAH : FORMAT_SPJ_MENTAH}
-          options={[FORMAT_SPJ_MENTAH, FORMAT_SPJ_WILAYAH]}
+          value={format}
+          options={[FORMAT_SPJ_MENTAH, FORMAT_SPJ_WILAYAH, FORMAT_SPJ_FORMULIR]}
           title="Pilih format laporan"
-          onChange={(label) => setPerWilayah(label === FORMAT_SPJ_WILAYAH)}
+          onChange={setFormat}
         />
 
         {perWilayah && (
@@ -450,7 +457,15 @@ function PanelSpj({ unduhKe }) {
       <TombolUnduh
         peta={false}
         disabled={!siap}
-        onUnduh={(jenis) => unduhKe(perWilayah ? api.unduhSpjWilayah(pilihan, jenis) : api.unduhSpj(jenis))}
+        onUnduh={(jenis) =>
+          unduhKe(
+            perWilayah
+              ? api.unduhSpjWilayah(pilihan, jenis)
+              : denganFormulir
+                ? api.unduhSpjFormulir(jenis)
+                : api.unduhSpj(jenis)
+          )
+        }
       />
     </Panel>
   );

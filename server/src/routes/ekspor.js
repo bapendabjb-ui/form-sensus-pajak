@@ -31,6 +31,7 @@ const {
   saringSpj,
   urutSpj,
   tabelSpj,
+  gabungIsianFormulir,
   ringkasSpj,
 } = require("../eksporSpj");
 
@@ -398,6 +399,34 @@ async function dataEksporSpj() {
   };
 }
 
+/**
+ * Dengan seluruh isian formulir: kolom SPJ mentah, lalu kolom semua formulir
+ * (sama dengan ekspor "Seluruh data"). Urut nomor, tanpa saringan wilayah.
+ */
+async function dataEksporSpjFormulir(req) {
+  const [barisSpj, entri] = await Promise.all([muatBarisSpj(), muatEntriEkspor()]);
+  const formulir = await prisma.formulir.findMany({
+    where: { id: { in: [...new Set(entri.map((e) => e.formulirId))] } },
+    orderBy: [{ urutan: "asc" }, { id: "asc" }],
+    include: includePertanyaan,
+  });
+  const isian = susunTabel(
+    entri.map((e) => ({ kk: e.kertasKerja, e })),
+    formulir,
+    {
+      perData: false,
+      baseUrl: baseUrlEkspor(req),
+      timezone: config.timezone,
+      persilDi: await pencariPersilEkspor(entri),
+    }
+  );
+  return {
+    nama: "spj-isian-formulir",
+    sheet: "SPJ + isian formulir",
+    tabel: gabungIsianFormulir(tabelSpj(urutSpj(barisSpj, false), { timezone: config.timezone }), isian),
+  };
+}
+
 /** Per wilayah: urut kecamatan > kelurahan > RW > RT, bisa dipersempit. */
 async function dataEksporSpjWilayah(req) {
   const pilihan = pilihanSpj(req);
@@ -429,6 +458,9 @@ router.get(
 
 /** GET /api/ekspor/spj[/xlsx] */
 rutekanEkspor(router, "/spj", requireAdmin, dataEksporSpj, JENIS_SPJ);
+
+/** GET /api/ekspor/spj/formulir[/xlsx] */
+rutekanEkspor(router, "/spj/formulir", requireAdmin, dataEksporSpjFormulir, JENIS_SPJ);
 
 /** GET /api/ekspor/spj/wilayah[/xlsx]?kecamatan=&kelurahan=&rw=&rt= */
 rutekanEkspor(router, "/spj/wilayah", requireAdmin, dataEksporSpjWilayah, JENIS_SPJ);

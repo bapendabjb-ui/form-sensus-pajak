@@ -1644,6 +1644,7 @@ kecamatan. Kode yang tidak dikenal → **400**.
 | `GET`  | `/ekspor/spj`              | CSV laporan SPJ mentah: satu baris per kertas kerja berisi data, urut nomor |
 | `GET`  | `/ekspor/spj/xlsx`         | Idem, Excel (.xlsx)                                                 |
 | `GET`  | `/ekspor/spj/wilayah`      | `?kecamatan=&kelurahan=&rw=&rt=` → CSV laporan SPJ urut kecamatan > kelurahan > RW > RT, dipersempit ke pilihan itu |
+| `GET`  | `/ekspor/spj/formulir`     | CSV laporan SPJ mentah dengan seluruh isian formulir di kanannya (`/xlsx` untuk Excel) |
 | `GET`  | `/ekspor/spj/wilayah/xlsx` | Idem, Excel (.xlsx)                                                 |
 
 Setiap ekspor di atas kecuali laporan SPJ (dan ekspor per kertas kerja & per formulir) juga tersedia sebagai
@@ -1776,7 +1777,11 @@ beberapa RT tetap satu baris, supaya jumlah baris = jumlah kertas kerja. Dua for
 **mentah** (semua kertas kerja berisi data, urut nomor) dan **per wilayah** (urut kecamatan >
 kelurahan > RW > RT > tanggal > nomor; bisa dipersempit ke satu kecamatan, kelurahan, RW, lalu RT -
 pilihan RW / RT yang ditawarkan hanya yang ada datanya). Tanpa pilihan kecamatan, kertas kerja yang
-belum punya wilayah objek ditaruh di akhir dengan kolom wilayah kosong.
+belum punya wilayah objek ditaruh di akhir dengan kolom wilayah kosong. Format ketiga, **dengan seluruh
+isian formulir**, adalah laporan mentah ditambah kolom `Baris ke-` dan kolom semua formulir (sama
+dengan ekspor "Seluruh data", tanpa kolom identitas kertas kerjanya). Kertas kerja yang punya lebih
+dari satu data untuk formulir yang sama mendapat lebih dari satu baris, dengan kolom SPJ diulang;
+saring `Baris ke-` = 1 untuk menghitung kertas kerja.
 
 Kertas kerja **tanpa isian wilayah objek** (mis. PBJT, yang formulirnya tidak menanyakan letak objek)
 mendapat kecamatan & kelurahan dari **peta BPN** (Persil BPN), bukan dari Google: bidang tempat titik
